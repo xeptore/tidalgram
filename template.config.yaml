@@ -1,0 +1,22 @@
+bot:
+  # REQUIRED
+  # Telegram admin (private chat) ID
+  admin_id: 1234567890
+  # OPTIONAL
+  # API URL
+  # Default: https://api.telegram.org
+  api_url: https://api.telegram.org
+  # OPTIONAL
+  # Credentials directory
+  # Default: ./creds
+  creds_dir: ./creds
+
+logging:
+  # OPTIONAL
+  # One of: debug, info, warn, error, fatal, panic
+  # Default: info
+  level: info
+  # OPTIONAL
+  # One of: json, pretty
+  # Default: pretty
+  format: pretty

@@ -1,0 +1,70 @@
+version: '3'
+
+vars:
+  GOLANGCI_LINT_VERSION: v2.4.0
+  VERSION: "1"
+
+tasks:
+  build:
+    requires:
+      vars:
+        - VERSION
+    deps:
+      - task: clean
+    vars:
+      COMPILE_TIME:
+        sh: printf '%s' "$(date -u -Iseconds)"
+      MODPATH:
+        sh: go list -m
+    cmds:
+      - cmd: mkdir -p ./bin
+      - cmd: |-
+          go build \
+            -buildvcs=true \
+            -trimpath \
+            -ldflags="-compressdwarf=true -extldflags=-static -s -w -buildid='' -X '{{.MODPATH}}/constants.CompileTime={{.COMPILE_TIME}}' -X '{{.MODPATH}}/constants.Version={{.VERSION}}'" \
+            -o ./bin/tidalgram \
+            .
+
+  clean:
+    cmds:
+      - rm -rf ./bin
+
+  run:
+    deps:
+      - task: build
+    cmds:
+      - ./bin/tidalgram
+
+  dev:
+    cmds:
+      - go run .
+
+  test:
+    cmds:
+      - go test ./...
+
+  install-linter:
+    requires:
+      vars:
+        - GOLANGCI_LINT_VERSION
+    status:
+      - test "$(./tools/golangci-lint version --short)" = '{{trimPrefix "v" .GOLANGCI_LINT_VERSION}}'
+    cmds:
+      - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b ./tools {{.GOLANGCI_LINT_VERSION}}
+
+  lint:
+    deps:
+      - task: install-linter
+    cmds:
+      - ./tools/golangci-lint run --output.text.path stdout ./...
+  
+  fmt:
+    deps:
+      - task: install-linter
+    cmds:
+      - ./tools/golangci-lint fmt ./...
+
+  tidy:
+    cmds:
+      - go mod tidy -v -x
