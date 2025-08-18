@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/xeptore/tidalgram/httputil"
 	"github.com/xeptore/tidalgram/result"
 	"github.com/xeptore/tidalgram/tidal/fs"
 )
@@ -159,7 +159,7 @@ func issueAuthorizationRequest(ctx context.Context) (out *authorizationResponse,
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	respBytes, err := httputil.ReadResponseBody(resp)
+	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
@@ -256,7 +256,7 @@ func (r *authorizationResponse) poll(ctx context.Context) (*Credentials, error) 
 	switch code := resp.StatusCode; code {
 	case http.StatusOK:
 	case http.StatusBadRequest:
-		respBytes, err := httputil.ReadResponseBody(resp)
+		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			return nil, fmt.Errorf("failed to read response body: %v", err)
 		}
@@ -281,7 +281,7 @@ func (r *authorizationResponse) poll(ctx context.Context) (*Credentials, error) 
 		return nil, fmt.Errorf("unexpected status code: %d", code)
 	}
 
-	respBytes, err := httputil.ReadResponseBody(resp)
+	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}

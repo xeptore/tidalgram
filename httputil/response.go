@@ -1,42 +1,13 @@
 package httputil
 
 import (
-	"errors"
+	"encoding/xml"
 	"fmt"
-	"io"
 	"net/http"
+	"slices"
 
 	"github.com/goccy/go-json"
 )
-
-func readResponseBody(resp *http.Response) ([]byte, error) {
-	respBody, err := io.ReadAll(resp.Body)
-	if nil != err {
-		return nil, fmt.Errorf("failed to read response body: %v", err)
-	}
-
-	return respBody, nil
-}
-
-func ReadResponseBody(resp *http.Response) ([]byte, error) {
-	respBody, err := readResponseBody(resp)
-	if nil != err {
-		if errors.Is(err, io.EOF) {
-			return nil, errors.New("unexpected empty response body")
-		}
-	}
-
-	return respBody, nil
-}
-
-func ReadOptionalResponseBody(resp *http.Response) ([]byte, error) {
-	respBody, err := ReadResponseBody(resp)
-	if nil != err && !errors.Is(err, io.EOF) {
-		return nil, err
-	}
-
-	return respBody, nil
-}
 
 func IsTokenExpiredResponse(b []byte) (bool, error) {
 	var body struct {
@@ -47,7 +18,6 @@ func IsTokenExpiredResponse(b []byte) (bool, error) {
 	if err := json.Unmarshal(b, &body); nil != err {
 		return false, fmt.Errorf("failed to decode 401 status code response body: %v", err)
 	}
-
 	return body.Status == 401 &&
 		body.SubStatus == 11003 &&
 		body.UserMessage == "The token has expired. (Expired on time)", nil
@@ -62,8 +32,28 @@ func IsTokenInvalidResponse(b []byte) (bool, error) {
 	if err := json.Unmarshal(b, &body); nil != err {
 		return false, fmt.Errorf("failed to decode 401 status code response body: %v", err)
 	}
-
 	return body.Status == 401 &&
 		body.SubStatus == 11002 &&
 		body.UserMessage == "Token could not be verified", nil
+}
+
+func IsTooManyErrorResponse(resp *http.Response, respBody []byte) (bool, error) {
+	if !slices.Equal(resp.Header.Values("Content-Type"), []string{"application/xml"}) {
+		return false, nil
+	}
+	if !slices.Equal(resp.Header.Values("Server"), []string{"AmazonS3"}) {
+		return false, nil
+	}
+
+	var responseBody struct {
+		XMLName   xml.Name `xml:"Error"`
+		Code      string   `xml:"Code"`
+		Message   string   `xml:"Message"`
+		RequestID string   `xml:"RequestId"`
+		HostID    string   `xml:"HostId"`
+	}
+	if err := xml.Unmarshal(respBody, &responseBody); nil != err {
+		return false, fmt.Errorf("failed to unmarshal XML response body: %v", err)
+	}
+	return responseBody.Code == "AccessDenied" && responseBody.Message == "Access Denied", nil
 }

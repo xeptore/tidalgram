@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -81,7 +82,7 @@ func (a *Auth) refreshToken(ctx context.Context) (*Credentials, error) {
 	switch code := resp.StatusCode; code {
 	case http.StatusOK:
 	case http.StatusUnauthorized:
-		respBytes, err := httputil.ReadResponseBody(resp)
+		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}
@@ -100,7 +101,7 @@ func (a *Auth) refreshToken(ctx context.Context) (*Credentials, error) {
 
 		return nil, errors.New("received 401 response")
 	case http.StatusBadRequest:
-		respBytes, err := httputil.ReadResponseBody(resp)
+		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}
@@ -124,7 +125,7 @@ func (a *Auth) refreshToken(ctx context.Context) (*Credentials, error) {
 		return nil, fmt.Errorf("unexpected status code: %d", code)
 	}
 
-	respBytes, err := httputil.ReadResponseBody(resp)
+	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
