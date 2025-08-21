@@ -119,7 +119,11 @@ func (d *VndTrackStream) fileSize(ctx context.Context, accessToken string) (size
 			return 0, context.DeadlineExceeded
 		}
 
-		return 0, fmt.Errorf("failed to send get track metadata request: %v", err)
+		if errors.Is(err, context.Canceled) {
+			return 0, context.Canceled
+		}
+
+		return 0, fmt.Errorf("failed to send get track file size request: %v", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
@@ -158,7 +162,7 @@ func (d *VndTrackStream) fileSize(ctx context.Context, accessToken string) (size
 			return 0, auth.ErrUnauthorized
 		}
 
-		return 0, errors.New("received 401 response")
+		return 0, fmt.Errorf("unexpected 401 response with body: %s", string(respBytes))
 	case http.StatusTooManyRequests:
 		return 0, ErrTooManyRequests
 	case http.StatusForbidden:
@@ -173,14 +177,14 @@ func (d *VndTrackStream) fileSize(ctx context.Context, accessToken string) (size
 			return 0, ErrTooManyRequests
 		}
 
-		return 0, errors.New("unexpected 403 response")
+		return 0, fmt.Errorf("unexpected 403 response with body: %s", string(respBody))
 	default:
-		_, err := io.ReadAll(resp.Body)
+		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			return 0, err
 		}
 
-		return 0, fmt.Errorf("unexpected status code: %d", code)
+		return 0, fmt.Errorf("unexpected response code %d with body: %s", code, string(respBytes))
 	}
 }
 
@@ -207,7 +211,11 @@ func (d *VndTrackStream) downloadRange(ctx context.Context, accessToken string, 
 			return context.DeadlineExceeded
 		}
 
-		return fmt.Errorf("failed to send get track part request: %v", err)
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
+		}
+
+		return fmt.Errorf("failed to send track part download request: %v", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
@@ -238,7 +246,7 @@ func (d *VndTrackStream) downloadRange(ctx context.Context, accessToken string, 
 			return auth.ErrUnauthorized
 		}
 
-		return errors.New("received 401 response")
+		return fmt.Errorf("unexpected 401 response with body: %s", string(respBytes))
 	case http.StatusTooManyRequests:
 		return ErrTooManyRequests
 	case http.StatusForbidden:
@@ -253,14 +261,14 @@ func (d *VndTrackStream) downloadRange(ctx context.Context, accessToken string, 
 			return ErrTooManyRequests
 		}
 
-		return errors.New("unexpected 403 response")
+		return fmt.Errorf("unexpected 403 response with body: %s", string(respBody))
 	default:
-		_, err := io.ReadAll(resp.Body)
+		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			return err
 		}
 
-		return fmt.Errorf("unexpected status code received from get track part: %d", status)
+		return fmt.Errorf("unexpected response code %d with body: %s", status, string(respBytes))
 	}
 
 	respBody, err := io.ReadAll(resp.Body)

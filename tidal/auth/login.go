@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"sync"
 	"time"
 
 	"github.com/goccy/go-json"
@@ -30,10 +29,14 @@ func (a *Auth) InitiateLoginFlow(ctx context.Context) (*LoginLink, <-chan error,
 			return nil, nil, context.DeadlineExceeded
 		}
 
+		if errors.Is(err, context.Canceled) {
+			return nil, nil, context.Canceled
+		}
+
 		return nil, nil, fmt.Errorf("failed to issue authorization request: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, (time.Duration(res.ExpiresIn)+1)*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(res.ExpiresIn)*time.Second)
 	ticker := time.NewTicker(time.Duration(res.Interval) * time.Second * 5)
 	done := make(chan error)
 
@@ -46,16 +49,18 @@ func (a *Auth) InitiateLoginFlow(ctx context.Context) (*LoginLink, <-chan error,
 		for {
 			select {
 			case <-ctx.Done():
-				if err := ctx.Err(); nil != err {
-					if errors.Is(err, context.DeadlineExceeded) {
-						done <- ErrLoginLinkExpired
-						return
-					}
-
+				err := ctx.Err()
+				if errors.Is(err, context.DeadlineExceeded) {
+					done <- ErrLoginLinkExpired
 					return
 				}
 
-				panic("unexpected nil error for ended parent context")
+				if errors.Is(err, context.Canceled) {
+					done <- context.Canceled
+					return
+				}
+
+				return
 			case <-ticker.C:
 				creds, err := res.poll(ctx)
 				if nil != err {
@@ -64,11 +69,16 @@ func (a *Auth) InitiateLoginFlow(ctx context.Context) (*LoginLink, <-chan error,
 					}
 
 					if errors.Is(err, context.DeadlineExceeded) {
+						// TODO: log the error with a hint to increase the poll request timeout
 						continue waitloop
 					}
 
-					done <- fmt.Errorf("unexpected error from authorization request poll: %v", err)
+					if errors.Is(err, context.Canceled) {
+						done <- context.Canceled
+						return
+					}
 
+					done <- fmt.Errorf("unexpected error from authorization request poll: %v", err)
 					return
 				}
 
@@ -128,6 +138,10 @@ func issueAuthorizationRequest(ctx context.Context) (out *authorizationResponse,
 			return nil, context.DeadlineExceeded
 		}
 
+		if errors.Is(err, context.Canceled) {
+			return nil, context.Canceled
+		}
+
 		return nil, fmt.Errorf("failed to issue device authorization request: %v", err)
 	}
 	defer func() {
@@ -144,6 +158,7 @@ func issueAuthorizationRequest(ctx context.Context) (out *authorizationResponse,
 	if nil != err {
 		return nil, fmt.Errorf("failed to read 200 response body: %v", err)
 	}
+
 	var respBody struct {
 		DeviceCode      string `json:"deviceCode"`
 		UserCode        string `json:"userCode"`
@@ -172,31 +187,6 @@ func issueAuthorizationRequest(ctx context.Context) (out *authorizationResponse,
 }
 
 func (r *authorizationResponse) poll(ctx context.Context) (*Credentials, error) {
-	var wg sync.WaitGroup
-	defer wg.Wait()
-
-	// Create a detached context which is only canceled when parent is canceled, not when parent's deadline exceeded.
-	pollCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	wg.Go(func() {
-		select {
-		case <-ctx.Done():
-			if err := ctx.Err(); nil != err {
-				if errors.Is(err, context.DeadlineExceeded) {
-					cancel()
-					return
-				}
-
-				return
-			}
-			panic("unexpected nil error for closed parent context")
-		case <-pollCtx.Done():
-			// When outer function returns
-			return
-		}
-	})
-
 	reqURL, err := url.JoinPath(baseURL, "/token")
 	must.Be(nil == err, "token URL must be a valid URL")
 
@@ -207,7 +197,7 @@ func (r *authorizationResponse) poll(ctx context.Context) (*Credentials, error) 
 	reqParams.Add("device_code", r.DeviceCode)
 	reqParamsStr := reqParams.Encode()
 
-	req, err := http.NewRequestWithContext(pollCtx, http.MethodPost, reqURL, bytes.NewBufferString(reqParamsStr))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBufferString(reqParamsStr))
 	if nil != err {
 		return nil, fmt.Errorf("failed to create token request %s: %v", reqURL, err)
 	}
@@ -222,6 +212,10 @@ func (r *authorizationResponse) poll(ctx context.Context) (*Credentials, error) 
 	if nil != err {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, context.DeadlineExceeded
+		}
+
+		if errors.Is(err, context.Canceled) {
+			return nil, context.Canceled
 		}
 
 		return nil, fmt.Errorf("failed to issue token request: %v", err)
@@ -282,7 +276,7 @@ func (r *authorizationResponse) poll(ctx context.Context) (*Credentials, error) 
 
 	expiresAt, err := extractExpiresAt(respBody.AccessToken)
 	if nil != err {
-		return nil, fmt.Errorf("failed to decode 200 response body: %w", err)
+		return nil, fmt.Errorf("failed to decode 200 response body: %v", err)
 	}
 
 	return &Credentials{

@@ -11,13 +11,13 @@ import (
 	"github.com/xeptore/tidalgram/constants"
 )
 
-func FromConfig(cfg *config.Logging) zerolog.Logger {
-	level, err := zerolog.ParseLevel(cfg.Level)
+func FromConfig(conf *config.Logging) zerolog.Logger {
+	level, err := zerolog.ParseLevel(conf.Level)
 	if nil != err {
-		panic("invalid logging level: " + cfg.Level)
+		panic("invalid logging level: " + conf.Level)
 	}
 
-	switch strings.ToLower(cfg.Format) {
+	switch strings.ToLower(conf.Format) {
 	case "json":
 		return zerolog.
 			New(os.Stderr).
@@ -41,7 +41,7 @@ func FromConfig(cfg *config.Logging) zerolog.Logger {
 			Logger().
 			Level(level)
 	default:
-		panic("invalid logging format: " + cfg.Format)
+		panic("invalid logging format: " + conf.Format)
 	}
 }
 

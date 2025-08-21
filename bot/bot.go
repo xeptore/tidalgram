@@ -16,14 +16,16 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/xeptore/tidalgram/config"
+	"github.com/xeptore/tidalgram/constants"
 	"github.com/xeptore/tidalgram/tidal"
 )
 
 type Bot struct {
-	bot     *gotgbot.Bot
-	updater *ext.Updater
-	logger  *zerolog.Logger
-	Account Account
+	bot        *gotgbot.Bot
+	updater    *ext.Updater
+	logger     *zerolog.Logger
+	papaChatID int64
+	Account    Account
 }
 
 type Account struct {
@@ -47,7 +49,7 @@ func (a *Account) ToDict() *zerolog.Event {
 func New(
 	ctx context.Context,
 	logger *zerolog.Logger,
-	config *config.Bot,
+	conf *config.Bot,
 	token string,
 	tidal *tidal.Client,
 ) (*Bot, error) {
@@ -63,7 +65,7 @@ func New(
 			UseTestEnvironment: false,
 			DefaultRequestOpts: &gotgbot.RequestOpts{
 				Timeout: 10 * time.Minute,
-				APIURL:  config.APIURL,
+				APIURL:  conf.APIURL,
 			},
 		},
 	})
@@ -82,15 +84,26 @@ func New(
 		},
 		MaxRoutines: 10,
 	})
-	registerHandlers(ctx, dispatcher, config, tidal)
+	registerHandlers(ctx, dispatcher, conf, tidal)
 	updater := ext.NewUpdater(dispatcher, nil)
 
 	return &Bot{
-		bot:     b,
-		updater: updater,
-		logger:  logger,
-		Account: fillAccount(b),
+		bot:        b,
+		updater:    updater,
+		logger:     logger,
+		papaChatID: conf.PapaID,
+		Account:    fillAccount(b),
 	}, nil
+}
+
+func fillAccount(bot *gotgbot.Bot) Account {
+	return Account{
+		ID:        bot.Id,
+		IsBot:     bot.IsBot,
+		IsPremium: bot.IsPremium,
+		FirstName: bot.FirstName,
+		LastName:  bot.LastName,
+	}
 }
 
 func (b *Bot) Start() error {
@@ -109,6 +122,35 @@ func (b *Bot) Start() error {
 		return fmt.Errorf("failed to start polling: %v", err)
 	}
 
+	sendOpts := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
+		ParseMode: gotgbot.ParseModeMarkdownV2,
+	}
+	compiledAt, _ := time.Parse(time.RFC3339, constants.CompileTime)
+	msg := strings.Join([]string{
+		`I'm online, Papa :\)`,
+		``,
+		"> `Version: " + constants.Version + "`",
+		"> `Compiled At: " + compiledAt.Format("2006/01/02 15:04:05") + " UTC`",
+	}, "\n")
+	if _, err := b.bot.SendMessage(b.papaChatID, msg, sendOpts); nil != err {
+		return fmt.Errorf("failed to send message: %v", err)
+	}
+
+	return nil
+}
+
+func (b *Bot) Stop() error {
+	if err := b.updater.Stop(); nil != err {
+		return fmt.Errorf("failed to bot stop updater: %v", err)
+	}
+
+	sendOpts := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
+		ParseMode: gotgbot.ParseModeMarkdown,
+	}
+	if _, err := b.bot.SendMessage(b.papaChatID, "I'm going offline, Papa :(", sendOpts); nil != err {
+		return fmt.Errorf("failed to send message: %v", err)
+	}
+
 	return nil
 }
 
@@ -120,7 +162,7 @@ type APIBot struct {
 func NewAPI(
 	ctx context.Context,
 	logger *zerolog.Logger,
-	config *config.Bot,
+	conf *config.Bot,
 	token string,
 ) (*APIBot, error) {
 	b, err := gotgbot.NewBot(token, &gotgbot.BotOpts{ //nolint:exhaustruct
@@ -142,16 +184,6 @@ func NewAPI(
 		bot:     b,
 		Account: fillAccount(b),
 	}, nil
-}
-
-func fillAccount(bot *gotgbot.Bot) Account {
-	return Account{
-		ID:        bot.Id,
-		IsBot:     bot.IsBot,
-		IsPremium: bot.IsPremium,
-		FirstName: bot.FirstName,
-		LastName:  bot.LastName,
-	}
 }
 
 // Logout logs out from the cloud Bot API server before launching the bot locally.
@@ -193,21 +225,13 @@ func (b *APIBot) Close(ctx context.Context) error {
 	return nil
 }
 
-func (b *Bot) Stop() error {
-	if err := b.updater.Stop(); nil != err {
-		return fmt.Errorf("failed to bot stop updater: %v", err)
-	}
-
-	return nil
-}
-
-func registerHandlers(ctx context.Context, d *ext.Dispatcher, config *config.Bot, tidal *tidal.Client) {
+func registerHandlers(ctx context.Context, d *ext.Dispatcher, conf *config.Bot, tidal *tidal.Client) {
 	d.AddHandler(
 		handlers.
 			NewMessage(
 				tidalURLFilter,
 				NewChainHandler(
-					NewPapaOnlyGuard(config.PapaID),
+					NewPapaOnlyGuard(conf.PapaID),
 					NewTidalURLHandler(ctx, tidal),
 				),
 			).
@@ -220,7 +244,7 @@ func registerHandlers(ctx context.Context, d *ext.Dispatcher, config *config.Bot
 			NewCommand(
 				"start",
 				NewChainHandler(
-					NewStartCommandHandler(ctx, config.PapaID),
+					NewStartCommandHandler(ctx, conf.PapaID),
 				),
 			).
 			SetAllowChannel(false).
@@ -232,7 +256,7 @@ func registerHandlers(ctx context.Context, d *ext.Dispatcher, config *config.Bot
 			NewCommand(
 				"status",
 				NewChainHandler(
-					NewPapaOnlyGuard(config.PapaID),
+					NewPapaOnlyGuard(conf.PapaID),
 					NewStatusCommandHandler(ctx, tidal),
 				),
 			).
@@ -245,7 +269,7 @@ func registerHandlers(ctx context.Context, d *ext.Dispatcher, config *config.Bot
 			NewCommand(
 				"cancel",
 				NewChainHandler(
-					NewPapaOnlyGuard(config.PapaID),
+					NewPapaOnlyGuard(conf.PapaID),
 					NewCancelCommandHandler(ctx, tidal),
 				),
 			).
@@ -258,7 +282,7 @@ func registerHandlers(ctx context.Context, d *ext.Dispatcher, config *config.Bot
 			NewCommand(
 				"authorize",
 				NewChainHandler(
-					NewPapaOnlyGuard(config.PapaID),
+					NewPapaOnlyGuard(conf.PapaID),
 					NewAuthorizeCommandHandler(ctx, tidal),
 				),
 			).

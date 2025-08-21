@@ -120,26 +120,26 @@ func runBot(ctx context.Context, cmd *cli.Command) error {
 		logger.Debug().Msg(".env file was loaded")
 	}
 
-	cfgPath := cmd.String("config")
-	if cfgPath == "" {
-		cfgPath = "config.yaml"
+	confPath := cmd.String("config")
+	if confPath == "" {
+		confPath = "config.yaml"
 	}
 
-	cfg, err := config.Load(cfgPath)
+	conf, err := config.Load(confPath)
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 	logger.Debug().Msg("Config loaded")
 
-	logger = logging.FromConfig(&cfg.Logging)
+	logger = logging.FromConfig(&conf.Logging)
 
-	t, err := tidal.NewClient(cfg.Bot.CredsDir, cfg.Bot.DownloadsDir, cfg.Tidal)
+	t, err := tidal.NewClient(conf.Bot.CredsDir, conf.Bot.DownloadsDir, conf.Tidal)
 	if nil != err {
 		return fmt.Errorf("failed to create tidal client: %v", err)
 	}
 	logger.Debug().Msg("Tidal client created")
 
-	b, err := bot.New(ctx, &logger, &cfg.Bot, cfg.Bot.Token, t)
+	b, err := bot.New(ctx, &logger, &conf.Bot, conf.Bot.Token, t)
 	if nil != err {
 		return fmt.Errorf("failed to create tidalgram bot: %v", err)
 	}
@@ -174,20 +174,20 @@ func logoutBot(ctx context.Context, cmd *cli.Command) error {
 		logger.Debug().Msg(".env file was loaded")
 	}
 
-	cfgPath := cmd.String("config")
-	if cfgPath == "" {
-		cfgPath = "config.yaml"
+	confPath := cmd.String("config")
+	if confPath == "" {
+		confPath = "config.yaml"
 	}
 
-	cfg, err := config.Load(cfgPath)
+	conf, err := config.Load(confPath)
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 	logger.Debug().Msg("Config loaded")
 
-	logger = logging.FromConfig(&cfg.Logging)
+	logger = logging.FromConfig(&conf.Logging)
 
-	b, err := bot.NewAPI(ctx, &logger, &cfg.Bot, cfg.Bot.Token)
+	b, err := bot.NewAPI(ctx, &logger, &conf.Bot, conf.Bot.Token)
 	if nil != err {
 		return fmt.Errorf("failed to create tidalgram API bot: %v", err)
 	}
@@ -213,20 +213,20 @@ func closeBot(ctx context.Context, cmd *cli.Command) error {
 		logger.Info().Msg(".env file was loaded")
 	}
 
-	cfgPath := cmd.String("config")
-	if cfgPath == "" {
-		cfgPath = "config.yaml"
+	confPath := cmd.String("config")
+	if confPath == "" {
+		confPath = "config.yaml"
 	}
 
-	cfg, err := config.Load(cfgPath)
+	conf, err := config.Load(confPath)
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
 	logger.Debug().Msg("Config loaded")
 
-	logger = logging.FromConfig(&cfg.Logging)
+	logger = logging.FromConfig(&conf.Logging)
 
-	b, err := bot.NewAPI(ctx, &logger, &cfg.Bot, cfg.Bot.Token)
+	b, err := bot.NewAPI(ctx, &logger, &conf.Bot, conf.Bot.Token)
 	if nil != err {
 		return fmt.Errorf("failed to create tidalgram API bot: %v", err)
 	}

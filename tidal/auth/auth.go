@@ -32,10 +32,6 @@ type Auth struct {
 	credentials atomic.Pointer[Credentials]
 }
 
-func (a *Auth) Credentials() *Credentials {
-	return a.credentials.Load()
-}
-
 type Credentials struct {
 	Token        string
 	RefreshToken string
@@ -46,7 +42,7 @@ func New(dir string) (*Auth, error) {
 	content, err := fs.AuthFileFrom(dir, tokenFileName).Read()
 	if nil != err {
 		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("failed to read auth credentials file: %w", err)
+			return nil, fmt.Errorf("failed to read auth credentials file: %v", err)
 		}
 		// can be ignored as it will be filled with defaults
 	}
@@ -71,6 +67,10 @@ func New(dir string) (*Auth, error) {
 	a.credentials.Store(creds)
 
 	return a, nil
+}
+
+func (a *Auth) Credentials() *Credentials {
+	return a.credentials.Load()
 }
 
 func extractExpiresAt(accessToken string) (time.Time, error) {

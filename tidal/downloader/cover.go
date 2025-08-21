@@ -51,7 +51,11 @@ func (d *Downloader) downloadCover(ctx context.Context, accessToken, coverID str
 			return nil, context.DeadlineExceeded
 		}
 
-		return nil, fmt.Errorf("failed to send get track cover request: %v", err)
+		if errors.Is(err, context.Canceled) {
+			return nil, context.Canceled
+		}
+
+		return nil, fmt.Errorf("failed to send download cover request: %v", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
@@ -106,7 +110,7 @@ func (d *Downloader) downloadCover(ctx context.Context, accessToken, coverID str
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
-		return nil, fmt.Errorf("failed to read 200 response body: %w", err)
+		return nil, fmt.Errorf("failed to read 200 response body: %v", err)
 	}
 
 	return respBytes, nil

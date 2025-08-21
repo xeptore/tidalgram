@@ -57,6 +57,10 @@ func (d *Downloader) track(ctx context.Context, id string) (err error) {
 			return context.DeadlineExceeded
 		}
 
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
+		}
+
 		return fmt.Errorf("failed to get track meta: %v", err)
 	}
 
@@ -76,6 +80,10 @@ func (d *Downloader) track(ctx context.Context, id string) (err error) {
 
 			if errors.Is(err, context.DeadlineExceeded) {
 				return context.DeadlineExceeded
+			}
+
+			if errors.Is(err, context.Canceled) {
+				return context.Canceled
 			}
 
 			return fmt.Errorf("failed to get track cover: %v", err)
@@ -106,6 +114,10 @@ func (d *Downloader) track(ctx context.Context, id string) (err error) {
 			return context.DeadlineExceeded
 		}
 
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
+		}
+
 		return err
 	}
 
@@ -113,6 +125,10 @@ func (d *Downloader) track(ctx context.Context, id string) (err error) {
 	if nil != err {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return context.DeadlineExceeded
+		}
+
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
 		}
 
 		return err
@@ -124,6 +140,10 @@ func (d *Downloader) track(ctx context.Context, id string) (err error) {
 			return context.DeadlineExceeded
 		}
 
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
+		}
+
 		return err
 	}
 
@@ -131,6 +151,10 @@ func (d *Downloader) track(ctx context.Context, id string) (err error) {
 	if nil != err {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return context.DeadlineExceeded
+		}
+
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
 		}
 
 		return err
@@ -180,14 +204,14 @@ func (d *Downloader) track(ctx context.Context, id string) (err error) {
 func getTrackMeta(ctx context.Context, accessToken, id string) (m *TrackMeta, err error) {
 	trackURL := fmt.Sprintf(trackAPIFormat, id)
 	reqURL, err := url.Parse(trackURL)
-	must.Be(nil == err, "track API URL must be a valid URL, got: "+trackURL)
+	must.NilErr(err)
 
 	reqParams := make(url.Values, 1)
 	reqParams.Add("countryCode", "US")
 	reqURL.RawQuery = reqParams.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
-	must.Be(nil == err, "get track info request must not error, got: "+err.Error())
+	must.NilErr(err)
 
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
@@ -196,6 +220,10 @@ func getTrackMeta(ctx context.Context, accessToken, id string) (m *TrackMeta, er
 	if nil != err {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, context.DeadlineExceeded
+		}
+
+		if errors.Is(err, context.Canceled) {
+			return nil, context.Canceled
 		}
 
 		return nil, fmt.Errorf("failed to send get track info request: %v", err)
@@ -252,7 +280,7 @@ func getTrackMeta(ctx context.Context, accessToken, id string) (m *TrackMeta, er
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
-		return nil, fmt.Errorf("failed to read 200 response body: %w", err)
+		return nil, fmt.Errorf("failed to read 200 response body: %v", err)
 	}
 
 	var respBody struct {
@@ -371,6 +399,10 @@ func (d *Downloader) downloadTrackCredits(ctx context.Context, accessToken strin
 			return nil, context.DeadlineExceeded
 		}
 
+		if errors.Is(err, context.Canceled) {
+			return nil, context.Canceled
+		}
+
 		return nil, fmt.Errorf("failed to send get track credits request: %v", err)
 	}
 	defer func() {
@@ -425,7 +457,7 @@ func (d *Downloader) downloadTrackCredits(ctx context.Context, accessToken strin
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
-		return nil, fmt.Errorf("failed to read 200 response body: %w", err)
+		return nil, fmt.Errorf("failed to read 200 response body: %v", err)
 	}
 
 	var respBody TrackCreditsResponse
@@ -461,6 +493,10 @@ func (d *Downloader) downloadTrackLyrics(ctx context.Context, accessToken string
 	if nil != err {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return "", context.DeadlineExceeded
+		}
+
+		if errors.Is(err, context.Canceled) {
+			return "", context.Canceled
 		}
 
 		return "", fmt.Errorf("failed to send get track lyrics request: %v", err)
@@ -519,7 +555,7 @@ func (d *Downloader) downloadTrackLyrics(ctx context.Context, accessToken string
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
-		return "", fmt.Errorf("failed to read 200 response body: %w", err)
+		return "", fmt.Errorf("failed to read 200 response body: %v", err)
 	}
 
 	if !gjson.ValidBytes(respBytes) {

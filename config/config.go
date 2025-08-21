@@ -267,17 +267,17 @@ func Load(filename string) (*Config, error) {
 		return nil, fmt.Errorf("failed to read config file %s: %v", filename, err)
 	}
 
-	var config Config
-	if err := yaml.Unmarshal(data, &config); nil != err {
+	var conf Config
+	if err := yaml.Unmarshal(data, &conf); nil != err {
 		return nil, fmt.Errorf("failed to parse config file %s: %v", filename, err)
 	}
 
-	config.Bot.Token = os.Getenv("BOT_TOKEN")
-	config.setDefaults()
+	conf.Bot.Token = os.Getenv("BOT_TOKEN")
+	conf.setDefaults()
 
-	if err := config.validate(); nil != err {
+	if err := conf.validate(); nil != err {
 		return nil, fmt.Errorf("configuration validation failed: %v", err)
 	}
 
-	return &config, nil
+	return &conf, nil
 }

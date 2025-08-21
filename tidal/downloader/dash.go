@@ -53,7 +53,7 @@ func (d *DashTrackStream) saveTo(ctx context.Context, accessToken string, fileNa
 	defer func() {
 		if nil != err {
 			if removeErr := os.Remove(fileName); nil != removeErr {
-				err = fmt.Errorf("failed to remove incomplete track file: %v: %w", removeErr, err)
+				err = fmt.Errorf("failed to remove incomplete track file: %v: %v", removeErr, err)
 			}
 		}
 
@@ -153,7 +153,11 @@ func (d *DashTrackStream) downloadSegment(ctx context.Context, accessToken, link
 			return context.DeadlineExceeded
 		}
 
-		return fmt.Errorf("failed to send get track part request: %v", err)
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
+		}
+
+		return fmt.Errorf("failed to send track part download request: %v", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
@@ -181,7 +185,7 @@ func (d *DashTrackStream) downloadSegment(ctx context.Context, accessToken, link
 			return auth.ErrUnauthorized
 		}
 
-		return errors.New("received 401 response")
+		return fmt.Errorf("unexpected 401 response with body: %s", string(respBytes))
 	case http.StatusTooManyRequests:
 		return ErrTooManyRequests
 	case http.StatusForbidden:
@@ -195,14 +199,14 @@ func (d *DashTrackStream) downloadSegment(ctx context.Context, accessToken, link
 			return ErrTooManyRequests
 		}
 
-		return errors.New("unexpected 403 response")
+		return fmt.Errorf("unexpected 403 response with body: %s", string(respBytes))
 	default:
-		_, err := io.ReadAll(resp.Body)
+		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			return err
 		}
 
-		return fmt.Errorf("unexpected status code received from get track part: %d", status)
+		return fmt.Errorf("unexpected response code %d with body: %s", status, string(respBytes))
 	}
 
 	respBytes, err := io.ReadAll(resp.Body)

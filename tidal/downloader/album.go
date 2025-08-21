@@ -45,7 +45,19 @@ func (d *Downloader) album(ctx context.Context, id string) error {
 			return context.DeadlineExceeded
 		}
 
-		return err
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
+		}
+
+		if errors.Is(err, auth.ErrUnauthorized) {
+			return auth.ErrUnauthorized
+		}
+
+		if errors.Is(err, ErrTooManyRequests) {
+			return ErrTooManyRequests
+		}
+
+		return fmt.Errorf("failed to get album meta: %v", err)
 	}
 
 	albumFs := d.dir.Album(id)
@@ -58,7 +70,15 @@ func (d *Downloader) album(ctx context.Context, id string) error {
 				return context.DeadlineExceeded
 			}
 
-			return err
+			if errors.Is(err, auth.ErrUnauthorized) {
+				return auth.ErrUnauthorized
+			}
+
+			if errors.Is(err, ErrTooManyRequests) {
+				return ErrTooManyRequests
+			}
+
+			return fmt.Errorf("failed to get album cover: %v", err)
 		}
 		if err := albumFs.Cover.Write(coverBytes); nil != err {
 			return err
@@ -71,7 +91,19 @@ func (d *Downloader) album(ctx context.Context, id string) error {
 			return context.DeadlineExceeded
 		}
 
-		return err
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
+		}
+
+		if errors.Is(err, auth.ErrUnauthorized) {
+			return auth.ErrUnauthorized
+		}
+
+		if errors.Is(err, ErrTooManyRequests) {
+			return ErrTooManyRequests
+		}
+
+		return fmt.Errorf("failed to get album volumes: %v", err)
 	}
 
 	for _, volTracks := range volumes {
@@ -104,19 +136,51 @@ func (d *Downloader) album(ctx context.Context, id string) error {
 				defer func() {
 					if nil != err {
 						if removeErr := trackFs.Remove(); nil != removeErr {
-							err = fmt.Errorf("failed to remove track file: %v: %w", removeErr, err)
+							err = fmt.Errorf("failed to remove track file: %v: %v", removeErr, err)
 						}
 					}
 				}()
 
 				trackLyrics, err := d.downloadTrackLyrics(ctx, accessToken, track.ID)
 				if nil != err {
-					return err
+					if errors.Is(err, context.DeadlineExceeded) {
+						return context.DeadlineExceeded
+					}
+
+					if errors.Is(err, context.Canceled) {
+						return context.Canceled
+					}
+
+					if errors.Is(err, auth.ErrUnauthorized) {
+						return auth.ErrUnauthorized
+					}
+
+					if errors.Is(err, ErrTooManyRequests) {
+						return ErrTooManyRequests
+					}
+
+					return fmt.Errorf("failed to download track lyrics: %v", err)
 				}
 
 				format, err := d.downloadTrack(wgCtx, accessToken, track.ID, trackFs.Path)
 				if nil != err {
-					return err
+					if errors.Is(err, context.DeadlineExceeded) {
+						return context.DeadlineExceeded
+					}
+
+					if errors.Is(err, context.Canceled) {
+						return context.Canceled
+					}
+
+					if errors.Is(err, auth.ErrUnauthorized) {
+						return auth.ErrUnauthorized
+					}
+
+					if errors.Is(err, ErrTooManyRequests) {
+						return ErrTooManyRequests
+					}
+
+					return fmt.Errorf("failed to download track: %v", err)
 				}
 
 				attrs := TrackEmbeddedAttrs{
@@ -352,6 +416,10 @@ func (d *Downloader) downloadAlbumMeta(ctx context.Context, accessToken, id stri
 			return nil, context.DeadlineExceeded
 		}
 
+		if errors.Is(err, context.Canceled) {
+			return nil, context.Canceled
+		}
+
 		return nil, fmt.Errorf("failed to send get album info request: %v", err)
 	}
 	defer func() {
@@ -383,7 +451,7 @@ func (d *Downloader) downloadAlbumMeta(ctx context.Context, accessToken, id stri
 			return nil, auth.ErrUnauthorized
 		}
 
-		return nil, errors.New("received 401 response")
+		return nil, fmt.Errorf("unexpected 401 response with body: %s", string(respBytes))
 	case http.StatusTooManyRequests:
 		return nil, ErrTooManyRequests
 	case http.StatusForbidden:
@@ -397,14 +465,14 @@ func (d *Downloader) downloadAlbumMeta(ctx context.Context, accessToken, id stri
 			return nil, ErrTooManyRequests
 		}
 
-		return nil, errors.New("unexpected 403 response")
+		return nil, fmt.Errorf("unexpected 403 response with body: %s", string(respBytes))
 	default:
-		_, err := io.ReadAll(resp.Body)
+		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			return nil, err
 		}
 
-		return nil, fmt.Errorf("unexpected status code: %d", code)
+		return nil, fmt.Errorf("unexpected response code %d with body: %s", code, string(respBytes))
 	}
 
 	respBytes, err := io.ReadAll(resp.Body)

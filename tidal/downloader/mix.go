@@ -31,7 +31,19 @@ func (d *Downloader) mix(ctx context.Context, id string) error {
 			return context.DeadlineExceeded
 		}
 
-		return err
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
+		}
+
+		if errors.Is(err, auth.ErrUnauthorized) {
+			return auth.ErrUnauthorized
+		}
+
+		if errors.Is(err, ErrTooManyRequests) {
+			return ErrTooManyRequests
+		}
+
+		return fmt.Errorf("failed to get mix meta: %v", err)
 	}
 
 	tracks, err := d.getMixTracks(ctx, accessToken, id)
@@ -40,7 +52,19 @@ func (d *Downloader) mix(ctx context.Context, id string) error {
 			return context.DeadlineExceeded
 		}
 
-		return err
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
+		}
+
+		if errors.Is(err, auth.ErrUnauthorized) {
+			return auth.ErrUnauthorized
+		}
+
+		if errors.Is(err, ErrTooManyRequests) {
+			return ErrTooManyRequests
+		}
+
+		return fmt.Errorf("failed to get mix tracks: %v", err)
 	}
 
 	var (
@@ -57,7 +81,23 @@ func (d *Downloader) mix(ctx context.Context, id string) error {
 			} else if !exists {
 				coverBytes, err := d.getCover(ctx, accessToken, track.CoverID)
 				if nil != err {
-					return err
+					if errors.Is(err, context.DeadlineExceeded) {
+						return context.DeadlineExceeded
+					}
+
+					if errors.Is(err, context.Canceled) {
+						return context.Canceled
+					}
+
+					if errors.Is(err, auth.ErrUnauthorized) {
+						return auth.ErrUnauthorized
+					}
+
+					if errors.Is(err, ErrTooManyRequests) {
+						return ErrTooManyRequests
+					}
+
+					return fmt.Errorf("failed to get track cover: %v", err)
 				}
 				if err := trackFs.Cover.Write(coverBytes); nil != err {
 					return err
@@ -71,34 +111,96 @@ func (d *Downloader) mix(ctx context.Context, id string) error {
 			}
 			defer func() {
 				if nil != err {
-					if removeErr := trackFs.Remove(); nil != removeErr &&
-						!errors.Is(err, os.ErrNotExist) {
-						err = errors.Join(
-							err,
-							fmt.Errorf("failed to remove track file: %v", removeErr),
-						)
+					if removeErr := trackFs.Remove(); nil != removeErr {
+						if !errors.Is(err, os.ErrNotExist) {
+							err = errors.Join(err, fmt.Errorf("failed to remove mix track file: %v", removeErr))
+						}
 					}
 				}
 			}()
 
 			trackCredits, err := d.getTrackCredits(ctx, accessToken, track.ID)
 			if nil != err {
-				return err
+				if errors.Is(err, context.DeadlineExceeded) {
+					return context.DeadlineExceeded
+				}
+
+				if errors.Is(err, context.Canceled) {
+					return context.Canceled
+				}
+
+				if errors.Is(err, auth.ErrUnauthorized) {
+					return auth.ErrUnauthorized
+				}
+
+				if errors.Is(err, ErrTooManyRequests) {
+					return ErrTooManyRequests
+				}
+
+				return fmt.Errorf("failed to get track credits: %v", err)
 			}
 
 			trackLyrics, err := d.downloadTrackLyrics(ctx, accessToken, track.ID)
 			if nil != err {
-				return err
+				if errors.Is(err, context.DeadlineExceeded) {
+					return context.DeadlineExceeded
+				}
+
+				if errors.Is(err, context.Canceled) {
+					return context.Canceled
+				}
+
+				if errors.Is(err, auth.ErrUnauthorized) {
+					return auth.ErrUnauthorized
+				}
+
+				if errors.Is(err, ErrTooManyRequests) {
+					return ErrTooManyRequests
+				}
+
+				return fmt.Errorf("failed to download track lyrics: %v", err)
 			}
 
 			format, err := d.downloadTrack(wgCtx, accessToken, track.ID, trackFs.Path)
 			if nil != err {
-				return err
+				if errors.Is(err, context.DeadlineExceeded) {
+					return context.DeadlineExceeded
+				}
+
+				if errors.Is(err, context.Canceled) {
+					return context.Canceled
+				}
+
+				if errors.Is(err, auth.ErrUnauthorized) {
+					return auth.ErrUnauthorized
+				}
+
+				if errors.Is(err, ErrTooManyRequests) {
+					return ErrTooManyRequests
+				}
+
+				return fmt.Errorf("failed to download track: %v", err)
 			}
 
 			album, err := d.getAlbumMeta(ctx, accessToken, track.AlbumID)
 			if nil != err {
-				return err
+				if errors.Is(err, context.DeadlineExceeded) {
+					return context.DeadlineExceeded
+				}
+
+				if errors.Is(err, context.Canceled) {
+					return context.Canceled
+				}
+
+				if errors.Is(err, auth.ErrUnauthorized) {
+					return auth.ErrUnauthorized
+				}
+
+				if errors.Is(err, ErrTooManyRequests) {
+					return ErrTooManyRequests
+				}
+
+				return fmt.Errorf("failed to get album meta: %v", err)
 			}
 
 			attrs := TrackEmbeddedAttrs{
@@ -191,6 +293,10 @@ func (d *Downloader) getMixMeta(ctx context.Context, accessToken, id string) (m 
 			return nil, context.DeadlineExceeded
 		}
 
+		if errors.Is(err, context.Canceled) {
+			return nil, context.Canceled
+		}
+
 		return nil, fmt.Errorf("failed to send get mix info request: %v", err)
 	}
 	defer func() {
@@ -222,7 +328,7 @@ func (d *Downloader) getMixMeta(ctx context.Context, accessToken, id string) (m 
 			return nil, auth.ErrUnauthorized
 		}
 
-		return nil, errors.New("received 401 response")
+		return nil, fmt.Errorf("unexpected 401 response with body: %s", string(respBytes))
 	case http.StatusTooManyRequests:
 		return nil, ErrTooManyRequests
 	case http.StatusForbidden:
@@ -236,14 +342,14 @@ func (d *Downloader) getMixMeta(ctx context.Context, accessToken, id string) (m 
 			return nil, ErrTooManyRequests
 		}
 
-		return nil, errors.New("unexpected 403 response")
+		return nil, fmt.Errorf("unexpected 403 response with body: %s", string(respBytes))
 	default:
-		_, err := io.ReadAll(resp.Body)
+		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			return nil, err
 		}
 
-		return nil, fmt.Errorf("unexpected status code: %d", code)
+		return nil, fmt.Errorf("unexpected response code %d with body: %s", code, string(respBytes))
 	}
 
 	respBytes, err := io.ReadAll(resp.Body)

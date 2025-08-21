@@ -147,17 +147,14 @@ func (c Cover) Write(b []byte) (err error) {
 		return fmt.Errorf("failed to open cover file for write: %v", err)
 	}
 	defer func() {
-		if closeErr := f.Close(); nil != closeErr {
-			err = fmt.Errorf("failed to close cover file: %v", closeErr)
-		}
-	}()
-	defer func() {
 		if nil != err {
 			if removeErr := os.Remove(c.Path); nil != removeErr {
 				if !errors.Is(removeErr, os.ErrNotExist) {
 					err = errors.Join(err, fmt.Errorf("failed to remove cover file: %v", removeErr))
 				}
 			}
+		} else if closeErr := f.Close(); nil != closeErr {
+			err = fmt.Errorf("failed to close cover file: %v", closeErr)
 		}
 	}()
 
@@ -175,7 +172,7 @@ func (c Cover) Write(b []byte) (err error) {
 func (c Cover) Read() ([]byte, error) {
 	b, err := os.ReadFile(c.Path)
 	if nil != err {
-		return nil, fmt.Errorf("failed to read cover file: %w", err)
+		return nil, fmt.Errorf("failed to read cover file: %v", err)
 	}
 
 	return b, nil
@@ -207,10 +204,6 @@ func (p InfoFile[T]) Read() (*T, error) {
 	return readInfoFile(p)
 }
 
-func (p InfoFile[T]) Write(v T) error {
-	return writeInfoFile(p, v)
-}
-
 func readInfoFile[T any](file InfoFile[T]) (t *T, err error) {
 	filePath := file.Path
 
@@ -230,6 +223,10 @@ func readInfoFile[T any](file InfoFile[T]) (t *T, err error) {
 	}
 
 	return &out, nil
+}
+
+func (p InfoFile[T]) Write(v T) error {
+	return writeInfoFile(p, v)
 }
 
 func writeInfoFile[T any](file InfoFile[T], obj any) (err error) {

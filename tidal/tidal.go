@@ -30,7 +30,7 @@ type Client struct {
 func NewClient(credsDir, dlDir string, conf config.Tidal) (*Client, error) {
 	a, err := auth.New(credsDir)
 	if nil != err {
-		return nil, fmt.Errorf("failed to create auth: %w", err)
+		return nil, fmt.Errorf("failed to create auth: %v", err)
 	}
 
 	c := cache.New()
@@ -67,7 +67,11 @@ func (c *Client) TryDownloadLink(ctx context.Context, link types.Link) error {
 			func(ctx context.Context) error {
 				if err := c.downloadLink(ctx, link); nil != err {
 					if errors.Is(err, context.DeadlineExceeded) {
-						return context.DeadlineExceeded
+						return retry.RetryableError(context.DeadlineExceeded)
+					}
+
+					if errors.Is(err, context.Canceled) {
+						return context.Canceled
 					}
 
 					if errors.Is(err, ErrLoginRequired) {
@@ -76,6 +80,14 @@ func (c *Client) TryDownloadLink(ctx context.Context, link types.Link) error {
 
 					if errors.Is(err, ErrTokenRefreshRequired) {
 						if err := c.auth.RefreshToken(ctx); nil != err {
+							if errors.Is(err, context.DeadlineExceeded) {
+								return retry.RetryableError(context.DeadlineExceeded)
+							}
+
+							if errors.Is(err, context.Canceled) {
+								return context.Canceled
+							}
+
 							if errors.Is(err, auth.ErrUnauthorized) {
 								return ErrLoginRequired
 							}
@@ -106,7 +118,7 @@ func (c *Client) TryDownloadLink(ctx context.Context, link types.Link) error {
 				return c.downloadLink(ctx, link)
 			}
 
-			return fmt.Errorf("failed to download link after retries: %v", err)
+			return fmt.Errorf("failed to download link after retries: %w", err)
 		}
 
 		return nil
@@ -125,6 +137,10 @@ func (c *Client) TryInitiateLoginFlow(ctx context.Context) (*auth.LoginLink, <-c
 				return nil, nil, context.DeadlineExceeded
 			}
 
+			if errors.Is(err, context.Canceled) {
+				return nil, nil, context.Canceled
+			}
+
 			return nil, nil, fmt.Errorf("failed to initiate login flow: %v", err)
 		}
 
@@ -136,7 +152,7 @@ func (c *Client) TryInitiateLoginFlow(ctx context.Context) (*auth.LoginLink, <-c
 
 func ParseLink(l string) types.Link {
 	u, err := url.Parse(l)
-	must.Be(nil == err, "link is expected to be a valid URL")
+	must.NilErr(err)
 
 	var (
 		id   string
@@ -184,4 +200,42 @@ func ParseLink(l string) types.Link {
 	}
 
 	return types.Link{Kind: kind, ID: id}
+}
+
+func (c *Client) downloadLink(ctx context.Context, link types.Link) error {
+	creds := c.auth.Credentials()
+
+	if creds.ExpiresAt.IsZero() {
+		return ErrLoginRequired
+	}
+
+	if time.Now().Add(10 * time.Minute).After(creds.ExpiresAt) {
+		return ErrTokenRefreshRequired
+	}
+
+	if err := c.dl.Download(ctx, link); nil != err {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return context.DeadlineExceeded
+		}
+
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
+		}
+
+		if errors.Is(err, downloader.ErrUnsupportedArtistLinkKind) {
+			return downloader.ErrUnsupportedArtistLinkKind
+		}
+
+		if errors.Is(err, downloader.ErrUnsupportedVideoLinkKind) {
+			return downloader.ErrUnsupportedVideoLinkKind
+		}
+
+		if errors.Is(err, ErrUnauthorized) {
+			return ErrTokenRefreshRequired
+		}
+
+		return fmt.Errorf("failed to download link: %v", err)
+	}
+
+	return nil
 }

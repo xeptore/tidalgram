@@ -41,6 +41,22 @@ var (
 	ErrUnsupportedVideoLinkKind  = errors.New("video link kind is not supported")
 )
 
+type ListTrackMeta struct {
+	AlbumID      string
+	AlbumTitle   string
+	ISRC         string
+	Copyright    string
+	Artist       string
+	Artists      []types.TrackArtist
+	CoverID      string
+	Duration     int
+	ID           string
+	Title        string
+	TrackNumber  int
+	Version      *string
+	VolumeNumber int
+}
+
 type Downloader struct {
 	dir   fs.DownloadDir
 	auth  *auth.Auth
@@ -81,22 +97,6 @@ func (d *Downloader) Download(ctx context.Context, link types.Link) error {
 	}
 }
 
-type ListTrackMeta struct {
-	AlbumID      string
-	AlbumTitle   string
-	ISRC         string
-	Copyright    string
-	Artist       string
-	Artists      []types.TrackArtist
-	CoverID      string
-	Duration     int
-	ID           string
-	Title        string
-	TrackNumber  int
-	Version      *string
-	VolumeNumber int
-}
-
 func (d *Downloader) getListPagedItems(ctx context.Context, accessToken, itemsURL string, page int) ([]byte, error) {
 	reqParams := make(url.Values, 3)
 	reqParams.Add("countryCode", "US")
@@ -129,7 +129,11 @@ func (d *Downloader) getPagedItems(ctx context.Context, accessToken, itemsURL st
 			return nil, context.DeadlineExceeded
 		}
 
-		return nil, fmt.Errorf("failed to send get page items request: %v", err)
+		if errors.Is(err, context.Canceled) {
+			return nil, context.Canceled
+		}
+
+		return nil, fmt.Errorf("failed to send get paged tracks request: %v", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
@@ -160,7 +164,7 @@ func (d *Downloader) getPagedItems(ctx context.Context, accessToken, itemsURL st
 			return nil, auth.ErrUnauthorized
 		}
 
-		return nil, errors.New("received 401 response")
+		return nil, fmt.Errorf("unexpected 401 response with body: %s", string(respBytes))
 	case http.StatusTooManyRequests:
 		return nil, ErrTooManyRequests
 	case http.StatusForbidden:
@@ -174,14 +178,14 @@ func (d *Downloader) getPagedItems(ctx context.Context, accessToken, itemsURL st
 			return nil, ErrTooManyRequests
 		}
 
-		return nil, errors.New("unexpected 403 response")
+		return nil, fmt.Errorf("unexpected 403 response with body: %s", string(respBytes))
 	default:
-		_, err := io.ReadAll(resp.Body)
+		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			return nil, err
 		}
 
-		return nil, fmt.Errorf("unexpected status code: %d", code)
+		return nil, fmt.Errorf("unexpected response code %d with body: %s", code, string(respBytes))
 	}
 
 	respBytes, err := io.ReadAll(resp.Body)

@@ -24,6 +24,10 @@ func (a *Auth) RefreshToken(ctx context.Context) error {
 			return context.DeadlineExceeded
 		}
 
+		if errors.Is(err, context.Canceled) {
+			return context.Canceled
+		}
+
 		if errors.Is(err, ErrUnauthorized) {
 			return ErrUnauthorized
 		}
@@ -41,7 +45,7 @@ func (a *Auth) RefreshToken(ctx context.Context) error {
 
 func (a *Auth) refreshToken(ctx context.Context) (creds *Credentials, err error) {
 	reqURL, err := url.JoinPath(baseURL, "/token")
-	must.Be(nil == err, "failed to create token verification URL")
+	must.NilErr(err)
 
 	reqParams := make(url.Values, 4)
 	reqParams.Add("client_id", clientID)
@@ -52,7 +56,7 @@ func (a *Auth) refreshToken(ctx context.Context) (creds *Credentials, err error)
 	reqParamsStr := reqParams.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBufferString(reqParamsStr))
-	must.Be(nil == err, "failed to create refresh token request")
+	must.NilErr(err)
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add(
@@ -65,6 +69,10 @@ func (a *Auth) refreshToken(ctx context.Context) (creds *Credentials, err error)
 	if nil != err {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, context.DeadlineExceeded
+		}
+
+		if errors.Is(err, context.Canceled) {
+			return nil, context.Canceled
 		}
 
 		return nil, fmt.Errorf("failed to issue refresh token request: %v", err)

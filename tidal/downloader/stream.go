@@ -55,7 +55,11 @@ func (d *Downloader) getStream(ctx context.Context, accessToken, id string) (s S
 			return nil, nil, context.DeadlineExceeded
 		}
 
-		return nil, nil, fmt.Errorf("failed to send get track stream URLs request: %v", err)
+		if errors.Is(err, context.Canceled) {
+			return nil, nil, context.Canceled
+		}
+
+		return nil, nil, fmt.Errorf("failed to send get stream URLs request: %v", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
@@ -86,7 +90,7 @@ func (d *Downloader) getStream(ctx context.Context, accessToken, id string) (s S
 			return nil, nil, auth.ErrUnauthorized
 		}
 
-		return nil, nil, errors.New("received 401 response")
+		return nil, nil, fmt.Errorf("unexpected 401 response with body: %s", string(respBytes))
 	case http.StatusTooManyRequests:
 		return nil, nil, ErrTooManyRequests
 	case http.StatusForbidden:
@@ -100,17 +104,14 @@ func (d *Downloader) getStream(ctx context.Context, accessToken, id string) (s S
 			return nil, nil, ErrTooManyRequests
 		}
 
-		return nil, nil, errors.New("unexpected 403 response")
+		return nil, nil, fmt.Errorf("unexpected 403 response with body: %s", string(respBytes))
 	default:
-		_, err := io.ReadAll(resp.Body)
+		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			return nil, nil, err
 		}
 
-		return nil, nil, fmt.Errorf(
-			"unexpected status code received from get track stream URLs: %d",
-			code,
-		)
+		return nil, nil, fmt.Errorf("unexpected response code %d with body: %s", code, string(respBytes))
 	}
 
 	respBytes, err := io.ReadAll(resp.Body)
