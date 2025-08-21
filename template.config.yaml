@@ -1,7 +1,7 @@
 bot:
   # REQUIRED
-  # Telegram admin (private chat) ID
-  admin_id: 1234567890
+  # Telegram papa (private chat) ID
+  papa_id: 1234567890
   # OPTIONAL
   # API URL
   # Default: https://api.telegram.org
@@ -10,6 +10,10 @@ bot:
   # Credentials directory
   # Default: ./creds
   creds_dir: ./creds
+  # OPTIONAL
+  # Downloads directory
+  # Default: ./downloads
+  downloads_dir: ./downloads
 
 logging:
   # OPTIONAL
@@ -22,38 +26,39 @@ logging:
   format: pretty
 
 tidal:
-  # Download timeout durations in seconds
-  download_timeouts:
-    # OPTIONAL
-    # Default: 2
-    get_track_credits: 2
-    # OPTIONAL
-    # Default: 2
-    get_track_lyrics: 2
-    # OPTIONAL
-    # Default: 3
-    download_cover: 3
-    # OPTIONAL
-    # Default: 2
-    get_album_info: 2
-    # OPTIONAL
-    # Default: 2
-    get_stream_urls: 2
-    # OPTIONAL
-    # Default: 2
-    get_playlist_info: 2
-    # OPTIONAL
-    # Default: 2
-    get_mix_info: 2
-    # OPTIONAL
-    # Default: 2
-    get_paged_tracks: 2
-    # OPTIONAL
-    # Default: 10
-    download_dash_segment: 10
-    # OPTIONAL
-    # Default: 2
-    get_vnd_track_file_size: 2  
-    # OPTIONAL
-    # Default: 2
-    download_vnd_segment: 10
+  downloader:
+    # Download timeout durations in seconds
+    timeouts:
+      # OPTIONAL
+      # Default: 2
+      get_track_credits: 2
+      # OPTIONAL
+      # Default: 2
+      get_track_lyrics: 2
+      # OPTIONAL
+      # Default: 3
+      download_cover: 3
+      # OPTIONAL
+      # Default: 2
+      get_album_info: 2
+      # OPTIONAL
+      # Default: 2
+      get_stream_urls: 2
+      # OPTIONAL
+      # Default: 2
+      get_playlist_info: 2
+      # OPTIONAL
+      # Default: 2
+      get_mix_info: 2
+      # OPTIONAL
+      # Default: 2
+      get_paged_tracks: 2
+      # OPTIONAL
+      # Default: 10
+      download_dash_segment: 10
+      # OPTIONAL
+      # Default: 2
+      get_vnd_track_file_size: 2
+      # OPTIONAL
+      # Default: 2
+      download_vnd_segment: 10

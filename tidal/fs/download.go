@@ -59,10 +59,10 @@ func (t AlbumTrack) Remove() error {
 	return nil
 }
 
-func (dir DownloadDir) Single(id string) SingleTrack {
+func (dir DownloadDir) Track(id string) Track {
 	trackPath := filepath.Join(dir.path(), id)
 
-	return SingleTrack{
+	return Track{
 		Path:     trackPath,
 		InfoFile: InfoFile[types.StoredSingleTrack]{Path: trackPath + ".json"},
 		Cover:    Cover{Path: trackPath + ".jpg"},
@@ -83,10 +83,10 @@ type Playlist struct {
 	InfoFile InfoFile[types.StoredPlaylist]
 }
 
-func (p Playlist) Track(id string) SingleTrack {
+func (p Playlist) Track(id string) Track {
 	trackPath := filepath.Join(p.DirPath, id)
 
-	return SingleTrack{
+	return Track{
 		Path:     trackPath,
 		InfoFile: InfoFile[types.StoredSingleTrack]{Path: trackPath + ".json"},
 		Cover:    Cover{Path: trackPath + ".jpg"},
@@ -111,10 +111,10 @@ type Mix struct {
 	InfoFile InfoFile[types.StoredMix]
 }
 
-func (d Mix) Track(id string) SingleTrack {
+func (d Mix) Track(id string) Track {
 	trackPath := filepath.Join(d.DirPath, id)
 
-	return SingleTrack{
+	return Track{
 		Path:     trackPath,
 		InfoFile: InfoFile[types.StoredSingleTrack]{Path: trackPath + ".json"},
 		Cover:    Cover{Path: trackPath + ".jpg"},
@@ -147,17 +147,16 @@ func (c Cover) Write(b []byte) (err error) {
 		return fmt.Errorf("failed to open cover file for write: %v", err)
 	}
 	defer func() {
+		if closeErr := f.Close(); nil != closeErr {
+			err = fmt.Errorf("failed to close cover file: %v", closeErr)
+		}
+	}()
+	defer func() {
 		if nil != err {
-			if removeErr := os.Remove(c.Path); nil != removeErr &&
-				!errors.Is(removeErr, os.ErrNotExist) {
-				err = errors.Join(
-					err,
-					fmt.Errorf("failed to remove incomplete cover file: %v", removeErr),
-				)
-			}
-		} else {
-			if closeErr := f.Close(); nil != closeErr {
-				err = fmt.Errorf("failed to close cover file: %v", closeErr)
+			if removeErr := os.Remove(c.Path); nil != removeErr {
+				if !errors.Is(removeErr, os.ErrNotExist) {
+					err = errors.Join(err, fmt.Errorf("failed to remove cover file: %v", removeErr))
+				}
 			}
 		}
 	}()
@@ -182,17 +181,17 @@ func (c Cover) Read() ([]byte, error) {
 	return b, nil
 }
 
-type SingleTrack struct {
+type Track struct {
 	Path     string
 	InfoFile InfoFile[types.StoredSingleTrack]
 	Cover    Cover
 }
 
-func (t SingleTrack) Exists() (bool, error) {
+func (t Track) Exists() (bool, error) {
 	return fileExists(t.Path)
 }
 
-func (t SingleTrack) Remove() error {
+func (t Track) Remove() error {
 	if err := os.Remove(t.Path); nil != err && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to remove single track: %v", err)
 	}
@@ -241,17 +240,16 @@ func writeInfoFile[T any](file InfoFile[T], obj any) (err error) {
 		return fmt.Errorf("failed to open info file for write: %v", err)
 	}
 	defer func() {
+		if closeErr := f.Close(); nil != closeErr {
+			err = fmt.Errorf("failed to close info file: %v", closeErr)
+		}
+	}()
+	defer func() {
 		if nil != err {
-			if removeErr := os.Remove(filePath); nil != removeErr &&
-				!errors.Is(removeErr, os.ErrNotExist) {
-				err = errors.Join(
-					err,
-					fmt.Errorf("failed to remove incomplete info file: %v", removeErr),
-				)
-			}
-		} else {
-			if closeErr := f.Close(); nil != closeErr {
-				err = fmt.Errorf("failed to close info file: %v", closeErr)
+			if removeErr := os.Remove(filePath); nil != removeErr {
+				if !errors.Is(removeErr, os.ErrNotExist) {
+					err = errors.Join(err, fmt.Errorf("failed to remove info file: %v", removeErr))
+				}
 			}
 		}
 	}()

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,38 +11,37 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/goccy/go-json"
+
 	"github.com/xeptore/tidalgram/httputil"
+	"github.com/xeptore/tidalgram/must"
 )
 
-func (a *Auth) TryRefreshToken(ctx context.Context) error {
-	select {
-	case a.refreshSem <- struct{}{}:
-		defer func() { <-a.refreshSem }()
-		newCreds, err := a.refreshToken(ctx)
-		if nil != err {
-			if errors.Is(err, ErrUnauthorized) {
-				return ErrUnauthorized
-			}
-
-			return fmt.Errorf("failed to initiate login flow: %v", err)
+func (a *Auth) RefreshToken(ctx context.Context) error {
+	newCreds, err := a.refreshToken(ctx)
+	if nil != err {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return context.DeadlineExceeded
 		}
-		a.credentials.Store(&Credentials{
-			Token:        newCreds.Token,
-			RefreshToken: newCreds.RefreshToken,
-			ExpiresAt:    newCreds.ExpiresAt,
-		})
 
-		return nil
-	default:
-		return ErrTokenRefreshInProgress
+		if errors.Is(err, ErrUnauthorized) {
+			return ErrUnauthorized
+		}
+
+		return fmt.Errorf("failed to refresh token: %v", err)
 	}
+	a.credentials.Store(&Credentials{
+		Token:        newCreds.Token,
+		RefreshToken: newCreds.RefreshToken,
+		ExpiresAt:    newCreds.ExpiresAt,
+	})
+
+	return nil
 }
 
-func (a *Auth) refreshToken(ctx context.Context) (*Credentials, error) {
+func (a *Auth) refreshToken(ctx context.Context) (creds *Credentials, err error) {
 	reqURL, err := url.JoinPath(baseURL, "/token")
-	if nil != err {
-		return nil, fmt.Errorf("failed to create token verification URL: %v", err)
-	}
+	must.Be(nil == err, "failed to create token verification URL")
 
 	reqParams := make(url.Values, 4)
 	reqParams.Add("client_id", clientID)
@@ -53,15 +51,9 @@ func (a *Auth) refreshToken(ctx context.Context) (*Credentials, error) {
 	reqParams.Add("scope", "r_usr+w_usr+w_sub")
 	reqParamsStr := reqParams.Encode()
 
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		reqURL,
-		bytes.NewBufferString(reqParamsStr),
-	)
-	if nil != err {
-		return nil, fmt.Errorf("failed to create refresh token request: %v", err)
-	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBufferString(reqParamsStr))
+	must.Be(nil == err, "failed to create refresh token request")
+
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add(
 		"Authorization",
@@ -71,6 +63,10 @@ func (a *Auth) refreshToken(ctx context.Context) (*Credentials, error) {
 	client := http.Client{Timeout: 5 * time.Second} //nolint:exhaustruct
 	resp, err := client.Do(req)
 	if nil != err {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, context.DeadlineExceeded
+		}
+
 		return nil, fmt.Errorf("failed to issue refresh token request: %v", err)
 	}
 	defer func() {
@@ -84,26 +80,26 @@ func (a *Auth) refreshToken(ctx context.Context) (*Credentials, error) {
 	case http.StatusUnauthorized:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, fmt.Errorf("failed to read response body: %w", err)
+			return nil, fmt.Errorf("failed to read 401 response body: %v", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
-			return nil, fmt.Errorf("failed to check if token is expired: %w", err)
+			return nil, fmt.Errorf("failed to check if 401 response is token expired: %v", err)
 		} else if ok {
 			return nil, ErrUnauthorized
 		}
 
 		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
-			return nil, fmt.Errorf("failed to check if token is invalid: %w", err)
+			return nil, fmt.Errorf("failed to check if 401 response is token invalid: %v", err)
 		} else if ok {
 			return nil, ErrUnauthorized
 		}
 
-		return nil, errors.New("received 401 response")
+		return nil, fmt.Errorf("received unknown 401 response with body: %s", string(respBytes))
 	case http.StatusBadRequest:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, fmt.Errorf("failed to read response body: %w", err)
+			return nil, fmt.Errorf("failed to read 400 response body: %v", err)
 		}
 		var respBody struct {
 			Status           int    `json:"status"`
@@ -112,7 +108,7 @@ func (a *Auth) refreshToken(ctx context.Context) (*Credentials, error) {
 			ErrorDescription string `json:"error_description"`
 		}
 		if err := json.Unmarshal(respBytes, &respBody); nil != err {
-			return nil, fmt.Errorf("failed to decode 400 status code response body: %v", err)
+			return nil, fmt.Errorf("failed to decode 400 response body: %v", err)
 		}
 		if respBody.Status == 400 && respBody.SubStatus == 11101 &&
 			respBody.Error == "invalid_grant" &&
@@ -120,25 +116,25 @@ func (a *Auth) refreshToken(ctx context.Context) (*Credentials, error) {
 			return nil, ErrUnauthorized
 		}
 
-		return nil, errors.New("unexpected 400 response")
+		return nil, fmt.Errorf("received unknown 400 response with body: %s", string(respBytes))
 	default:
 		return nil, fmt.Errorf("unexpected status code: %d", code)
 	}
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("failed to read 200 response body: %v", err)
 	}
 	var respBody struct {
 		AccessToken string `json:"access_token"`
 	}
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
-		return nil, fmt.Errorf("failed to decode 200 status code response body: %w", err)
+		return nil, fmt.Errorf("failed to decode 200 response body: %v", err)
 	}
 
 	expiresAt, err := extractExpiresAt(respBody.AccessToken)
 	if nil != err {
-		return nil, fmt.Errorf("failed to decode 200 status code response body: %w", err)
+		return nil, fmt.Errorf("failed to extract expires at from 200 response body access token: %v", err)
 	}
 
 	return &Credentials{

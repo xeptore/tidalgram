@@ -1,4 +1,4 @@
-package download
+package downloader
 
 import (
 	"bytes"
@@ -25,11 +25,7 @@ type VndTrackStream struct {
 	GetTrackFileSizeTimeout time.Duration
 }
 
-func (d *VndTrackStream) saveTo(
-	ctx context.Context,
-	accessToken string,
-	fileName string,
-) (err error) {
+func (d *VndTrackStream) saveTo(ctx context.Context, accessToken string, fileName string) (err error) {
 	fileSize, err := d.fileSize(ctx, accessToken)
 	if nil != err {
 		return err
@@ -57,28 +53,19 @@ func (d *VndTrackStream) saveTo(
 			defer func() {
 				if nil != err {
 					if removeErr := os.Remove(partFileName); nil != removeErr {
-						err = fmt.Errorf(
-							"failed to remove incomplete track part file: %v: %w",
-							removeErr,
-							err,
-						)
+						err = errors.Join(err, fmt.Errorf("failed to remove incomplete track part file: %v", removeErr))
 					}
 				}
 
 				if closeErr := f.Close(); nil != closeErr {
-					closeErr = fmt.Errorf("failed to close track part file: %v: %w", closeErr, err)
-					switch {
-					case nil == err:
-						err = closeErr
-					default:
-						err = errors.Join(err, closeErr)
-					}
+					err = errors.Join(err, fmt.Errorf("failed to close track part file: %v", closeErr))
 				}
 			}()
 
 			if err := d.downloadRange(wgCtx, accessToken, start, end, f); nil != err {
 				return err
 			}
+
 			return nil
 		})
 	}
@@ -94,7 +81,7 @@ func (d *VndTrackStream) saveTo(
 	defer func() {
 		if nil != err {
 			if removeErr := os.Remove(fileName); nil != removeErr {
-				err = fmt.Errorf("failed to remove incomplete track file: %v: %w", removeErr, err)
+				err = errors.Join(err, fmt.Errorf("failed to remove incomplete track file: %v", removeErr))
 			}
 		}
 
@@ -128,14 +115,15 @@ func (d *VndTrackStream) fileSize(ctx context.Context, accessToken string) (size
 	client := http.Client{Timeout: d.GetTrackFileSizeTimeout} //nolint:exhaustruct
 	resp, err := client.Do(req)
 	if nil != err {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return 0, context.DeadlineExceeded
+		}
+
 		return 0, fmt.Errorf("failed to send get track metadata request: %v", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
-			err = errors.Join(
-				err,
-				fmt.Errorf("failed to close get track metadata response body: %v", closeErr),
-			)
+			err = errors.Join(err, fmt.Errorf("failed to close get track metadata response body: %v", closeErr))
 		}
 	}()
 
@@ -147,8 +135,10 @@ func (d *VndTrackStream) fileSize(ctx context.Context, accessToken string) (size
 			if nil != err {
 				return 0, err
 			}
+
 			return 0, fmt.Errorf("failed to parse content length: %v", err)
 		}
+
 		return size, nil
 	case http.StatusUnauthorized:
 		respBytes, err := io.ReadAll(resp.Body)
@@ -189,6 +179,7 @@ func (d *VndTrackStream) fileSize(ctx context.Context, accessToken string) (size
 		if nil != err {
 			return 0, err
 		}
+
 		return 0, fmt.Errorf("unexpected status code: %d", code)
 	}
 }
@@ -201,12 +192,7 @@ type VNDManifest struct {
 	URLs           []string `json:"urls"`
 }
 
-func (d *VndTrackStream) downloadRange(
-	ctx context.Context,
-	accessToken string,
-	start, end int,
-	f *os.File,
-) (err error) {
+func (d *VndTrackStream) downloadRange(ctx context.Context, accessToken string, start, end int, f *os.File) (err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.URL, nil)
 	if nil != err {
 		return fmt.Errorf("failed to create get track part request: %v", err)
@@ -217,6 +203,10 @@ func (d *VndTrackStream) downloadRange(
 	client := http.Client{Timeout: d.DownloadTimeout} //nolint:exhaustruct
 	resp, err := client.Do(req)
 	if nil != err {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return context.DeadlineExceeded
+		}
+
 		return fmt.Errorf("failed to send get track part request: %v", err)
 	}
 	defer func() {

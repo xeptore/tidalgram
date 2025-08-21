@@ -1,4 +1,4 @@
-package download
+package downloader
 
 import (
 	"bytes"
@@ -25,11 +25,7 @@ type DashTrackStream struct {
 	DownloadTimeout time.Duration
 }
 
-func (d *DashTrackStream) saveTo(
-	ctx context.Context,
-	accessToken string,
-	fileName string,
-) (err error) {
+func (d *DashTrackStream) saveTo(ctx context.Context, accessToken string, fileName string) (err error) {
 	var (
 		numBatches = mathutil.DivCeil(d.Info.Parts.Count, maxBatchParts)
 		wg, wgCtx  = errgroup.WithContext(ctx)
@@ -41,6 +37,7 @@ func (d *DashTrackStream) saveTo(
 			if err := d.downloadBatch(wgCtx, accessToken, fileName, i); nil != err {
 				return err
 			}
+
 			return nil
 		})
 	}
@@ -61,13 +58,7 @@ func (d *DashTrackStream) saveTo(
 		}
 
 		if closeErr := f.Close(); nil != closeErr {
-			closeErr = fmt.Errorf("failed to close track file: %v: %w", closeErr, err)
-			switch {
-			case nil == err:
-				err = errors.Join(err, closeErr)
-			default:
-				err = errors.Join(err, closeErr)
-			}
+			err = errors.Join(err, fmt.Errorf("failed to close track file: %v", closeErr))
 		}
 	}()
 
@@ -93,13 +84,7 @@ func writePartToTrackFile(f *os.File, partFileName string) (err error) {
 	}
 	defer func() {
 		if closeErr := fp.Close(); nil != closeErr {
-			closeErr = fmt.Errorf("failed to close track part file: %v: %w", closeErr, err)
-			switch {
-			case nil == err:
-				err = errors.Join(err, closeErr)
-			default:
-				err = errors.Join(err, closeErr)
-			}
+			err = errors.Join(err, fmt.Errorf("failed to close track part file: %v", closeErr))
 		}
 	}()
 
@@ -114,11 +99,7 @@ func writePartToTrackFile(f *os.File, partFileName string) (err error) {
 	return nil
 }
 
-func (d *DashTrackStream) downloadBatch(
-	ctx context.Context,
-	accessToken, fileName string,
-	idx int,
-) (err error) {
+func (d *DashTrackStream) downloadBatch(ctx context.Context, accessToken, fileName string, idx int) (err error) {
 	f, err := os.OpenFile(
 		fileName+".part."+strconv.Itoa(idx),
 		os.O_CREATE|os.O_WRONLY|os.O_TRUNC|os.O_SYNC,
@@ -130,11 +111,7 @@ func (d *DashTrackStream) downloadBatch(
 	defer func() {
 		if nil != err {
 			if removeErr := os.Remove(f.Name()); nil != removeErr {
-				err = fmt.Errorf(
-					"failed to remove incomplete track part file: %v: %w",
-					removeErr,
-					err,
-				)
+				err = errors.Join(err, fmt.Errorf("failed to remove incomplete track part file: %v", removeErr))
 			}
 		}
 
@@ -162,11 +139,7 @@ func (d *DashTrackStream) downloadBatch(
 	return nil
 }
 
-func (d *DashTrackStream) downloadSegment(
-	ctx context.Context,
-	accessToken, link string,
-	f *os.File,
-) (err error) {
+func (d *DashTrackStream) downloadSegment(ctx context.Context, accessToken, link string, f *os.File) (err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
 	if nil != err {
 		return fmt.Errorf("failed to create get track part request: %v", err)
@@ -176,14 +149,15 @@ func (d *DashTrackStream) downloadSegment(
 	client := http.Client{Timeout: d.DownloadTimeout} //nolint:exhaustruct
 	resp, err := client.Do(req)
 	if nil != err {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return context.DeadlineExceeded
+		}
+
 		return fmt.Errorf("failed to send get track part request: %v", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
-			err = errors.Join(
-				err,
-				fmt.Errorf("failed to close get track part response body: %v", closeErr),
-			)
+			err = errors.Join(err, fmt.Errorf("failed to close get track part response body: %v", closeErr))
 		}
 	}()
 
@@ -227,6 +201,7 @@ func (d *DashTrackStream) downloadSegment(
 		if nil != err {
 			return err
 		}
+
 		return fmt.Errorf("unexpected status code received from get track part: %d", status)
 	}
 

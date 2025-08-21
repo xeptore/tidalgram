@@ -78,6 +78,7 @@ func (m *MPD) parts() (*Parts, error) {
 			partsCount++
 		}
 	}
+
 	return &Parts{
 		InitializationURLTemplate: m.Period.AdaptationSet.Representation.SegmentTemplate.Media,
 		Count:                     partsCount,

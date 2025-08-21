@@ -116,5 +116,10 @@ formatters:
         - standard
         - default
         - prefix(github.com/xeptore/tidalgram)
+    golines:
+      max-len: 200
+      shorten-comments: true
+      reformat-tags: true
+      chain-split-dots: true
   exclusions:
     generated: strict

@@ -4,76 +4,184 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sethvargo/go-retry"
 
+	"github.com/xeptore/tidalgram/cache"
+	"github.com/xeptore/tidalgram/config"
+	"github.com/xeptore/tidalgram/must"
 	"github.com/xeptore/tidalgram/tidal/auth"
+	"github.com/xeptore/tidalgram/tidal/downloader"
+	"github.com/xeptore/tidalgram/tidal/fs"
+	"github.com/xeptore/tidalgram/tidal/types"
 )
 
 type Client struct {
-	auth *auth.Auth
+	auth        *auth.Auth
+	loginSem    chan struct{}
+	dl          *downloader.Downloader
+	downloadSem chan struct{}
 }
 
-func NewClient(credsDir string) (*Client, error) {
+func NewClient(credsDir, dlDir string, conf config.Tidal) (*Client, error) {
 	a, err := auth.New(credsDir)
 	if nil != err {
 		return nil, fmt.Errorf("failed to create auth: %w", err)
 	}
 
+	c := cache.New()
+
+	dl := downloader.NewDownloader(fs.DownloadDirFrom(dlDir), conf.Downloader, a, c)
+
 	return &Client{
-		auth: a,
+		auth:        a,
+		dl:          dl,
+		loginSem:    make(chan struct{}, 1),
+		downloadSem: make(chan struct{}, 1),
 	}, nil
 }
 
 var (
-	ErrTokenRefreshRequired = errors.New("auth token refresh required")
-	ErrTokenRefreshed       = errors.New("auth token refreshed")
-	ErrLoginRequired        = errors.New("login required")
-	ErrUnauthorized         = auth.ErrUnauthorized
+	ErrTokenRefreshRequired      = errors.New("auth token refresh required")
+	ErrTokenRefreshed            = errors.New("auth token refreshed")
+	ErrLoginRequired             = errors.New("login required")
+	ErrUnauthorized              = auth.ErrUnauthorized
+	ErrDownloadInProgress        = errors.New("download in progress")
+	ErrLoginInProgress           = auth.ErrLoginInProgress
+	ErrLoginLinkExpired          = auth.ErrLoginLinkExpired
+	ErrUnsupportedArtistLinkKind = downloader.ErrUnsupportedArtistLinkKind
+	ErrUnsupportedVideoLinkKind  = downloader.ErrUnsupportedVideoLinkKind
 )
 
-type DownloadedLink struct{}
-
-func (c *Client) DownloadLink(ctx context.Context, link string) (*DownloadedLink, error) {
-	res, err := retry.DoValue(
-		ctx,
-		retry.WithMaxRetries(7, retry.NewFibonacci(1*time.Second)),
-		func(ctx context.Context) (*DownloadedLink, error) {
-			res, err := c.downloadLink(ctx, link)
-			if nil != err {
-				if errors.Is(err, ErrLoginRequired) {
-					return nil, ErrLoginRequired
-				}
-				if errors.Is(err, ErrTokenRefreshRequired) {
-					if err := c.auth.TryRefreshToken(ctx); nil != err {
-						if errors.Is(err, auth.ErrTokenRefreshInProgress) {
-							return nil, retry.RetryableError(auth.ErrTokenRefreshInProgress)
-						}
-						if errors.Is(err, auth.ErrUnauthorized) {
-							return nil, ErrLoginRequired
-						}
-
-						return nil, fmt.Errorf("failed to refresh token: %v", err)
+func (c *Client) TryDownloadLink(ctx context.Context, link types.Link) error {
+	select {
+	case c.downloadSem <- struct{}{}:
+		defer func() { <-c.downloadSem }()
+		err := retry.Do(
+			ctx,
+			retry.WithMaxRetries(7, retry.NewFibonacci(1*time.Second)),
+			func(ctx context.Context) error {
+				if err := c.downloadLink(ctx, link); nil != err {
+					if errors.Is(err, context.DeadlineExceeded) {
+						return context.DeadlineExceeded
 					}
 
-					return nil, retry.RetryableError(ErrTokenRefreshed)
+					if errors.Is(err, ErrLoginRequired) {
+						return ErrLoginRequired
+					}
+
+					if errors.Is(err, ErrTokenRefreshRequired) {
+						if err := c.auth.RefreshToken(ctx); nil != err {
+							if errors.Is(err, auth.ErrUnauthorized) {
+								return ErrLoginRequired
+							}
+
+							return fmt.Errorf("failed to refresh token: %v", err)
+						}
+
+						return retry.RetryableError(ErrTokenRefreshed)
+					}
+
+					if errors.Is(err, downloader.ErrUnsupportedArtistLinkKind) {
+						return ErrUnsupportedArtistLinkKind
+					}
+
+					if errors.Is(err, downloader.ErrUnsupportedVideoLinkKind) {
+						return ErrUnsupportedVideoLinkKind
+					}
+
+					return fmt.Errorf("failed to download link: %v", err)
 				}
 
-				return nil, fmt.Errorf("failed to download link: %v", err)
+				return nil
+			},
+		)
+		if nil != err {
+			if errors.Is(err, ErrTokenRefreshed) {
+				// Give it another chance to download the link even when max retries are reached.
+				return c.downloadLink(ctx, link)
 			}
 
-			return res, nil
-		},
-	)
-	if nil != err {
-		if errors.Is(err, ErrTokenRefreshed) {
-			// Give it another chance to download the link even when max retries are reached.
-			return c.downloadLink(ctx, link)
+			return fmt.Errorf("failed to download link after retries: %v", err)
 		}
 
-		return nil, fmt.Errorf("failed to download link: %v", err)
+		return nil
+	default:
+		return ErrDownloadInProgress
+	}
+}
+
+func (c *Client) TryInitiateLoginFlow(ctx context.Context) (*auth.LoginLink, <-chan error, error) {
+	select {
+	case c.loginSem <- struct{}{}:
+		defer func() { <-c.loginSem }()
+		link, wait, err := c.auth.InitiateLoginFlow(ctx)
+		if nil != err {
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, nil, context.DeadlineExceeded
+			}
+
+			return nil, nil, fmt.Errorf("failed to initiate login flow: %v", err)
+		}
+
+		return link, wait, nil
+	default:
+		return nil, nil, ErrLoginInProgress
+	}
+}
+
+func ParseLink(l string) types.Link {
+	u, err := url.Parse(l)
+	must.Be(nil == err, "link is expected to be a valid URL")
+
+	var (
+		id   string
+		kind types.LinkKind
+	)
+	switch pathParts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 3); len(pathParts) {
+	case 2:
+		id = pathParts[1]
+		switch k := pathParts[0]; k {
+		case "mix":
+			kind = types.LinkKindMix
+		case "playlist":
+			kind = types.LinkKindPlaylist
+		case "album":
+			kind = types.LinkKindAlbum
+		case "track":
+			kind = types.LinkKindTrack
+		case "artist":
+			kind = types.LinkKindArtist
+		case "video":
+			kind = types.LinkKindVideo
+		default:
+			panic("unexpected link media type: " + k)
+		}
+	case 3:
+		id = pathParts[2]
+		switch k := pathParts[1]; k {
+		case "mix":
+			kind = types.LinkKindMix
+		case "playlist":
+			kind = types.LinkKindPlaylist
+		case "album":
+			kind = types.LinkKindAlbum
+		case "track":
+			kind = types.LinkKindTrack
+		case "artist":
+			kind = types.LinkKindArtist
+		case "video":
+			kind = types.LinkKindVideo
+		default:
+			panic("unexpected link media type: " + k)
+		}
+	default:
+		panic("unexpected link parts length: " + strconv.Itoa(len(pathParts)))
 	}
 
-	return res, nil
+	return types.Link{Kind: kind, ID: id}
 }

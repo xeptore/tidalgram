@@ -39,7 +39,7 @@ func (f AuthFile) Read() (c *AuthFileContent, err error) {
 	dec := json.NewDecoder(file)
 	dec.DisallowUnknownFields()
 	if err := dec.DecodeWithOption(&c, json.DecodeFieldPriorityFirstWin()); nil != err {
-		return nil, fmt.Errorf("failed to decode token file: %v", err)
+		return nil, fmt.Errorf("failed to decode token file contents: %v", err)
 	}
 
 	return c, nil

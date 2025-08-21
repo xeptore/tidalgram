@@ -17,9 +17,9 @@ var (
 )
 
 type Cache struct {
-	AlbumsMeta       AlbumsMetaCache
-	DownloadedCovers DownloadedCoversCache
-	TrackCredits     TrackCreditsCache
+	AlbumsMeta   AlbumsMetaCache
+	Covers       DownloadedCoversCache
+	TrackCredits TrackCreditsCache
 }
 
 func New() *Cache {
@@ -49,7 +49,7 @@ func New() *Cache {
 			c:   albumsMetaCache,
 			mux: sync.Mutex{},
 		},
-		DownloadedCovers: DownloadedCoversCache{
+		Covers: DownloadedCoversCache{
 			c:   downloadedCoversCache,
 			mux: sync.Mutex{},
 		},
@@ -72,6 +72,7 @@ func (c *DownloadedCoversCache) Fetch(
 ) (*ccache.Item[[]byte], error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
+
 	return c.c.Fetch(k, ttl, fetch)
 }
 
@@ -80,13 +81,10 @@ type AlbumsMetaCache struct {
 	mux sync.Mutex
 }
 
-func (c *AlbumsMetaCache) Fetch(
-	k string,
-	ttl time.Duration,
-	fetch func() (*types.AlbumMeta, error),
-) (*ccache.Item[*types.AlbumMeta], error) {
+func (c *AlbumsMetaCache) Fetch(k string, ttl time.Duration, fetch func() (*types.AlbumMeta, error)) (*ccache.Item[*types.AlbumMeta], error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
+
 	return c.c.Fetch(k, ttl, fetch)
 }
 
@@ -95,13 +93,10 @@ type TrackCreditsCache struct {
 	mux sync.Mutex
 }
 
-func (c *TrackCreditsCache) Fetch(
-	k string,
-	ttl time.Duration,
-	fetch func() (*types.TrackCredits, error),
-) (*ccache.Item[*types.TrackCredits], error) {
+func (c *TrackCreditsCache) Fetch(k string, ttl time.Duration, fetch func() (*types.TrackCredits, error)) (*ccache.Item[*types.TrackCredits], error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
+
 	return c.c.Fetch(k, ttl, fetch)
 }
 

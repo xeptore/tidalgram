@@ -29,11 +29,14 @@ func main() {
 	app := &cli.Command{
 		Name:    "tidalgram",
 		Version: constants.Version,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"compiled_at": constants.CompileTime,
 		},
-		Suggest: true,
-		Usage:   "Telegram Tidal Downloader",
+		Suggest:                    true,
+		Usage:                      "Telegram Tidal Downloader",
+		EnableShellCompletion:      true,
+		ShellCompletionCommandName: "shell-completion",
+		AllowExtFlags:              false,
 		Commands: []*cli.Command{
 			//nolint:exhaustruct
 			{
@@ -95,9 +98,11 @@ func main() {
 	}
 
 	if err := app.Run(ctx, os.Args); nil != err {
-		if errors.Is(err, context.Canceled) {
-			logger.Trace().Msg("Application was canceled")
-			return
+		if err := ctx.Err(); nil != err {
+			if errors.Is(err, context.Canceled) {
+				logger.Trace().Msg("Application was canceled")
+				return
+			}
 		}
 		logger.Error().Err(err).Msg("Application exited with error")
 	}
@@ -115,7 +120,12 @@ func runBot(ctx context.Context, cmd *cli.Command) error {
 		logger.Debug().Msg(".env file was loaded")
 	}
 
-	cfg, err := config.Load(cmd.String("config"))
+	cfgPath := cmd.String("config")
+	if cfgPath == "" {
+		cfgPath = "config.yaml"
+	}
+
+	cfg, err := config.Load(cfgPath)
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
@@ -123,7 +133,7 @@ func runBot(ctx context.Context, cmd *cli.Command) error {
 
 	logger = logging.FromConfig(&cfg.Logging)
 
-	t, err := tidal.NewClient(cfg.Bot.CredsDir)
+	t, err := tidal.NewClient(cfg.Bot.CredsDir, cfg.Bot.DownloadsDir, cfg.Tidal)
 	if nil != err {
 		return fmt.Errorf("failed to create tidal client: %v", err)
 	}
@@ -144,7 +154,7 @@ func runBot(ctx context.Context, cmd *cli.Command) error {
 	<-ctx.Done()
 	logger.Info().Msg("Stopping TidalGram application")
 
-	if err := b.Stop(ctx); nil != err {
+	if err := b.Stop(); nil != err {
 		return fmt.Errorf("failed to stop tidalgram bot: %v", err)
 	}
 	logger.Info().Msg("TidalGram bot stopped successfully")
@@ -164,7 +174,12 @@ func logoutBot(ctx context.Context, cmd *cli.Command) error {
 		logger.Debug().Msg(".env file was loaded")
 	}
 
-	cfg, err := config.Load(cmd.String("config"))
+	cfgPath := cmd.String("config")
+	if cfgPath == "" {
+		cfgPath = "config.yaml"
+	}
+
+	cfg, err := config.Load(cfgPath)
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
@@ -198,7 +213,12 @@ func closeBot(ctx context.Context, cmd *cli.Command) error {
 		logger.Info().Msg(".env file was loaded")
 	}
 
-	cfg, err := config.Load(cmd.String("config"))
+	cfgPath := cmd.String("config")
+	if cfgPath == "" {
+		cfgPath = "config.yaml"
+	}
+
+	cfg, err := config.Load(cfgPath)
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}

@@ -58,7 +58,7 @@ tasks:
       - task: install-linter
     cmds:
       - ./tools/golangci-lint run --output.text.path stdout ./...
-  
+
   fmt:
     deps:
       - task: install-linter

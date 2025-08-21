@@ -5,27 +5,41 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/xeptore/tidalgram/tidal/downloader"
+	"github.com/xeptore/tidalgram/tidal/types"
 )
 
-func (c *Client) downloadLink(ctx context.Context, link string) (*DownloadedLink, error) {
+func (c *Client) downloadLink(ctx context.Context, link types.Link) error {
 	creds := c.auth.Credentials()
 
 	if creds.ExpiresAt.IsZero() {
-		return nil, ErrLoginRequired
+		return ErrLoginRequired
 	}
 
 	if time.Now().Add(10 * time.Minute).After(creds.ExpiresAt) {
-		return nil, ErrTokenRefreshRequired
+		return ErrTokenRefreshRequired
 	}
 
-	info, err := c.downloadLink(ctx, link)
-	if nil != err {
-		if errors.Is(err, ErrUnauthorized) {
-			return nil, ErrTokenRefreshRequired
+	if err := c.dl.Download(ctx, link); nil != err {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return context.DeadlineExceeded
 		}
 
-		return nil, fmt.Errorf("failed to download link: %v", err)
+		if errors.Is(err, downloader.ErrUnsupportedArtistLinkKind) {
+			return downloader.ErrUnsupportedArtistLinkKind
+		}
+
+		if errors.Is(err, downloader.ErrUnsupportedVideoLinkKind) {
+			return downloader.ErrUnsupportedVideoLinkKind
+		}
+
+		if errors.Is(err, ErrUnauthorized) {
+			return ErrTokenRefreshRequired
+		}
+
+		return fmt.Errorf("failed to download link: %v", err)
 	}
 
-	return info, nil
+	return nil
 }

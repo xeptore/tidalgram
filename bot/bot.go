@@ -68,7 +68,7 @@ func New(
 		},
 	})
 	if nil != err {
-		return nil, fmt.Errorf("failed to create bot: %w", err)
+		return nil, fmt.Errorf("failed to create bot: %v", err)
 	}
 
 	dispatcher := ext.NewDispatcher(&ext.DispatcherOpts{ //nolint:exhaustruct
@@ -106,7 +106,7 @@ func (b *Bot) Start() error {
 		EnableWebhookDeletion: true,
 	}
 	if err := b.updater.StartPolling(b.bot, &pollOpts); nil != err {
-		return fmt.Errorf("failed to start polling: %w", err)
+		return fmt.Errorf("failed to start polling: %v", err)
 	}
 
 	return nil
@@ -135,7 +135,7 @@ func NewAPI(
 		},
 	})
 	if nil != err {
-		return nil, fmt.Errorf("failed to create bot: %w", err)
+		return nil, fmt.Errorf("failed to create bot: %v", err)
 	}
 
 	return &APIBot{
@@ -162,7 +162,7 @@ func fillAccount(bot *gotgbot.Bot) Account {
 func (b *APIBot) Logout(ctx context.Context) error {
 	ok, err := b.bot.LogOutWithContext(ctx, nil)
 	if nil != err {
-		return fmt.Errorf("failed to log out: %w", err)
+		return fmt.Errorf("failed to log out: %v", err)
 	}
 	if !ok {
 		return errors.New("failed to log out")
@@ -176,7 +176,7 @@ func (b *APIBot) Logout(ctx context.Context) error {
 func (b *APIBot) Close(ctx context.Context) error {
 	ok, err := b.bot.DeleteWebhookWithContext(ctx, nil)
 	if nil != err {
-		return fmt.Errorf("failed to delete webhook: %w", err)
+		return fmt.Errorf("failed to delete webhook: %v", err)
 	}
 	if !ok {
 		return errors.New("failed to delete webhook")
@@ -184,7 +184,7 @@ func (b *APIBot) Close(ctx context.Context) error {
 
 	ok, err = b.bot.CloseWithContext(ctx, nil)
 	if nil != err {
-		return fmt.Errorf("failed to close bot: %w", err)
+		return fmt.Errorf("failed to close bot: %v", err)
 	}
 	if !ok {
 		return errors.New("failed to close bot")
@@ -193,26 +193,21 @@ func (b *APIBot) Close(ctx context.Context) error {
 	return nil
 }
 
-func (b *Bot) Stop(ctx context.Context) error {
+func (b *Bot) Stop() error {
 	if err := b.updater.Stop(); nil != err {
-		return fmt.Errorf("failed to stop updater: %w", err)
+		return fmt.Errorf("failed to bot stop updater: %v", err)
 	}
 
 	return nil
 }
 
-func registerHandlers(
-	ctx context.Context,
-	d *ext.Dispatcher,
-	config *config.Bot,
-	tidal *tidal.Client,
-) {
+func registerHandlers(ctx context.Context, d *ext.Dispatcher, config *config.Bot, tidal *tidal.Client) {
 	d.AddHandler(
 		handlers.
 			NewMessage(
 				tidalURLFilter,
 				NewChainHandler(
-					NewAdminOnlyGuard(config.AdminID),
+					NewPapaOnlyGuard(config.PapaID),
 					NewTidalURLHandler(ctx, tidal),
 				),
 			).
@@ -225,7 +220,7 @@ func registerHandlers(
 			NewCommand(
 				"start",
 				NewChainHandler(
-					NewStartCommandHandler(ctx, config.AdminID),
+					NewStartCommandHandler(ctx, config.PapaID),
 				),
 			).
 			SetAllowChannel(false).
@@ -237,7 +232,7 @@ func registerHandlers(
 			NewCommand(
 				"status",
 				NewChainHandler(
-					NewAdminOnlyGuard(config.AdminID),
+					NewPapaOnlyGuard(config.PapaID),
 					NewStatusCommandHandler(ctx, tidal),
 				),
 			).
@@ -250,7 +245,7 @@ func registerHandlers(
 			NewCommand(
 				"cancel",
 				NewChainHandler(
-					NewAdminOnlyGuard(config.AdminID),
+					NewPapaOnlyGuard(config.PapaID),
 					NewCancelCommandHandler(ctx, tidal),
 				),
 			).
@@ -263,7 +258,7 @@ func registerHandlers(
 			NewCommand(
 				"authorize",
 				NewChainHandler(
-					NewAdminOnlyGuard(config.AdminID),
+					NewPapaOnlyGuard(config.PapaID),
 					NewAuthorizeCommandHandler(ctx, tidal),
 				),
 			).
@@ -273,10 +268,7 @@ func registerHandlers(
 }
 
 func tidalURLFilter(msg *gotgbot.Message) bool {
-	return message.Text(msg) &&
-		!message.Command(msg) &&
-		message.Entity("url")(msg) &&
-		isTidalURL(msg.Text)
+	return message.Text(msg) && !message.Command(msg) && message.Entity("url")(msg) && isTidalURL(msg.Text)
 }
 
 func isTidalURL(msg string) bool {

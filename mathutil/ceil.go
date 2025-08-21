@@ -13,5 +13,6 @@ func DivCeil[T constraints.Signed](a, b T) T {
 	if r != 0 && sameSign {
 		q++
 	}
+
 	return q
 }

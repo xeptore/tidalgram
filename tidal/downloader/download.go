@@ -1,0 +1,193 @@
+package downloader
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+	"time"
+
+	"github.com/xeptore/tidalgram/cache"
+	"github.com/xeptore/tidalgram/config"
+	"github.com/xeptore/tidalgram/httputil"
+	"github.com/xeptore/tidalgram/tidal/auth"
+	"github.com/xeptore/tidalgram/tidal/fs"
+	"github.com/xeptore/tidalgram/tidal/types"
+)
+
+const (
+	trackAPIFormat             = "https://api.tidal.com/v1/tracks/%s"
+	trackCreditsAPIFormat      = "https://api.tidal.com/v1/tracks/%s/credits" //nolint:gosec
+	trackLyricsAPIFormat       = "https://api.tidal.com/v1/tracks/%s/lyrics"
+	albumAPIFormat             = "https://api.tidal.com/v1/albums/%s"
+	playlistAPIFormat          = "https://api.tidal.com/v1/playlists/%s"
+	mixInfoURL                 = "https://listen.tidal.com/v1/pages/mix"
+	trackStreamAPIFormat       = "https://api.tidal.com/v1/tracks/%s/playbackinfo"
+	albumItemsCreditsAPIFormat = "https://api.tidal.com/v1/albums/%s/items/credits" //nolint:gosec
+	playlistItemsAPIFormat     = "https://api.tidal.com/v1/playlists/%s/items"
+	mixItemsAPIFormat          = "https://api.tidal.com/v1/mixes/%s/items"
+	coverURLFormat             = "https://resources.tidal.com/images/%s/1280x1280.jpg"
+	pageSize                   = 100
+	maxBatchParts              = 10
+	singlePartChunkSize        = 1024 * 1024
+)
+
+var (
+	ErrTooManyRequests           = errors.New("too many requests")
+	ErrUnsupportedArtistLinkKind = errors.New("artist link kind is not supported")
+	ErrUnsupportedVideoLinkKind  = errors.New("video link kind is not supported")
+)
+
+type Downloader struct {
+	dir   fs.DownloadDir
+	auth  *auth.Auth
+	conf  config.TidalDownloader
+	cache *cache.Cache
+}
+
+func NewDownloader(
+	dir fs.DownloadDir,
+	conf config.TidalDownloader,
+	auth *auth.Auth,
+	cache *cache.Cache,
+) *Downloader {
+	return &Downloader{
+		dir:   dir,
+		conf:  conf,
+		auth:  auth,
+		cache: cache,
+	}
+}
+
+func (d *Downloader) Download(ctx context.Context, link types.Link) error {
+	switch k := link.Kind; k {
+	case types.LinkKindAlbum:
+		return d.album(ctx, link.ID)
+	case types.LinkKindTrack:
+		return d.track(ctx, link.ID)
+	case types.LinkKindMix:
+		return d.mix(ctx, link.ID)
+	case types.LinkKindPlaylist:
+		return d.playlist(ctx, link.ID)
+	case types.LinkKindArtist:
+		return ErrUnsupportedArtistLinkKind
+	case types.LinkKindVideo:
+		return ErrUnsupportedVideoLinkKind
+	default:
+		panic("unexpected link kind: " + strconv.Itoa(int(k)))
+	}
+}
+
+type ListTrackMeta struct {
+	AlbumID      string
+	AlbumTitle   string
+	ISRC         string
+	Copyright    string
+	Artist       string
+	Artists      []types.TrackArtist
+	CoverID      string
+	Duration     int
+	ID           string
+	Title        string
+	TrackNumber  int
+	Version      *string
+	VolumeNumber int
+}
+
+func (d *Downloader) getListPagedItems(ctx context.Context, accessToken, itemsURL string, page int) ([]byte, error) {
+	reqParams := make(url.Values, 3)
+	reqParams.Add("countryCode", "US")
+	reqParams.Add("limit", strconv.Itoa(pageSize))
+	reqParams.Add("offset", strconv.Itoa(page*pageSize))
+
+	return d.getPagedItems(ctx, accessToken, itemsURL, reqParams)
+}
+
+func (d *Downloader) getPagedItems(ctx context.Context, accessToken, itemsURL string, reqParams url.Values) (b []byte, err error) {
+	reqURL, err := url.Parse(itemsURL)
+	if nil != err {
+		return nil, fmt.Errorf("failed to parse page items URL: %v", err)
+	}
+
+	reqURL.RawQuery = reqParams.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
+	if nil != err {
+		return nil, fmt.Errorf("failed to create get page items request: %v", err)
+	}
+	req.Header.Add("Authorization", "Bearer "+accessToken)
+
+	client := http.Client{ //nolint:exhaustruct
+		Timeout: time.Duration(d.conf.Timeouts.GetPagedTracks) * time.Second,
+	}
+	resp, err := client.Do(req)
+	if nil != err {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, context.DeadlineExceeded
+		}
+
+		return nil, fmt.Errorf("failed to send get page items request: %v", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); nil != closeErr {
+			err = errors.Join(
+				err,
+				fmt.Errorf("failed to close get page items response body: %v", closeErr),
+			)
+		}
+	}()
+
+	switch code := resp.StatusCode; code {
+	case http.StatusOK:
+	case http.StatusUnauthorized:
+		respBytes, err := io.ReadAll(resp.Body)
+		if nil != err {
+			return nil, err
+		}
+
+		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
+			return nil, err
+		} else if ok {
+			return nil, auth.ErrUnauthorized
+		}
+
+		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
+			return nil, err
+		} else if ok {
+			return nil, auth.ErrUnauthorized
+		}
+
+		return nil, errors.New("received 401 response")
+	case http.StatusTooManyRequests:
+		return nil, ErrTooManyRequests
+	case http.StatusForbidden:
+		respBytes, err := io.ReadAll(resp.Body)
+		if nil != err {
+			return nil, err
+		}
+		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
+			return nil, err
+		} else if ok {
+			return nil, ErrTooManyRequests
+		}
+
+		return nil, errors.New("unexpected 403 response")
+	default:
+		_, err := io.ReadAll(resp.Body)
+		if nil != err {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("unexpected status code: %d", code)
+	}
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if nil != err {
+		return nil, err
+	}
+
+	return respBytes, nil
+}

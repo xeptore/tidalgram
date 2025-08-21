@@ -9,5 +9,6 @@ func OptimalAlbumSize(total int) int {
 	if total%numAlbums == 0 {
 		return total / numAlbums
 	}
+
 	return total/numAlbums + 1
 }
