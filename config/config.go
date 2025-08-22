@@ -43,6 +43,7 @@ type Bot struct {
 	Token        string `yaml:"-"`
 	CredsDir     string `yaml:"creds_dir"`
 	DownloadsDir string `yaml:"downloads_dir"`
+	Signature    string `yaml:"signature"`
 }
 
 func (c *Bot) setDefaults() {
@@ -205,11 +206,11 @@ func (c *TidalDownloadTimeouts) setDefaults() {
 	}
 
 	if c.GetVNDTrackFileSize == 0 {
-		c.GetVNDTrackFileSize = 2
+		c.GetVNDTrackFileSize = 5
 	}
 
 	if c.DownloadVNDSegment == 0 {
-		c.DownloadVNDSegment = 2
+		c.DownloadVNDSegment = 50
 	}
 }
 

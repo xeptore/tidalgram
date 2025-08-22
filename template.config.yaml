@@ -14,6 +14,10 @@ bot:
   # Downloads directory
   # Default: ./downloads
   downloads_dir: ./downloads
+  # OPTIONAL
+  # Signature to be added to the end of the caption in Markdown format
+  # Default: ""
+  signature: ""
 
 logging:
   # OPTIONAL
@@ -57,8 +61,8 @@ tidal:
       # Default: 10
       download_dash_segment: 10
       # OPTIONAL
-      # Default: 2
-      get_vnd_track_file_size: 2
+      # Default: 5
+      get_vnd_track_file_size: 5
       # OPTIONAL
-      # Default: 2
+      # Default: 10
       download_vnd_segment: 10

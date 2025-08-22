@@ -38,26 +38,9 @@ type AlbumTrackMeta struct {
 
 func (d *Downloader) album(ctx context.Context, id string) error {
 	accessToken := d.auth.Credentials().Token
-
 	album, err := d.getAlbumMeta(ctx, accessToken, id)
 	if nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return context.Canceled
-		}
-
-		if errors.Is(err, auth.ErrUnauthorized) {
-			return auth.ErrUnauthorized
-		}
-
-		if errors.Is(err, ErrTooManyRequests) {
-			return ErrTooManyRequests
-		}
-
-		return fmt.Errorf("failed to get album meta: %v", err)
+		return fmt.Errorf("failed to get album meta: %w", err)
 	}
 
 	albumFs := d.dir.Album(id)
@@ -66,44 +49,16 @@ func (d *Downloader) album(ctx context.Context, id string) error {
 	} else if !exists {
 		coverBytes, err := d.getCover(ctx, accessToken, album.CoverID)
 		if nil != err {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return context.DeadlineExceeded
-			}
-
-			if errors.Is(err, auth.ErrUnauthorized) {
-				return auth.ErrUnauthorized
-			}
-
-			if errors.Is(err, ErrTooManyRequests) {
-				return ErrTooManyRequests
-			}
-
-			return fmt.Errorf("failed to get album cover: %v", err)
+			return fmt.Errorf("failed to get album cover: %w", err)
 		}
 		if err := albumFs.Cover.Write(coverBytes); nil != err {
-			return err
+			return fmt.Errorf("failed to write album cover: %v", err)
 		}
 	}
 
 	volumes, err := d.getAlbumVolumes(ctx, accessToken, id)
 	if nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return context.Canceled
-		}
-
-		if errors.Is(err, auth.ErrUnauthorized) {
-			return auth.ErrUnauthorized
-		}
-
-		if errors.Is(err, ErrTooManyRequests) {
-			return ErrTooManyRequests
-		}
-
-		return fmt.Errorf("failed to get album volumes: %v", err)
+		return fmt.Errorf("failed to get album volumes: %w", err)
 	}
 
 	for _, volTracks := range volumes {
@@ -129,58 +84,27 @@ func (d *Downloader) album(ctx context.Context, id string) error {
 			wg.Go(func() (err error) {
 				trackFs := albumFs.Track(volNum, track.ID)
 				if exists, err := trackFs.Exists(); nil != err {
-					return err
+					return fmt.Errorf("failed to check if track file exists: %v", err)
 				} else if exists {
 					return nil
 				}
 				defer func() {
 					if nil != err {
 						if removeErr := trackFs.Remove(); nil != removeErr {
-							err = fmt.Errorf("failed to remove track file: %v: %v", removeErr, err)
+							if !errors.Is(removeErr, os.ErrNotExist) {
+								err = errors.Join(err, fmt.Errorf("failed to remove track file: %v", removeErr))
+							}
 						}
 					}
 				}()
 
 				trackLyrics, err := d.downloadTrackLyrics(ctx, accessToken, track.ID)
 				if nil != err {
-					if errors.Is(err, context.DeadlineExceeded) {
-						return context.DeadlineExceeded
-					}
-
-					if errors.Is(err, context.Canceled) {
-						return context.Canceled
-					}
-
-					if errors.Is(err, auth.ErrUnauthorized) {
-						return auth.ErrUnauthorized
-					}
-
-					if errors.Is(err, ErrTooManyRequests) {
-						return ErrTooManyRequests
-					}
-
-					return fmt.Errorf("failed to download track lyrics: %v", err)
+					return fmt.Errorf("failed to download track lyrics: %w", err)
 				}
 
-				format, err := d.downloadTrack(wgCtx, accessToken, track.ID, trackFs.Path)
-				if nil != err {
-					if errors.Is(err, context.DeadlineExceeded) {
-						return context.DeadlineExceeded
-					}
-
-					if errors.Is(err, context.Canceled) {
-						return context.Canceled
-					}
-
-					if errors.Is(err, auth.ErrUnauthorized) {
-						return auth.ErrUnauthorized
-					}
-
-					if errors.Is(err, ErrTooManyRequests) {
-						return ErrTooManyRequests
-					}
-
-					return fmt.Errorf("failed to download track: %v", err)
+				if err := d.downloadTrack(wgCtx, accessToken, track.ID, trackFs.Path); nil != err {
+					return fmt.Errorf("failed to download track: %w", err)
 				}
 
 				attrs := TrackEmbeddedAttrs{
@@ -190,7 +114,6 @@ func (d *Downloader) album(ctx context.Context, id string) error {
 					Artists:      track.Artists,
 					Copyright:    track.Copyright,
 					CoverPath:    albumFs.Cover.Path,
-					Format:       *format,
 					ISRC:         track.ISRC,
 					ReleaseDate:  album.ReleaseDate,
 					Title:        track.Title,
@@ -203,7 +126,7 @@ func (d *Downloader) album(ctx context.Context, id string) error {
 					Lyrics:       trackLyrics,
 				}
 				if err := embedTrackAttributes(ctx, trackFs.Path, attrs); nil != err {
-					return err
+					return fmt.Errorf("failed to embed track attributes: %v", err)
 				}
 
 				info := types.StoredSingleTrack{
@@ -212,13 +135,12 @@ func (d *Downloader) album(ctx context.Context, id string) error {
 						Title:    track.Title,
 						Duration: track.Duration,
 						Version:  track.Version,
-						Format:   *format,
 						CoverID:  album.CoverID,
 					},
 					Caption: trackCaption(*album),
 				}
 				if err := trackFs.InfoFile.Write(info); nil != err {
-					return err
+					return fmt.Errorf("failed to write track info file: %v", err)
 				}
 
 				return nil
@@ -227,7 +149,7 @@ func (d *Downloader) album(ctx context.Context, id string) error {
 	}
 
 	if err := wg.Wait(); nil != err {
-		return err
+		return fmt.Errorf("failed to wait for track download workers: %w", err)
 	}
 
 	info := types.StoredAlbum{
@@ -239,7 +161,7 @@ func (d *Downloader) album(ctx context.Context, id string) error {
 		VolumeTrackIDs: albumVolumeTrackIDs,
 	}
 	if err := albumFs.InfoFile.Write(info); nil != err {
-		return err
+		return fmt.Errorf("failed to write album info file: %v", err)
 	}
 
 	return nil
@@ -255,7 +177,11 @@ func (d *Downloader) getAlbumVolumes(ctx context.Context, accessToken, id string
 	for i := 0; ; i++ {
 		pageTracks, rem, err := d.albumTracksPage(ctx, accessToken, id, i)
 		if nil != err {
-			return nil, err
+			return nil, fmt.Errorf("failed to get album tracks page: %w", err)
+		}
+
+		if rem == 0 {
+			break
 		}
 
 		for _, track := range pageTracks {
@@ -269,10 +195,6 @@ func (d *Downloader) getAlbumVolumes(ctx context.Context, accessToken, id string
 			default:
 				return nil, fmt.Errorf("unexpected volume number: %d", track.VolumeNumber)
 			}
-		}
-
-		if rem == 0 {
-			break
 		}
 	}
 
@@ -289,7 +211,7 @@ func (d *Downloader) albumTracksPage(ctx context.Context, accessToken, id string
 
 	respBytes, err := d.getAlbumPagedItems(ctx, accessToken, albumURL, page)
 	if nil != err {
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("failed to get album paged items: %w", err)
 	}
 
 	var respBody struct {
@@ -327,7 +249,7 @@ func (d *Downloader) albumTracksPage(ctx context.Context, accessToken, id string
 
 	thisPageItemsCount := len(respBody.Items)
 	if thisPageItemsCount == 0 {
-		return nil, 0, os.ErrNotExist
+		return nil, 0, nil
 	}
 
 	for _, v := range respBody.Items {
@@ -380,7 +302,7 @@ func (d *Downloader) getAlbumMeta(ctx context.Context, accessToken, id string) (
 		func() (*types.AlbumMeta, error) { return d.downloadAlbumMeta(ctx, accessToken, id) },
 	)
 	if nil != err {
-		return nil, err
+		return nil, fmt.Errorf("failed to download album meta: %w", err)
 	}
 
 	return cachedAlbumMeta.Value(), nil
@@ -403,8 +325,9 @@ func (d *Downloader) downloadAlbumMeta(ctx context.Context, accessToken, id stri
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if nil != err {
-		return nil, fmt.Errorf("failed to create get album info request: %v", err)
+		return nil, fmt.Errorf("failed to create get album info request: %w", err)
 	}
+
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	client := http.Client{ //nolint:exhaustruct
@@ -412,22 +335,11 @@ func (d *Downloader) downloadAlbumMeta(ctx context.Context, accessToken, id stri
 	}
 	resp, err := client.Do(req)
 	if nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return nil, context.Canceled
-		}
-
-		return nil, fmt.Errorf("failed to send get album info request: %v", err)
+		return nil, fmt.Errorf("failed to send get album info request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
-			err = errors.Join(
-				err,
-				fmt.Errorf("failed to close get album info response body: %v", closeErr),
-			)
+			err = errors.Join(err, fmt.Errorf("failed to close get album info response body: %v", closeErr))
 		}
 	}()
 
@@ -436,17 +348,17 @@ func (d *Downloader) downloadAlbumMeta(ctx context.Context, accessToken, id stri
 	case http.StatusUnauthorized:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, err
+			return nil, fmt.Errorf("failed to read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
-			return nil, err
+			return nil, fmt.Errorf("failed to check if 401 response is token expired: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
 
 		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
-			return nil, err
+			return nil, fmt.Errorf("failed to check if 401 response is token invalid: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
@@ -457,10 +369,11 @@ func (d *Downloader) downloadAlbumMeta(ctx context.Context, accessToken, id stri
 	case http.StatusForbidden:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, err
+			return nil, fmt.Errorf("failed to read 403 response body: %w", err)
 		}
+
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
-			return nil, err
+			return nil, fmt.Errorf("failed to check if 403 response is too many requests: %v", err)
 		} else if ok {
 			return nil, ErrTooManyRequests
 		}
@@ -469,16 +382,12 @@ func (d *Downloader) downloadAlbumMeta(ctx context.Context, accessToken, id stri
 	default:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, err
+			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}
 
 		return nil, fmt.Errorf("unexpected response code %d with body: %s", code, string(respBytes))
 	}
 
-	respBytes, err := io.ReadAll(resp.Body)
-	if nil != err {
-		return nil, err
-	}
 	var respBody struct {
 		Artist struct {
 			Name string `json:"name"`
@@ -489,8 +398,8 @@ func (d *Downloader) downloadAlbumMeta(ctx context.Context, accessToken, id stri
 		TotalTracks  int    `json:"numberOfTracks"`
 		TotalVolumes int    `json:"numberOfVolumes"`
 	}
-	if err := json.Unmarshal(respBytes, &respBody); nil != err {
-		return nil, fmt.Errorf("failed to decode album info response: %v", err)
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); nil != err {
+		return nil, fmt.Errorf("failed to decode album info response: %w", err)
 	}
 
 	releaseDate, err := time.Parse("2006-01-02", respBody.ReleaseDate)

@@ -22,7 +22,7 @@ func (d *Downloader) getCover(ctx context.Context, accessToken, coverID string) 
 		func() ([]byte, error) { return d.downloadCover(ctx, accessToken, coverID) },
 	)
 	if nil != err {
-		return nil, err
+		return nil, fmt.Errorf("failed to download cover: %w", err)
 	}
 
 	return cachedCoverBytes.Value(), nil
@@ -38,8 +38,9 @@ func (d *Downloader) downloadCover(ctx context.Context, accessToken, coverID str
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, coverURL, nil)
 	if nil != err {
-		return nil, fmt.Errorf("failed to create get cover request: %v", err)
+		return nil, fmt.Errorf("failed to create get cover request: %w", err)
 	}
+
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	client := http.Client{ //nolint:exhaustruct
@@ -47,15 +48,7 @@ func (d *Downloader) downloadCover(ctx context.Context, accessToken, coverID str
 	}
 	resp, err := client.Do(req)
 	if nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return nil, context.Canceled
-		}
-
-		return nil, fmt.Errorf("failed to send download cover request: %v", err)
+		return nil, fmt.Errorf("failed to send download cover request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
@@ -68,7 +61,7 @@ func (d *Downloader) downloadCover(ctx context.Context, accessToken, coverID str
 	case http.StatusUnauthorized:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, fmt.Errorf("failed to read 401 response body: %v", err)
+			return nil, fmt.Errorf("failed to read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
@@ -89,7 +82,7 @@ func (d *Downloader) downloadCover(ctx context.Context, accessToken, coverID str
 	case http.StatusForbidden:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, fmt.Errorf("failed to read 403 response body: %v", err)
+			return nil, fmt.Errorf("failed to read 403 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
@@ -102,7 +95,7 @@ func (d *Downloader) downloadCover(ctx context.Context, accessToken, coverID str
 	default:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, fmt.Errorf("failed to read response body: %v", err)
+			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}
 
 		return nil, fmt.Errorf("unexpected status code %d with body: %s", code, string(respBytes))
@@ -110,7 +103,7 @@ func (d *Downloader) downloadCover(ctx context.Context, accessToken, coverID str
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
-		return nil, fmt.Errorf("failed to read 200 response body: %v", err)
+		return nil, fmt.Errorf("failed to read 200 response body: %w", err)
 	}
 
 	return respBytes, nil

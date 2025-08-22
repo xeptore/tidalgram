@@ -10,7 +10,6 @@ type TrackInfo struct {
 	Title    string        `json:"title"`
 	Duration int           `json:"duration"`
 	Version  *string       `json:"version"`
-	Format   TrackFormat   `json:"format"`
 	CoverID  string        `json:"cover_id"`
 }
 

@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/goccy/go-json"
@@ -42,26 +44,9 @@ type TrackMeta struct {
 
 func (d *Downloader) track(ctx context.Context, id string) (err error) {
 	accessToken := d.auth.Credentials().Token
-
 	track, err := getTrackMeta(ctx, accessToken, id)
 	if nil != err {
-		if errors.Is(err, auth.ErrUnauthorized) {
-			return auth.ErrUnauthorized
-		}
-
-		if errors.Is(err, ErrTooManyRequests) {
-			return ErrTooManyRequests
-		}
-
-		if errors.Is(err, context.DeadlineExceeded) {
-			return context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return context.Canceled
-		}
-
-		return fmt.Errorf("failed to get track meta: %v", err)
+		return fmt.Errorf("failed to get track meta: %w", err)
 	}
 
 	trackFs := d.dir.Track(id)
@@ -70,23 +55,7 @@ func (d *Downloader) track(ctx context.Context, id string) (err error) {
 	} else if !exists {
 		coverBytes, err := d.getCover(ctx, accessToken, track.CoverID)
 		if nil != err {
-			if errors.Is(err, auth.ErrUnauthorized) {
-				return auth.ErrUnauthorized
-			}
-
-			if errors.Is(err, ErrTooManyRequests) {
-				return ErrTooManyRequests
-			}
-
-			if errors.Is(err, context.DeadlineExceeded) {
-				return context.DeadlineExceeded
-			}
-
-			if errors.Is(err, context.Canceled) {
-				return context.Canceled
-			}
-
-			return fmt.Errorf("failed to get track cover: %v", err)
+			return fmt.Errorf("failed to get track cover: %w", err)
 		}
 		if err := trackFs.Cover.Write(coverBytes); nil != err {
 			return fmt.Errorf("failed to write track cover: %v", err)
@@ -108,56 +77,23 @@ func (d *Downloader) track(ctx context.Context, id string) (err error) {
 		}
 	}()
 
-	format, err := d.downloadTrack(ctx, accessToken, id, trackFs.Path)
-	if nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return context.Canceled
-		}
-
-		return err
+	if err := d.downloadTrack(ctx, accessToken, id, trackFs.Path); nil != err {
+		return fmt.Errorf("failed to download track: %w", err)
 	}
 
 	trackCredits, err := d.getTrackCredits(ctx, accessToken, id)
 	if nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return context.Canceled
-		}
-
-		return err
+		return fmt.Errorf("failed to get track credits: %w", err)
 	}
 
 	trackLyrics, err := d.downloadTrackLyrics(ctx, accessToken, id)
 	if nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return context.Canceled
-		}
-
-		return err
+		return fmt.Errorf("failed to download track lyrics: %w", err)
 	}
 
 	album, err := d.getAlbumMeta(ctx, accessToken, track.AlbumID)
 	if nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return context.Canceled
-		}
-
-		return err
+		return fmt.Errorf("failed to get album meta: %w", err)
 	}
 
 	attrs := TrackEmbeddedAttrs{
@@ -167,7 +103,6 @@ func (d *Downloader) track(ctx context.Context, id string) (err error) {
 		Artists:      track.Artists,
 		Copyright:    track.Copyright,
 		CoverPath:    trackFs.Cover.Path,
-		Format:       *format,
 		ISRC:         track.ISRC,
 		ReleaseDate:  album.ReleaseDate,
 		Title:        track.Title,
@@ -180,7 +115,7 @@ func (d *Downloader) track(ctx context.Context, id string) (err error) {
 		Lyrics:       trackLyrics,
 	}
 	if err := embedTrackAttributes(ctx, trackFs.Path, attrs); nil != err {
-		return err
+		return fmt.Errorf("failed to embed track attributes: %v", err)
 	}
 
 	info := types.StoredSingleTrack{
@@ -189,13 +124,12 @@ func (d *Downloader) track(ctx context.Context, id string) (err error) {
 			Title:    track.Title,
 			Duration: track.Duration,
 			Version:  track.Version,
-			Format:   *format,
 			CoverID:  track.CoverID,
 		},
 		Caption: trackCaption(*album),
 	}
 	if err := trackFs.InfoFile.Write(info); nil != err {
-		return err
+		return fmt.Errorf("failed to write track info: %v", err)
 	}
 
 	return nil
@@ -211,22 +145,16 @@ func getTrackMeta(ctx context.Context, accessToken, id string) (m *TrackMeta, er
 	reqURL.RawQuery = reqParams.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
-	must.NilErr(err)
+	if nil != err {
+		return nil, fmt.Errorf("failed to create get track info request: %w", err)
+	}
 
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	client := http.Client{Timeout: 5 * time.Second} //nolint:exhaustruct
 	resp, err := client.Do(req)
 	if nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return nil, context.Canceled
-		}
-
-		return nil, fmt.Errorf("failed to send get track info request: %v", err)
+		return nil, fmt.Errorf("failed to send get track info request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
@@ -239,7 +167,7 @@ func getTrackMeta(ctx context.Context, accessToken, id string) (m *TrackMeta, er
 	case http.StatusUnauthorized:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, fmt.Errorf("failed to read 401 response body: %v", err)
+			return nil, fmt.Errorf("failed to read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
@@ -260,7 +188,7 @@ func getTrackMeta(ctx context.Context, accessToken, id string) (m *TrackMeta, er
 	case http.StatusForbidden:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, fmt.Errorf("failed to read 403 response body: %v", err)
+			return nil, fmt.Errorf("failed to read 403 response body: %w", err)
 		}
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
 			return nil, fmt.Errorf("failed to check if 403 response is too many requests: %v", err)
@@ -272,15 +200,10 @@ func getTrackMeta(ctx context.Context, accessToken, id string) (m *TrackMeta, er
 	default:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, fmt.Errorf("failed to read response body: %v", err)
+			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}
 
 		return nil, fmt.Errorf("unexpected status code %d with body: %s", code, string(respBytes))
-	}
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if nil != err {
-		return nil, fmt.Errorf("failed to read 200 response body: %v", err)
 	}
 
 	var respBody struct {
@@ -304,8 +227,8 @@ func getTrackMeta(ctx context.Context, accessToken, id string) (m *TrackMeta, er
 		} `json:"album"`
 		Version *string `json:"version"`
 	}
-	if err := json.Unmarshal(respBytes, &respBody); nil != err {
-		return nil, fmt.Errorf("failed to decode track info 200 response body: %v", err)
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); nil != err {
+		return nil, fmt.Errorf("failed to decode track info 200 response body: %w", err)
 	}
 
 	artists := make([]types.TrackArtist, len(respBody.Artists))
@@ -336,20 +259,19 @@ func getTrackMeta(ctx context.Context, accessToken, id string) (m *TrackMeta, er
 	return &track, nil
 }
 
-func (d *Downloader) downloadTrack(ctx context.Context, accessToken, id string, fileName string) (*types.TrackFormat, error) {
-	stream, format, err := d.getStream(ctx, accessToken, id)
+func (d *Downloader) downloadTrack(ctx context.Context, accessToken, id string, fileName string) error {
+	stream, err := d.getStream(ctx, accessToken, id)
 	if nil != err {
-		return nil, err
+		return fmt.Errorf("failed to get track stream: %w", err)
 	}
 
-	waitTime := ratelimit.TrackDownloadSleepMS()
-	time.Sleep(waitTime)
+	time.Sleep(ratelimit.TrackDownloadSleepMS())
 
 	if err := stream.saveTo(ctx, accessToken, fileName); nil != err {
-		return nil, err
+		return fmt.Errorf("failed to download track: %w", err)
 	}
 
-	return format, nil
+	return nil
 }
 
 func trackCaption(album types.AlbumMeta) string {
@@ -366,7 +288,7 @@ func (d *Downloader) getTrackCredits(
 		func() (*types.TrackCredits, error) { return d.downloadTrackCredits(ctx, accessToken, id) },
 	)
 	if nil != err {
-		return nil, err
+		return nil, fmt.Errorf("failed to get track credits: %w", err)
 	}
 
 	return cachedTrackCredits.Value(), nil
@@ -386,7 +308,7 @@ func (d *Downloader) downloadTrackCredits(ctx context.Context, accessToken strin
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if nil != err {
-		return nil, fmt.Errorf("failed to create get track credits request %s: %v", reqURL.String(), err)
+		return nil, fmt.Errorf("failed to create get track credits request %s: %w", reqURL.String(), err)
 	}
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
@@ -395,15 +317,7 @@ func (d *Downloader) downloadTrackCredits(ctx context.Context, accessToken strin
 	}
 	resp, err := client.Do(req)
 	if nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return nil, context.Canceled
-		}
-
-		return nil, fmt.Errorf("failed to send get track credits request: %v", err)
+		return nil, fmt.Errorf("failed to send get track credits request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
@@ -416,7 +330,7 @@ func (d *Downloader) downloadTrackCredits(ctx context.Context, accessToken strin
 	case http.StatusUnauthorized:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, fmt.Errorf("failed to read 401 response body: %v", err)
+			return nil, fmt.Errorf("failed to read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
@@ -437,7 +351,7 @@ func (d *Downloader) downloadTrackCredits(ctx context.Context, accessToken strin
 	case http.StatusForbidden:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, fmt.Errorf("failed to read 403 response body: %v", err)
+			return nil, fmt.Errorf("failed to read 403 response body: %w", err)
 		}
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
 			return nil, fmt.Errorf("failed to check if 403 response is too many requests: %v", err)
@@ -449,20 +363,15 @@ func (d *Downloader) downloadTrackCredits(ctx context.Context, accessToken strin
 	default:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, fmt.Errorf("failed to read response body: %v", err)
+			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}
 
 		return nil, fmt.Errorf("unexpected status code %d with body: %s", code, string(respBytes))
 	}
 
-	respBytes, err := io.ReadAll(resp.Body)
-	if nil != err {
-		return nil, fmt.Errorf("failed to read 200 response body: %v", err)
-	}
-
 	var respBody TrackCreditsResponse
-	if err := json.Unmarshal(respBytes, &respBody); nil != err {
-		return nil, fmt.Errorf("failed to decode track credits 200 response body: %v", err)
+	if err := json.NewDecoder(resp.Body).Decode(&respBody); nil != err {
+		return nil, fmt.Errorf("failed to decode track credits 200 response body: %w", err)
 	}
 
 	return ptr.Of(respBody.toTrackCredits()), nil
@@ -482,7 +391,7 @@ func (d *Downloader) downloadTrackLyrics(ctx context.Context, accessToken string
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if nil != err {
-		return "", fmt.Errorf("failed to create get track lyrics request %s: %v", reqURL.String(), err)
+		return "", fmt.Errorf("failed to create get track lyrics request %s: %w", reqURL.String(), err)
 	}
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
@@ -491,15 +400,7 @@ func (d *Downloader) downloadTrackLyrics(ctx context.Context, accessToken string
 	}
 	resp, err := client.Do(req)
 	if nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return "", context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return "", context.Canceled
-		}
-
-		return "", fmt.Errorf("failed to send get track lyrics request: %v", err)
+		return "", fmt.Errorf("failed to send get track lyrics request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
@@ -514,7 +415,7 @@ func (d *Downloader) downloadTrackLyrics(ctx context.Context, accessToken string
 	case http.StatusUnauthorized:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return "", fmt.Errorf("failed to read 401 response body: %v", err)
+			return "", fmt.Errorf("failed to read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
@@ -535,7 +436,7 @@ func (d *Downloader) downloadTrackLyrics(ctx context.Context, accessToken string
 	case http.StatusForbidden:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return "", fmt.Errorf("failed to read 403 response body: %v", err)
+			return "", fmt.Errorf("failed to read 403 response body: %w", err)
 		}
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
 			return "", fmt.Errorf("failed to check if 403 response is too many requests: %v", err)
@@ -547,7 +448,7 @@ func (d *Downloader) downloadTrackLyrics(ctx context.Context, accessToken string
 	default:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return "", fmt.Errorf("failed to read response body: %v", err)
+			return "", fmt.Errorf("failed to read response body: %w", err)
 		}
 
 		return "", fmt.Errorf("unexpected status code %d with body: %s", code, string(respBytes))
@@ -555,7 +456,7 @@ func (d *Downloader) downloadTrackLyrics(ctx context.Context, accessToken string
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
-		return "", fmt.Errorf("failed to read 200 response body: %v", err)
+		return "", fmt.Errorf("failed to read 200 response body: %w", err)
 	}
 
 	if !gjson.ValidBytes(respBytes) {
@@ -568,7 +469,7 @@ func (d *Downloader) downloadTrackLyrics(ctx context.Context, accessToken string
 	} else if lyricsKey := gjson.GetBytes(respBytes, "lyrics"); lyricsKey.Type == gjson.String {
 		lyrics = lyricsKey.Str
 	} else {
-		return "", fmt.Errorf("unexpected track lyrics 200 response: %v", err)
+		return "", fmt.Errorf("unexpected track lyrics 200 response: %s", string(respBytes))
 	}
 
 	return lyrics, nil
@@ -615,7 +516,6 @@ type TrackEmbeddedAttrs struct {
 	Artists      []types.TrackArtist
 	Copyright    string
 	CoverPath    string
-	Format       types.TrackFormat
 	ISRC         string
 	ReleaseDate  time.Time
 	Title        string
@@ -629,8 +529,10 @@ type TrackEmbeddedAttrs struct {
 }
 
 func embedTrackAttributes(ctx context.Context, trackFilePath string, attrs TrackEmbeddedAttrs) (err error) {
-	ext := attrs.Format.InferTrackExt()
-	trackFilePathWithExt := trackFilePath + "." + ext
+	trackFormat, err := extractTrackFormat(ctx, trackFilePath)
+	if nil != err {
+		return fmt.Errorf("failed to extract track format: %w", err)
+	}
 
 	metaTags := []string{
 		"artist=" + types.JoinArtists(attrs.Artists),
@@ -674,7 +576,11 @@ func embedTrackAttributes(ctx context.Context, trackFilePath string, attrs Track
 		metaArgs = append(metaArgs, "-metadata", tag)
 	}
 
+	trackTempFilePath := trackFilePath + ".tmp"
+
 	args := []string{
+		"-f",
+		trackFormat,
 		"-i",
 		trackFilePath,
 		"-i",
@@ -689,15 +595,70 @@ func embedTrackAttributes(ctx context.Context, trackFilePath string, attrs Track
 		"attached_pic",
 	}
 	args = append(args, metaArgs...)
-	args = append(args, trackFilePathWithExt)
+	args = append(args, trackTempFilePath)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
+	var (
+		stdOut bytes.Buffer
+		stdErr bytes.Buffer
+	)
+
+	cmd.Stdout = &stdOut
+	cmd.Stderr = &stdErr
+
 	if err := cmd.Run(); nil != err {
-		return fmt.Errorf("failed to write track attributes: %v", err)
+		if errors.Is(err, exec.ErrNotFound) {
+			return fmt.Errorf("ffmpeg not found: %v", err)
+		}
+
+		return fmt.Errorf("failed to write track attributes using ffmpeg (%w): %s", err, stdErr.String())
 	}
-	if err := os.Rename(trackFilePathWithExt, trackFilePath); nil != err {
+
+	if err := os.Rename(trackTempFilePath, trackFilePath); nil != err {
 		return fmt.Errorf("failed to rename track file: %v", err)
 	}
 
 	return nil
+}
+
+func extractTrackFormat(ctx context.Context, trackFilePath string) (string, error) {
+	cmd := exec.CommandContext(
+		ctx,
+		"ffprobe",
+		"-v",
+		"error",
+		"-show_entries",
+		"format=format_name",
+		"-of",
+		"json",
+		trackFilePath,
+	)
+
+	var (
+		stdOut bytes.Buffer
+		stdErr bytes.Buffer
+	)
+
+	cmd.Stdout = &stdOut
+	cmd.Stderr = &stdErr
+
+	if err := cmd.Run(); nil != err {
+		if errors.Is(err, exec.ErrNotFound) {
+			return "", fmt.Errorf("ffprobe not found: %v", err)
+		}
+
+		return "", fmt.Errorf("ffprobe failed using ffprobe (%w): %s", err, stdErr.String())
+	}
+
+	var output struct {
+		Format struct {
+			FormatName string `json:"format_name"`
+		} `json:"format"`
+	}
+	if err := json.Unmarshal(stdOut.Bytes(), &output); nil != err {
+		return "", fmt.Errorf("failed to unmarshal ffprobe command output: %v", err)
+	}
+
+	formats := strings.Split(output.Format.FormatName, ",")
+	return strings.TrimSpace(formats[0]), nil
 }

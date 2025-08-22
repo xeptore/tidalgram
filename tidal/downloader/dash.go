@@ -1,7 +1,6 @@
 package downloader
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -35,7 +34,7 @@ func (d *DashTrackStream) saveTo(ctx context.Context, accessToken string, fileNa
 	for i := range numBatches {
 		wg.Go(func() error {
 			if err := d.downloadBatch(wgCtx, accessToken, fileName, i); nil != err {
-				return err
+				return fmt.Errorf("failed to download track batch: %w", err)
 			}
 
 			return nil
@@ -43,7 +42,7 @@ func (d *DashTrackStream) saveTo(ctx context.Context, accessToken string, fileNa
 	}
 
 	if err := wg.Wait(); nil != err {
-		return err
+		return fmt.Errorf("failed to wait for track download workers: %w", err)
 	}
 
 	f, err := os.OpenFile(fileName, os.O_CREATE|os.O_SYNC|os.O_TRUNC|os.O_WRONLY, 0o0600)
@@ -53,20 +52,19 @@ func (d *DashTrackStream) saveTo(ctx context.Context, accessToken string, fileNa
 	defer func() {
 		if nil != err {
 			if removeErr := os.Remove(fileName); nil != removeErr {
-				err = fmt.Errorf("failed to remove incomplete track file: %v: %v", removeErr, err)
+				if !errors.Is(removeErr, os.ErrNotExist) {
+					err = errors.Join(err, fmt.Errorf("failed to remove incomplete track file: %v", removeErr))
+				}
 			}
-		}
-
-		if closeErr := f.Close(); nil != closeErr {
+		} else if closeErr := f.Close(); nil != closeErr {
 			err = errors.Join(err, fmt.Errorf("failed to close track file: %v", closeErr))
 		}
 	}()
 
 	for i := range numBatches {
 		partFileName := fileName + ".part." + strconv.Itoa(i)
-
 		if err := writePartToTrackFile(f, partFileName); nil != err {
-			return err
+			return fmt.Errorf("failed to write track part to file: %v", err)
 		}
 	}
 
@@ -111,11 +109,11 @@ func (d *DashTrackStream) downloadBatch(ctx context.Context, accessToken, fileNa
 	defer func() {
 		if nil != err {
 			if removeErr := os.Remove(f.Name()); nil != removeErr {
-				err = errors.Join(err, fmt.Errorf("failed to remove incomplete track part file: %v", removeErr))
+				if !errors.Is(removeErr, os.ErrNotExist) {
+					err = errors.Join(err, fmt.Errorf("failed to remove incomplete track part file: %v", removeErr))
+				}
 			}
-		}
-
-		if closeErr := f.Close(); nil != closeErr {
+		} else if closeErr := f.Close(); nil != closeErr {
 			err = errors.Join(err, fmt.Errorf("failed to close track part file: %v", closeErr))
 		}
 	}()
@@ -132,7 +130,7 @@ func (d *DashTrackStream) downloadBatch(ctx context.Context, accessToken, fileNa
 			1,
 		)
 		if err := d.downloadSegment(ctx, accessToken, link, f); nil != err {
-			return err
+			return fmt.Errorf("failed to download track segment: %w", err)
 		}
 	}
 
@@ -142,22 +140,14 @@ func (d *DashTrackStream) downloadBatch(ctx context.Context, accessToken, fileNa
 func (d *DashTrackStream) downloadSegment(ctx context.Context, accessToken, link string, f *os.File) (err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
 	if nil != err {
-		return fmt.Errorf("failed to create get track part request: %v", err)
+		return fmt.Errorf("failed to create get track part request: %w", err)
 	}
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	client := http.Client{Timeout: d.DownloadTimeout} //nolint:exhaustruct
 	resp, err := client.Do(req)
 	if nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return context.Canceled
-		}
-
-		return fmt.Errorf("failed to send track part download request: %v", err)
+		return fmt.Errorf("failed to send track part download request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
@@ -170,17 +160,17 @@ func (d *DashTrackStream) downloadSegment(ctx context.Context, accessToken, link
 	case http.StatusUnauthorized:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return err
+			return fmt.Errorf("failed to read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
-			return err
+			return fmt.Errorf("failed to check if 401 response is token expired: %v", err)
 		} else if ok {
 			return auth.ErrUnauthorized
 		}
 
 		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
-			return err
+			return fmt.Errorf("failed to check if 401 response is token invalid: %v", err)
 		} else if ok {
 			return auth.ErrUnauthorized
 		}
@@ -191,10 +181,11 @@ func (d *DashTrackStream) downloadSegment(ctx context.Context, accessToken, link
 	case http.StatusForbidden:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return err
+			return fmt.Errorf("failed to read 403 response body: %w", err)
 		}
+
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
-			return err
+			return fmt.Errorf("failed to check if 403 response is too many requests: %v", err)
 		} else if ok {
 			return ErrTooManyRequests
 		}
@@ -203,18 +194,14 @@ func (d *DashTrackStream) downloadSegment(ctx context.Context, accessToken, link
 	default:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return err
+			return fmt.Errorf("failed to read response body: %w", err)
 		}
 
 		return fmt.Errorf("unexpected response code %d with body: %s", status, string(respBytes))
 	}
 
-	respBytes, err := io.ReadAll(resp.Body)
-	if nil != err {
-		return err
-	}
-	if n, err := io.Copy(f, bytes.NewReader(respBytes)); nil != err {
-		return fmt.Errorf("failed to write track part to file: %v", err)
+	if n, err := io.Copy(f, resp.Body); nil != err {
+		return fmt.Errorf("failed to write track part to file: %w", err)
 	} else if n == 0 {
 		return errors.New("empty track part")
 	}

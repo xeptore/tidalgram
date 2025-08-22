@@ -58,14 +58,14 @@ type ListTrackMeta struct {
 }
 
 type Downloader struct {
-	dir   fs.DownloadDir
+	dir   fs.DownloadsDir
 	auth  *auth.Auth
 	conf  config.TidalDownloader
 	cache *cache.Cache
 }
 
 func NewDownloader(
-	dir fs.DownloadDir,
+	dir fs.DownloadsDir,
 	conf config.TidalDownloader,
 	auth *auth.Auth,
 	cache *cache.Cache,
@@ -116,7 +116,7 @@ func (d *Downloader) getPagedItems(ctx context.Context, accessToken, itemsURL st
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if nil != err {
-		return nil, fmt.Errorf("failed to create get page items request: %v", err)
+		return nil, fmt.Errorf("failed to create get page items request: %w", err)
 	}
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
@@ -125,22 +125,11 @@ func (d *Downloader) getPagedItems(ctx context.Context, accessToken, itemsURL st
 	}
 	resp, err := client.Do(req)
 	if nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return nil, context.Canceled
-		}
-
-		return nil, fmt.Errorf("failed to send get paged tracks request: %v", err)
+		return nil, fmt.Errorf("failed to send get paged tracks request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
-			err = errors.Join(
-				err,
-				fmt.Errorf("failed to close get page items response body: %v", closeErr),
-			)
+			err = errors.Join(err, fmt.Errorf("failed to close get page items response body: %v", closeErr))
 		}
 	}()
 
@@ -149,17 +138,17 @@ func (d *Downloader) getPagedItems(ctx context.Context, accessToken, itemsURL st
 	case http.StatusUnauthorized:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, err
+			return nil, fmt.Errorf("failed to read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
-			return nil, err
+			return nil, fmt.Errorf("failed to check if 401 response is token expired: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
 
 		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
-			return nil, err
+			return nil, fmt.Errorf("failed to check if 401 response is token invalid: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
@@ -170,10 +159,10 @@ func (d *Downloader) getPagedItems(ctx context.Context, accessToken, itemsURL st
 	case http.StatusForbidden:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, err
+			return nil, fmt.Errorf("failed to read 403 response body: %w", err)
 		}
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
-			return nil, err
+			return nil, fmt.Errorf("failed to check if 403 response is too many requests: %v", err)
 		} else if ok {
 			return nil, ErrTooManyRequests
 		}
@@ -182,7 +171,7 @@ func (d *Downloader) getPagedItems(ctx context.Context, accessToken, itemsURL st
 	default:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
-			return nil, err
+			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}
 
 		return nil, fmt.Errorf("unexpected response code %d with body: %s", code, string(respBytes))
@@ -190,7 +179,7 @@ func (d *Downloader) getPagedItems(ctx context.Context, accessToken, itemsURL st
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
-		return nil, err
+		return nil, fmt.Errorf("failed to read 200 response body: %w", err)
 	}
 
 	return respBytes, nil

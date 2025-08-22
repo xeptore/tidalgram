@@ -21,10 +21,11 @@ import (
 )
 
 type Client struct {
-	auth        *auth.Auth
-	loginSem    chan struct{}
-	dl          *downloader.Downloader
-	downloadSem chan struct{}
+	auth           *auth.Auth
+	loginSem       chan struct{}
+	DownloadsDirFs fs.DownloadsDir
+	dl             *downloader.Downloader
+	downloadSem    chan struct{}
 }
 
 func NewClient(credsDir, dlDir string, conf config.Tidal) (*Client, error) {
@@ -33,15 +34,18 @@ func NewClient(credsDir, dlDir string, conf config.Tidal) (*Client, error) {
 		return nil, fmt.Errorf("failed to create auth: %v", err)
 	}
 
-	c := cache.New()
-
-	dl := downloader.NewDownloader(fs.DownloadDirFrom(dlDir), conf.Downloader, a, c)
+	var (
+		c       = cache.New()
+		dlDirFs = fs.DownloadsDirFrom(dlDir)
+		dl      = downloader.NewDownloader(dlDirFs, conf.Downloader, a, c)
+	)
 
 	return &Client{
-		auth:        a,
-		dl:          dl,
-		loginSem:    make(chan struct{}, 1),
-		downloadSem: make(chan struct{}, 1),
+		auth:           a,
+		dl:             dl,
+		loginSem:       make(chan struct{}, 1),
+		downloadSem:    make(chan struct{}, 1),
+		DownloadsDirFs: dlDirFs,
 	}, nil
 }
 
@@ -68,14 +72,6 @@ func (c *Client) TryDownloadLink(ctx context.Context, link types.Link) error {
 				if err := c.downloadLink(ctx, link); nil != err {
 					if errors.Is(err, context.DeadlineExceeded) {
 						return retry.RetryableError(context.DeadlineExceeded)
-					}
-
-					if errors.Is(err, context.Canceled) {
-						return context.Canceled
-					}
-
-					if errors.Is(err, ErrLoginRequired) {
-						return ErrLoginRequired
 					}
 
 					if errors.Is(err, ErrTokenRefreshRequired) {
@@ -106,7 +102,7 @@ func (c *Client) TryDownloadLink(ctx context.Context, link types.Link) error {
 						return ErrUnsupportedVideoLinkKind
 					}
 
-					return fmt.Errorf("failed to download link: %v", err)
+					return fmt.Errorf("failed to download link: %w", err)
 				}
 
 				return nil
@@ -118,6 +114,7 @@ func (c *Client) TryDownloadLink(ctx context.Context, link types.Link) error {
 				return c.downloadLink(ctx, link)
 			}
 
+			// Make all error kinds handled in the retry loop above available to the caller as we want to handle them.
 			return fmt.Errorf("failed to download link after retries: %w", err)
 		}
 
@@ -133,15 +130,7 @@ func (c *Client) TryInitiateLoginFlow(ctx context.Context) (*auth.LoginLink, <-c
 		defer func() { <-c.loginSem }()
 		link, wait, err := c.auth.InitiateLoginFlow(ctx)
 		if nil != err {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return nil, nil, context.DeadlineExceeded
-			}
-
-			if errors.Is(err, context.Canceled) {
-				return nil, nil, context.Canceled
-			}
-
-			return nil, nil, fmt.Errorf("failed to initiate login flow: %v", err)
+			return nil, nil, fmt.Errorf("failed to initiate login flow: %w", err)
 		}
 
 		return link, wait, nil
@@ -214,27 +203,7 @@ func (c *Client) downloadLink(ctx context.Context, link types.Link) error {
 	}
 
 	if err := c.dl.Download(ctx, link); nil != err {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return context.DeadlineExceeded
-		}
-
-		if errors.Is(err, context.Canceled) {
-			return context.Canceled
-		}
-
-		if errors.Is(err, downloader.ErrUnsupportedArtistLinkKind) {
-			return downloader.ErrUnsupportedArtistLinkKind
-		}
-
-		if errors.Is(err, downloader.ErrUnsupportedVideoLinkKind) {
-			return downloader.ErrUnsupportedVideoLinkKind
-		}
-
-		if errors.Is(err, ErrUnauthorized) {
-			return ErrTokenRefreshRequired
-		}
-
-		return fmt.Errorf("failed to download link: %v", err)
+		return fmt.Errorf("failed to download link: %w", err)
 	}
 
 	return nil

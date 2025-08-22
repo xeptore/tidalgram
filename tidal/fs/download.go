@@ -11,14 +11,14 @@ import (
 	"github.com/xeptore/tidalgram/tidal/types"
 )
 
-type DownloadDir string
+type DownloadsDir string
 
-func DownloadDirFrom(d string) DownloadDir {
-	return DownloadDir(d)
+func DownloadsDirFrom(d string) DownloadsDir {
+	return DownloadsDir(d)
 }
 
-func (dir DownloadDir) Album(id string) Album {
-	dirPath := dir.path()
+func (d DownloadsDir) Album(id string) Album {
+	dirPath := d.path()
 
 	return Album{
 		DirPath:  dirPath,
@@ -59,8 +59,8 @@ func (t AlbumTrack) Remove() error {
 	return nil
 }
 
-func (dir DownloadDir) Track(id string) Track {
-	trackPath := filepath.Join(dir.path(), id)
+func (d DownloadsDir) Track(id string) Track {
+	trackPath := filepath.Join(d.path(), id)
 
 	return Track{
 		Path:     trackPath,
@@ -69,8 +69,8 @@ func (dir DownloadDir) Track(id string) Track {
 	}
 }
 
-func (dir DownloadDir) Playlist(id string) Playlist {
-	dirPath := dir.path()
+func (d DownloadsDir) Playlist(id string) Playlist {
+	dirPath := d.path()
 
 	return Playlist{
 		DirPath:  dirPath,
@@ -93,8 +93,8 @@ func (p Playlist) Track(id string) Track {
 	}
 }
 
-func (dir DownloadDir) Mix(id string) Mix {
-	dirPath := dir.path()
+func (d DownloadsDir) Mix(id string) Mix {
+	dirPath := d.path()
 
 	return Mix{
 		DirPath:  dirPath,
@@ -102,8 +102,8 @@ func (dir DownloadDir) Mix(id string) Mix {
 	}
 }
 
-func (dir DownloadDir) path() string {
-	return string(dir)
+func (d DownloadsDir) path() string {
+	return string(d)
 }
 
 type Mix struct {
@@ -237,17 +237,14 @@ func writeInfoFile[T any](file InfoFile[T], obj any) (err error) {
 		return fmt.Errorf("failed to open info file for write: %v", err)
 	}
 	defer func() {
-		if closeErr := f.Close(); nil != closeErr {
-			err = fmt.Errorf("failed to close info file: %v", closeErr)
-		}
-	}()
-	defer func() {
 		if nil != err {
 			if removeErr := os.Remove(filePath); nil != removeErr {
 				if !errors.Is(removeErr, os.ErrNotExist) {
 					err = errors.Join(err, fmt.Errorf("failed to remove info file: %v", removeErr))
 				}
 			}
+		} else if closeErr := f.Close(); nil != closeErr {
+			err = fmt.Errorf("failed to close info file: %v", closeErr)
 		}
 	}()
 

@@ -123,14 +123,14 @@ func (b *Bot) Start() error {
 	}
 
 	sendOpts := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
-		ParseMode: gotgbot.ParseModeMarkdownV2,
+		ParseMode: gotgbot.ParseModeMarkdown,
 	}
 	compiledAt, _ := time.Parse(time.RFC3339, constants.CompileTime)
 	msg := strings.Join([]string{
-		`I'm online, Papa :\)`,
+		`I'm online, Papa 🙂`,
 		``,
-		"> `Version: " + constants.Version + "`",
-		"> `Compiled At: " + compiledAt.Format("2006/01/02 15:04:05") + " UTC`",
+		"🏷️ Version: `" + constants.Version + "`",
+		"🕒 Compiled At: `" + compiledAt.Format("2006/01/02 15:04:05") + " UTC`",
 	}, "\n")
 	if _, err := b.bot.SendMessage(b.papaChatID, msg, sendOpts); nil != err {
 		return fmt.Errorf("failed to send message: %v", err)
@@ -147,7 +147,7 @@ func (b *Bot) Stop() error {
 	sendOpts := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
 		ParseMode: gotgbot.ParseModeMarkdown,
 	}
-	if _, err := b.bot.SendMessage(b.papaChatID, "I'm going offline, Papa :(", sendOpts); nil != err {
+	if _, err := b.bot.SendMessage(b.papaChatID, "I'm going offline, Papa 🥲", sendOpts); nil != err {
 		return fmt.Errorf("failed to send message: %v", err)
 	}
 
@@ -225,14 +225,14 @@ func (b *APIBot) Close(ctx context.Context) error {
 	return nil
 }
 
-func registerHandlers(ctx context.Context, d *ext.Dispatcher, conf *config.Bot, tidal *tidal.Client) {
+func registerHandlers(ctx context.Context, d *ext.Dispatcher, conf *config.Bot, t *tidal.Client) {
 	d.AddHandler(
 		handlers.
 			NewMessage(
 				tidalURLFilter,
 				NewChainHandler(
 					NewPapaOnlyGuard(conf.PapaID),
-					NewTidalURLHandler(ctx, tidal),
+					NewTidalURLHandler(ctx, t),
 				),
 			).
 			SetAllowChannel(true).
@@ -257,7 +257,7 @@ func registerHandlers(ctx context.Context, d *ext.Dispatcher, conf *config.Bot, 
 				"status",
 				NewChainHandler(
 					NewPapaOnlyGuard(conf.PapaID),
-					NewStatusCommandHandler(ctx, tidal),
+					NewStatusCommandHandler(ctx, t),
 				),
 			).
 			SetAllowChannel(false).
@@ -270,7 +270,7 @@ func registerHandlers(ctx context.Context, d *ext.Dispatcher, conf *config.Bot, 
 				"cancel",
 				NewChainHandler(
 					NewPapaOnlyGuard(conf.PapaID),
-					NewCancelCommandHandler(ctx, tidal),
+					NewCancelCommandHandler(ctx, t),
 				),
 			).
 			SetAllowChannel(true).
@@ -283,7 +283,7 @@ func registerHandlers(ctx context.Context, d *ext.Dispatcher, conf *config.Bot, 
 				"authorize",
 				NewChainHandler(
 					NewPapaOnlyGuard(conf.PapaID),
-					NewAuthorizeCommandHandler(ctx, tidal),
+					NewAuthorizeCommandHandler(ctx, t),
 				),
 			).
 			SetAllowChannel(false).
@@ -335,4 +335,14 @@ func isTidalURL(msg string) bool {
 	}
 
 	return true
+}
+
+func getMessageURL(msg *gotgbot.Message) string {
+	for _, ent := range msg.Entities {
+		if ent.Type != "url" {
+			continue
+		}
+		return gotgbot.ParseEntity(msg.Text, ent).Text
+	}
+	panic("expected message to contain URL")
 }

@@ -50,6 +50,7 @@ func (a *Auth) InitiateLoginFlow(ctx context.Context) (*LoginLink, <-chan error,
 			select {
 			case <-ctx.Done():
 				err := ctx.Err()
+				// ctx.Err() can never be nil in a ctx.Done block
 				if errors.Is(err, context.DeadlineExceeded) {
 					done <- ErrLoginLinkExpired
 					return
@@ -60,7 +61,7 @@ func (a *Auth) InitiateLoginFlow(ctx context.Context) (*LoginLink, <-chan error,
 					return
 				}
 
-				return
+				panic("unexpected context error in initiate login flow")
 			case <-ticker.C:
 				creds, err := res.poll(ctx)
 				if nil != err {
