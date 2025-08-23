@@ -3,6 +3,7 @@ package types
 import (
 	"strings"
 
+	"github.com/rs/zerolog"
 	"github.com/samber/lo"
 )
 
@@ -17,6 +18,14 @@ type TrackCredits struct {
 	Composers           []string
 	Lyricists           []string
 	AdditionalProducers []string
+}
+
+func (t TrackCredits) ToDict() *zerolog.Event {
+	return zerolog.Dict().
+		Strs("producers", t.Producers).
+		Strs("composers", t.Composers).
+		Strs("lyricists", t.Lyricists).
+		Strs("additional_producers", t.AdditionalProducers)
 }
 
 type TrackArtist struct {

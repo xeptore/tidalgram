@@ -21,5 +21,6 @@ func Map[T any, Slice ~[]E, E any](s Slice, f func(i int, v E) T) []T {
 	for i, v := range s {
 		result[i] = f(i, v)
 	}
+
 	return result
 }

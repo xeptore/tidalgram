@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
 
 	"github.com/xeptore/tidalgram/cache"
@@ -28,8 +29,8 @@ type Client struct {
 	downloadSem    chan struct{}
 }
 
-func NewClient(credsDir, dlDir string, conf config.Tidal) (*Client, error) {
-	a, err := auth.New(credsDir)
+func NewClient(logger zerolog.Logger, credsDir, dlDir string, conf config.Tidal) (*Client, error) {
+	a, err := auth.New(logger, credsDir)
 	if nil != err {
 		return nil, fmt.Errorf("failed to create auth: %v", err)
 	}
@@ -61,34 +62,31 @@ var (
 	ErrUnsupportedVideoLinkKind  = downloader.ErrUnsupportedVideoLinkKind
 )
 
-func (c *Client) TryDownloadLink(ctx context.Context, link types.Link) error {
+func (c *Client) TryDownloadLink(ctx context.Context, logger zerolog.Logger, link types.Link) error {
 	select {
 	case c.downloadSem <- struct{}{}:
+		logger.Debug().Msg("Downloading link")
 		defer func() { <-c.downloadSem }()
 		err := retry.Do(
 			ctx,
 			retry.WithMaxRetries(7, retry.NewFibonacci(1*time.Second)),
 			func(ctx context.Context) error {
-				if err := c.downloadLink(ctx, link); nil != err {
+				if err := c.downloadLink(ctx, logger, link); nil != err {
 					if errors.Is(err, context.DeadlineExceeded) {
 						return retry.RetryableError(context.DeadlineExceeded)
 					}
 
 					if errors.Is(err, ErrTokenRefreshRequired) {
-						if err := c.auth.RefreshToken(ctx); nil != err {
+						if err := c.auth.RefreshToken(ctx, logger); nil != err {
 							if errors.Is(err, context.DeadlineExceeded) {
 								return retry.RetryableError(context.DeadlineExceeded)
-							}
-
-							if errors.Is(err, context.Canceled) {
-								return context.Canceled
 							}
 
 							if errors.Is(err, auth.ErrUnauthorized) {
 								return ErrLoginRequired
 							}
 
-							return fmt.Errorf("failed to refresh token: %v", err)
+							return fmt.Errorf("failed to refresh token: %w", err)
 						}
 
 						return retry.RetryableError(ErrTokenRefreshed)
@@ -111,7 +109,7 @@ func (c *Client) TryDownloadLink(ctx context.Context, link types.Link) error {
 		if nil != err {
 			if errors.Is(err, ErrTokenRefreshed) {
 				// Give it another chance to download the link even when max retries are reached.
-				return c.downloadLink(ctx, link)
+				return c.downloadLink(ctx, logger, link)
 			}
 
 			// Make all error kinds handled in the retry loop above available to the caller as we want to handle them.
@@ -120,21 +118,27 @@ func (c *Client) TryDownloadLink(ctx context.Context, link types.Link) error {
 
 		return nil
 	default:
+		logger.Debug().Msg("Another download in progress")
 		return ErrDownloadInProgress
 	}
 }
 
-func (c *Client) TryInitiateLoginFlow(ctx context.Context) (*auth.LoginLink, <-chan error, error) {
+func (c *Client) TryInitiateLoginFlow(
+	ctx context.Context,
+	logger zerolog.Logger,
+) (*auth.LoginLink, <-chan error, error) {
 	select {
 	case c.loginSem <- struct{}{}:
+		logger.Debug().Msg("Initiating login flow")
 		defer func() { <-c.loginSem }()
-		link, wait, err := c.auth.InitiateLoginFlow(ctx)
+		link, wait, err := c.auth.InitiateLoginFlow(ctx, logger)
 		if nil != err {
 			return nil, nil, fmt.Errorf("failed to initiate login flow: %w", err)
 		}
 
 		return link, wait, nil
 	default:
+		logger.Debug().Msg("Another login in progress")
 		return nil, nil, ErrLoginInProgress
 	}
 }
@@ -191,7 +195,7 @@ func ParseLink(l string) types.Link {
 	return types.Link{Kind: kind, ID: id}
 }
 
-func (c *Client) downloadLink(ctx context.Context, link types.Link) error {
+func (c *Client) downloadLink(ctx context.Context, logger zerolog.Logger, link types.Link) error {
 	creds := c.auth.Credentials()
 
 	if creds.ExpiresAt.IsZero() {
@@ -202,7 +206,7 @@ func (c *Client) downloadLink(ctx context.Context, link types.Link) error {
 		return ErrTokenRefreshRequired
 	}
 
-	if err := c.dl.Download(ctx, link); nil != err {
+	if err := c.dl.Download(ctx, logger, link); nil != err {
 		return fmt.Errorf("failed to download link: %w", err)
 	}
 

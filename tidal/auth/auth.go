@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
+	"github.com/rs/zerolog"
 
 	"github.com/xeptore/tidalgram/tidal/fs"
 )
@@ -38,13 +39,14 @@ type Credentials struct {
 	ExpiresAt    time.Time
 }
 
-func New(dir string) (*Auth, error) {
+func New(logger zerolog.Logger, dir string) (*Auth, error) {
 	content, err := fs.AuthFileFrom(dir, tokenFileName).Read()
 	if nil != err {
 		if !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("failed to read auth credentials file: %v", err)
 		}
 		// can be ignored as it will be filled with defaults
+		logger.Debug().Msg("auth credentials file not found. Using defaults.")
 	}
 
 	creds := &Credentials{

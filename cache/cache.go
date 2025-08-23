@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -73,7 +74,12 @@ func (c *DownloadedCoversCache) Fetch(
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	return c.c.Fetch(k, ttl, fetch)
+	v, err := c.c.Fetch(k, ttl, fetch)
+	if nil != err {
+		return nil, fmt.Errorf("failed to fetch cover: %w", err)
+	}
+
+	return v, nil
 }
 
 type AlbumsMetaCache struct {
@@ -81,11 +87,20 @@ type AlbumsMetaCache struct {
 	mux sync.Mutex
 }
 
-func (c *AlbumsMetaCache) Fetch(k string, ttl time.Duration, fetch func() (*types.AlbumMeta, error)) (*ccache.Item[*types.AlbumMeta], error) {
+func (c *AlbumsMetaCache) Fetch(
+	k string,
+	ttl time.Duration,
+	fetch func() (*types.AlbumMeta, error),
+) (*ccache.Item[*types.AlbumMeta], error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	return c.c.Fetch(k, ttl, fetch)
+	v, err := c.c.Fetch(k, ttl, fetch)
+	if nil != err {
+		return nil, fmt.Errorf("failed to fetch album meta: %w", err)
+	}
+
+	return v, nil
 }
 
 type TrackCreditsCache struct {
@@ -93,11 +108,20 @@ type TrackCreditsCache struct {
 	mux sync.Mutex
 }
 
-func (c *TrackCreditsCache) Fetch(k string, ttl time.Duration, fetch func() (*types.TrackCredits, error)) (*ccache.Item[*types.TrackCredits], error) {
+func (c *TrackCreditsCache) Fetch(
+	k string,
+	ttl time.Duration,
+	fetch func() (*types.TrackCredits, error),
+) (*ccache.Item[*types.TrackCredits], error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	return c.c.Fetch(k, ttl, fetch)
+	v, err := c.c.Fetch(k, ttl, fetch)
+	if nil != err {
+		return nil, fmt.Errorf("failed to fetch track credits: %w", err)
+	}
+
+	return v, nil
 }
 
 func (c *TrackCreditsCache) Set(k string, v *types.TrackCredits, ttl time.Duration) {

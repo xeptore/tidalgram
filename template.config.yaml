@@ -19,7 +19,7 @@ bot:
   # Default: ""
   signature: ""
 
-logging:
+log:
   # OPTIONAL
   # One of: debug, info, warn, error, fatal, panic
   # Default: info

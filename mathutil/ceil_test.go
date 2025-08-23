@@ -8,6 +8,8 @@ import (
 )
 
 func TestDivCeil(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		a, b, expected int
 	}{
@@ -18,6 +20,8 @@ func TestDivCeil(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("a=%d,b=%d", test.a, test.b), func(t *testing.T) {
+			t.Parallel()
+
 			actual := mathutil.DivCeil(test.a, test.b)
 			if actual != test.expected {
 				t.Errorf("expected %d, got %d", test.expected, actual)

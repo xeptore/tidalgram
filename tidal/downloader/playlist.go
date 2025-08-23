@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
+	"github.com/rs/zerolog"
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 
@@ -21,14 +22,14 @@ import (
 	"github.com/xeptore/tidalgram/tidal/types"
 )
 
-func (d *Downloader) playlist(ctx context.Context, id string) error {
+func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id string) error {
 	accessToken := d.auth.Credentials().Token
-	playlist, err := d.getPlaylistMeta(ctx, accessToken, id)
+	playlist, err := d.getPlaylistMeta(ctx, logger, accessToken, id)
 	if nil != err {
 		return fmt.Errorf("failed to get playlist meta: %w", err)
 	}
 
-	tracks, err := d.getPlaylistTracks(ctx, accessToken, id)
+	tracks, err := d.getPlaylistTracks(ctx, logger, accessToken, id)
 	if nil != err {
 		return fmt.Errorf("failed to get playlist tracks: %w", err)
 	}
@@ -39,22 +40,27 @@ func (d *Downloader) playlist(ctx context.Context, id string) error {
 	)
 
 	wg.SetLimit(ratelimit.PlaylistDownloadConcurrency)
-	for _, track := range tracks {
+	for i, track := range tracks {
+		logger = logger.With().Int("track_index", i).Logger()
+
 		wg.Go(func() (err error) {
 			trackFs := playlistFs.Track(track.ID)
 			if exists, err := trackFs.Cover.Exists(); nil != err {
+				logger.Error().Err(err).Msg("Failed to check if track cover exists")
 				return fmt.Errorf("failed to check if track cover exists: %v", err)
 			} else if !exists {
-				coverBytes, err := d.getCover(ctx, accessToken, track.CoverID)
+				coverBytes, err := d.getCover(wgCtx, logger, accessToken, track.CoverID)
 				if nil != err {
 					return fmt.Errorf("failed to get track cover: %w", err)
 				}
 				if err := trackFs.Cover.Write(coverBytes); nil != err {
+					logger.Error().Err(err).Msg("Failed to write track cover")
 					return fmt.Errorf("failed to write track cover: %v", err)
 				}
 			}
 
 			if exists, err := trackFs.Exists(); nil != err {
+				logger.Error().Err(err).Msg("Failed to check if track file exists")
 				return fmt.Errorf("failed to check if track file exists: %v", err)
 			} else if exists {
 				return nil
@@ -63,27 +69,28 @@ func (d *Downloader) playlist(ctx context.Context, id string) error {
 				if nil != err {
 					if removeErr := trackFs.Remove(); nil != removeErr {
 						if !errors.Is(err, os.ErrNotExist) {
+							logger.Error().Err(removeErr).Msg("Failed to remove playlist track file")
 							err = errors.Join(err, fmt.Errorf("failed to remove playlist track file: %v", removeErr))
 						}
 					}
 				}
 			}()
 
-			trackCredits, err := d.getTrackCredits(ctx, accessToken, track.ID)
+			trackCredits, err := d.getTrackCredits(wgCtx, logger, accessToken, track.ID)
 			if nil != err {
 				return fmt.Errorf("failed to get track credits: %w", err)
 			}
 
-			trackLyrics, err := d.downloadTrackLyrics(ctx, accessToken, track.ID)
+			trackLyrics, err := d.downloadTrackLyrics(wgCtx, logger, accessToken, track.ID)
 			if nil != err {
 				return fmt.Errorf("failed to download track lyrics: %w", err)
 			}
 
-			if err := d.downloadTrack(wgCtx, accessToken, track.ID, trackFs.Path); nil != err {
+			if err := d.downloadTrack(wgCtx, logger, accessToken, track.ID, trackFs.Path); nil != err {
 				return fmt.Errorf("failed to download track: %w", err)
 			}
 
-			album, err := d.getAlbumMeta(ctx, accessToken, track.AlbumID)
+			album, err := d.getAlbumMeta(wgCtx, logger, accessToken, track.AlbumID)
 			if nil != err {
 				return fmt.Errorf("failed to get album meta: %w", err)
 			}
@@ -106,7 +113,7 @@ func (d *Downloader) playlist(ctx context.Context, id string) error {
 				Credits:      *trackCredits,
 				Lyrics:       trackLyrics,
 			}
-			if err := embedTrackAttributes(ctx, trackFs.Path, attrs); nil != err {
+			if err := embedTrackAttributes(wgCtx, logger, trackFs.Path, attrs); nil != err {
 				return fmt.Errorf("failed to embed track attributes: %v", err)
 			}
 
@@ -121,6 +128,7 @@ func (d *Downloader) playlist(ctx context.Context, id string) error {
 				Caption: trackCaption(*album),
 			}
 			if err := trackFs.InfoFile.Write(info); nil != err {
+				logger.Error().Err(err).Msg("Failed to write track info file")
 				return fmt.Errorf("failed to write track info file: %v", err)
 			}
 
@@ -137,20 +145,28 @@ func (d *Downloader) playlist(ctx context.Context, id string) error {
 		TrackIDs: lo.Map(tracks, func(t ListTrackMeta, _ int) string { return t.ID }),
 	}
 	if err := playlistFs.InfoFile.Write(info); nil != err {
+		logger.Error().Err(err).Msg("Failed to write playlist info file")
 		return fmt.Errorf("failed to write playlist info file: %v", err)
 	}
 
 	return nil
 }
 
-func (d *Downloader) getPlaylistMeta(ctx context.Context, accessToken, id string) (m *PlaylistMeta, err error) {
+func (d *Downloader) getPlaylistMeta(
+	ctx context.Context,
+	logger zerolog.Logger,
+	accessToken string,
+	id string,
+) (m *PlaylistMeta, err error) {
 	playlistURL, err := url.JoinPath(fmt.Sprintf(playlistAPIFormat, id))
 	if nil != err {
+		logger.Error().Err(err).Msg("Failed to join playlist base URL with playlist id")
 		return nil, fmt.Errorf("failed to join playlist base URL with playlist id: %v", err)
 	}
 
 	reqURL, err := url.Parse(playlistURL)
 	if nil != err {
+		logger.Error().Err(err).Msg("Failed to parse playlist URL")
 		return nil, fmt.Errorf("failed to parse playlist URL: %v", err)
 	}
 
@@ -160,8 +176,11 @@ func (d *Downloader) getPlaylistMeta(ctx context.Context, accessToken, id string
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if nil != err {
+		logger.Error().Err(err).Msg("Failed to create get playlist info request")
 		return nil, fmt.Errorf("failed to create get playlist info request: %w", err)
 	}
+
+	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	client := http.Client{ //nolint:exhaustruct
@@ -169,10 +188,12 @@ func (d *Downloader) getPlaylistMeta(ctx context.Context, accessToken, id string
 	}
 	resp, err := client.Do(req)
 	if nil != err {
+		logger.Error().Err(err).Msg("Failed to send get playlist info request")
 		return nil, fmt.Errorf("failed to send get playlist info request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
+			logger.Error().Err(closeErr).Msg("Failed to close get playlist info response body")
 			err = errors.Join(err, fmt.Errorf("failed to close get playlist info response body: %v", closeErr))
 		}
 	}()
@@ -182,20 +203,25 @@ func (d *Downloader) getPlaylistMeta(ctx context.Context, accessToken, id string
 	case http.StatusUnauthorized:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
+			logger.Error().Err(err).Msg("Failed to read 401 response body")
 			return nil, fmt.Errorf("failed to read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
+			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token expired")
 			return nil, fmt.Errorf("failed to check if 401 response is token expired: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
 
 		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
+			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token invalid")
 			return nil, fmt.Errorf("failed to check if 401 response is token invalid: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
+
+		logger.Error().Bytes("response_body", respBytes).Msg("Unexpected 401 response")
 
 		return nil, fmt.Errorf("unexpected 401 response with body: %s", string(respBytes))
 	case http.StatusTooManyRequests:
@@ -203,22 +229,35 @@ func (d *Downloader) getPlaylistMeta(ctx context.Context, accessToken, id string
 	case http.StatusForbidden:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
+			logger.Error().Err(err).Msg("Failed to read 403 response body")
 			return nil, fmt.Errorf("failed to read 403 response body: %w", err)
 		}
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
+			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 403 response is too many requests")
 			return nil, fmt.Errorf("failed to check if 403 response is too many requests: %v", err)
 		} else if ok {
 			return nil, ErrTooManyRequests
 		}
 
+		logger.Error().Bytes("response_body", respBytes).Msg("Unexpected 403 response")
+
 		return nil, fmt.Errorf("unexpected 403 response with body: %s", string(respBytes))
 	default:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
+			logger.Error().Err(err).Int("status_code", code).Msg("Failed to read response body")
 			return nil, fmt.Errorf("failed to read response body: %w", err)
 		}
 
+		logger.Error().Int("status_code", code).Bytes("response_body", respBytes).Msg("Unexpected response status code")
+
 		return nil, fmt.Errorf("unexpected status code %d with body: %s", code, string(respBytes))
+	}
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if nil != err {
+		logger.Error().Err(err).Msg("Failed to read 200 response body")
+		return nil, fmt.Errorf("failed to read 200 response body: %w", err)
 	}
 
 	var respBody struct {
@@ -226,18 +265,21 @@ func (d *Downloader) getPlaylistMeta(ctx context.Context, accessToken, id string
 		Created     string `json:"created"`
 		LastUpdated string `json:"lastUpdated"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&respBody); nil != err {
+	if err := json.Unmarshal(respBytes, &respBody); nil != err {
+		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode 200 response body")
 		return nil, fmt.Errorf("failed to decode 200 response body: %w", err)
 	}
 
 	const dateLayout = "2006-01-02T15:04:05.000-0700"
 	createdAt, err := time.Parse(dateLayout, respBody.Created)
 	if nil != err {
+		logger.Error().Err(err).Str("created", respBody.Created).Msg("Failed to parse playlist created date")
 		return nil, fmt.Errorf("failed to parse playlist created date: %v", err)
 	}
 
 	lastUpdatedAt, err := time.Parse(dateLayout, respBody.LastUpdated)
 	if nil != err {
+		logger.Error().Err(err).Str("last_updated", respBody.LastUpdated).Msg("Failed to parse playlist last updated date")
 		return nil, fmt.Errorf("failed to parse playlist last updated date: %v", err)
 	}
 
@@ -254,10 +296,15 @@ type PlaylistMeta struct {
 	EndYear   int
 }
 
-func (d *Downloader) getPlaylistTracks(ctx context.Context, accessToken, id string) ([]ListTrackMeta, error) {
+func (d *Downloader) getPlaylistTracks(
+	ctx context.Context,
+	logger zerolog.Logger,
+	accessToken string,
+	id string,
+) ([]ListTrackMeta, error) {
 	var tracks []ListTrackMeta
 	for i := 0; ; i++ {
-		pageTracks, rem, err := d.playlistTracksPage(ctx, accessToken, id, i)
+		pageTracks, rem, err := d.playlistTracksPage(ctx, logger, accessToken, id, i)
 		if nil != err {
 			return nil, fmt.Errorf("failed to get playlist tracks page: %w", err)
 		}
@@ -274,13 +321,20 @@ func (d *Downloader) getPlaylistTracks(ctx context.Context, accessToken, id stri
 
 const pageItemTypeTrack = "track"
 
-func (d *Downloader) playlistTracksPage(ctx context.Context, accessToken, id string, page int) (ts []ListTrackMeta, rem int, err error) {
+func (d *Downloader) playlistTracksPage(
+	ctx context.Context,
+	logger zerolog.Logger,
+	accessToken string,
+	id string,
+	page int,
+) (ts []ListTrackMeta, rem int, err error) {
 	playlistURL, err := url.JoinPath(fmt.Sprintf(playlistItemsAPIFormat, id))
 	if nil != err {
-		return nil, 0, fmt.Errorf("failed to create playlist URL: %v", err)
+		logger.Error().Err(err).Msg("Failed to join playlist URL with id")
+		return nil, 0, fmt.Errorf("failed to join playlist URL with id: %v", err)
 	}
 
-	respBytes, err := d.getListPagedItems(ctx, accessToken, playlistURL, page)
+	respBytes, err := d.getListPagedItems(ctx, logger, accessToken, playlistURL, page)
 	if nil != err {
 		return nil, 0, fmt.Errorf("failed to get playlist tracks page: %w", err)
 	}
@@ -316,7 +370,8 @@ func (d *Downloader) playlistTracksPage(ctx context.Context, accessToken, id str
 		} `json:"items"`
 	}
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
-		return nil, 0, fmt.Errorf("failed to decode playlist response: %v", err)
+		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode playlist tracks response")
+		return nil, 0, fmt.Errorf("failed to decode playlist tracks response: %v", err)
 	}
 
 	thisPageItemsCount := len(respBody.Items)
@@ -337,7 +392,7 @@ func (d *Downloader) playlistTracksPage(ctx context.Context, accessToken, id str
 			switch a.Type {
 			case types.ArtistTypeMain, types.ArtistTypeFeatured:
 			default:
-				return nil, 0, fmt.Errorf("unexpected artist type: %s", a.Type)
+				return nil, 0, fmt.Errorf("unexpected playlist track artist type: %s", a.Type)
 			}
 			artists[i] = types.TrackArtist{Name: a.Name, Type: a.Type}
 		}

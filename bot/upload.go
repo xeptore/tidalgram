@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
+	"github.com/rs/zerolog"
 
 	"github.com/xeptore/tidalgram/tidal/fs"
 	"github.com/xeptore/tidalgram/tidal/types"
@@ -208,34 +209,42 @@ import (
 
 func uploadTrack(
 	ctx context.Context,
+	logger zerolog.Logger,
 	b *gotgbot.Bot,
+	dirFs fs.DownloadsDir,
 	chatID int64,
 	replyMessageID int64,
-	dirFs fs.DownloadsDir,
 	id string,
 ) (err error) {
+	logger = logger.With().Str("track_id", id).Logger()
+
 	track := dirFs.Track(id)
 	info, err := track.InfoFile.Read()
 	if nil != err {
+		logger.Error().Err(err).Msg("failed to read track info file")
 		return fmt.Errorf("failed to read track info file: %v", err)
 	}
 
 	coverFile, err := os.Open(track.Cover.Path)
 	if nil != err {
+		logger.Error().Err(err).Msg("failed to open track cover file")
 		return fmt.Errorf("failed to open cover file: %v", err)
 	}
 	defer func() {
 		if closeErr := coverFile.Close(); nil != closeErr {
+			logger.Error().Err(closeErr).Msg("failed to close track cover file")
 			err = errors.Join(err, fmt.Errorf("failed to close track cover file: %v", closeErr))
 		}
 	}()
 
 	trackFile, err := os.Open(track.Path)
 	if nil != err {
+		logger.Error().Err(err).Msg("failed to open track file")
 		return fmt.Errorf("failed to open track file: %v", err)
 	}
 	defer func() {
 		if closeErr := trackFile.Close(); nil != closeErr {
+			logger.Error().Err(closeErr).Msg("failed to close track file")
 			err = errors.Join(err, fmt.Errorf("failed to close track file: %v", closeErr))
 		}
 	}()
@@ -246,8 +255,8 @@ func uploadTrack(
 	}
 
 	trackMedia := gotgbot.InputFileByReader(filepath.Base(track.Path), trackFile)
-	sendOpts := &gotgbot.SendAudioOpts{
-		ReplyParameters: &gotgbot.ReplyParameters{
+	sendOpts := &gotgbot.SendAudioOpts{ //nolint:exhaustruct
+		ReplyParameters: &gotgbot.ReplyParameters{ //nolint:exhaustruct
 			MessageId: replyMessageID,
 		},
 		Thumbnail: gotgbot.InputFileByReader(filepath.Base(track.Cover.Path), coverFile),
@@ -258,7 +267,9 @@ func uploadTrack(
 		ParseMode: gotgbot.ParseModeMarkdown,
 	}
 	if _, err := b.SendAudioWithContext(ctx, chatID, trackMedia, sendOpts); nil != err {
+		logger.Error().Err(err).Msg("failed to send audio")
 		return fmt.Errorf("failed to send audio: %v", err)
 	}
+
 	return nil
 }

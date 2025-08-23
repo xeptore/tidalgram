@@ -15,12 +15,12 @@ import (
 	"github.com/xeptore/tidalgram/bot"
 	"github.com/xeptore/tidalgram/config"
 	"github.com/xeptore/tidalgram/constants"
-	"github.com/xeptore/tidalgram/logging"
+	"github.com/xeptore/tidalgram/log"
 	"github.com/xeptore/tidalgram/tidal"
 )
 
 func main() {
-	logger := logging.NewDefault()
+	logger := log.NewDefault()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -109,7 +109,7 @@ func main() {
 }
 
 func runBot(ctx context.Context, cmd *cli.Command) error {
-	logger := logging.NewDefault()
+	logger := log.NewDefault()
 
 	if err := godotenv.Load(); nil != err {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -120,26 +120,21 @@ func runBot(ctx context.Context, cmd *cli.Command) error {
 		logger.Debug().Msg(".env file was loaded")
 	}
 
-	confPath := cmd.String("config")
-	if confPath == "" {
-		confPath = "config.yaml"
-	}
-
-	conf, err := config.Load(confPath)
+	conf, err := config.Load(cmd.String("config"))
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
-	logger.Debug().Msg("Config loaded")
+	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
-	logger = logging.FromConfig(&conf.Logging)
+	logger = log.FromConfig(&conf.Log)
 
-	t, err := tidal.NewClient(conf.Bot.CredsDir, conf.Bot.DownloadsDir, conf.Tidal)
+	t, err := tidal.NewClient(logger, conf.Bot.CredsDir, conf.Bot.DownloadsDir, conf.Tidal)
 	if nil != err {
 		return fmt.Errorf("failed to create tidal client: %v", err)
 	}
 	logger.Debug().Msg("Tidal client created")
 
-	b, err := bot.New(ctx, &logger, &conf.Bot, conf.Bot.Token, t)
+	b, err := bot.New(ctx, logger, &conf.Bot, conf.Bot.Token, t)
 	if nil != err {
 		return fmt.Errorf("failed to create tidalgram bot: %v", err)
 	}
@@ -147,7 +142,7 @@ func runBot(ctx context.Context, cmd *cli.Command) error {
 
 	logger.Debug().Msg("Starting TidalGram bot")
 	if err := b.Start(); nil != err {
-		return fmt.Errorf("failed to start tidalgram bot: %v", err)
+		return fmt.Errorf("failed to start tidalgram bot: %w", err)
 	}
 	logger.Info().Msg("TidalGram bot started and listening for updates")
 
@@ -155,7 +150,7 @@ func runBot(ctx context.Context, cmd *cli.Command) error {
 	logger.Info().Msg("Stopping TidalGram application")
 
 	if err := b.Stop(); nil != err {
-		return fmt.Errorf("failed to stop tidalgram bot: %v", err)
+		return fmt.Errorf("failed to stop tidalgram bot: %w", err)
 	}
 	logger.Info().Msg("TidalGram bot stopped successfully")
 
@@ -163,7 +158,7 @@ func runBot(ctx context.Context, cmd *cli.Command) error {
 }
 
 func logoutBot(ctx context.Context, cmd *cli.Command) error {
-	logger := logging.NewDefault()
+	logger := log.NewDefault()
 
 	if err := godotenv.Load(); nil != err {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -174,27 +169,22 @@ func logoutBot(ctx context.Context, cmd *cli.Command) error {
 		logger.Debug().Msg(".env file was loaded")
 	}
 
-	confPath := cmd.String("config")
-	if confPath == "" {
-		confPath = "config.yaml"
-	}
-
-	conf, err := config.Load(confPath)
+	conf, err := config.Load(cmd.String("config"))
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
-	logger.Debug().Msg("Config loaded")
+	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
-	logger = logging.FromConfig(&conf.Logging)
+	logger = log.FromConfig(&conf.Log)
 
-	b, err := bot.NewAPI(ctx, &logger, &conf.Bot, conf.Bot.Token)
+	b, err := bot.NewAPI(ctx, logger, &conf.Bot, conf.Bot.Token)
 	if nil != err {
 		return fmt.Errorf("failed to create tidalgram API bot: %v", err)
 	}
 	logger.Info().Dict("account", b.Account.ToDict()).Msg("Bot instance created")
 
 	if err := b.Logout(ctx); nil != err {
-		return fmt.Errorf("failed to logout tidalgram API bot: %v", err)
+		return fmt.Errorf("failed to logout tidalgram API bot: %w", err)
 	}
 	logger.Info().Msg("Bot instance logged out successfully. You can now run the bot locally.")
 
@@ -202,7 +192,7 @@ func logoutBot(ctx context.Context, cmd *cli.Command) error {
 }
 
 func closeBot(ctx context.Context, cmd *cli.Command) error {
-	logger := logging.NewDefault()
+	logger := log.NewDefault()
 
 	if err := godotenv.Load(); nil != err {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -213,27 +203,22 @@ func closeBot(ctx context.Context, cmd *cli.Command) error {
 		logger.Info().Msg(".env file was loaded")
 	}
 
-	confPath := cmd.String("config")
-	if confPath == "" {
-		confPath = "config.yaml"
-	}
-
-	conf, err := config.Load(confPath)
+	conf, err := config.Load(cmd.String("config"))
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
-	logger.Debug().Msg("Config loaded")
+	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
-	logger = logging.FromConfig(&conf.Logging)
+	logger = log.FromConfig(&conf.Log)
 
-	b, err := bot.NewAPI(ctx, &logger, &conf.Bot, conf.Bot.Token)
+	b, err := bot.NewAPI(ctx, logger, &conf.Bot, conf.Bot.Token)
 	if nil != err {
 		return fmt.Errorf("failed to create tidalgram API bot: %v", err)
 	}
 	logger.Info().Dict("account", b.Account.ToDict()).Msg("Bot instance created")
 
 	if err := b.Close(ctx); nil != err {
-		return fmt.Errorf("failed to close tidalgram API bot: %v", err)
+		return fmt.Errorf("failed to close tidalgram API bot: %w", err)
 	}
 	logger.
 		Info().

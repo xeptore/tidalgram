@@ -31,7 +31,6 @@ linters:
     - gocheckcompilerdirectives
     - gochecknoinits
     - gochecksumtype
-    - gocognit
     - goconst
     - gocritic
     - godot

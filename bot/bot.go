@@ -23,7 +23,7 @@ import (
 type Bot struct {
 	bot        *gotgbot.Bot
 	updater    *ext.Updater
-	logger     *zerolog.Logger
+	logger     zerolog.Logger
 	papaChatID int64
 	Account    Account
 }
@@ -48,10 +48,10 @@ func (a *Account) ToDict() *zerolog.Event {
 
 func New(
 	ctx context.Context,
-	logger *zerolog.Logger,
+	logger zerolog.Logger,
 	conf *config.Bot,
 	token string,
-	tidal *tidal.Client,
+	t *tidal.Client,
 ) (*Bot, error) {
 	b, err := gotgbot.NewBot(token, &gotgbot.BotOpts{ //nolint:exhaustruct
 		BotClient: &gotgbot.BaseBotClient{
@@ -75,6 +75,11 @@ func New(
 
 	dispatcher := ext.NewDispatcher(&ext.DispatcherOpts{ //nolint:exhaustruct
 		Error: func(_ *gotgbot.Bot, _ *ext.Context, err error) ext.DispatcherAction {
+			if ctxErr := ctx.Err(); nil != ctxErr && errors.Is(ctxErr, context.Canceled) && errors.Is(err, context.Canceled) {
+				logger.Warn().Msg("Context cancelled while handling update")
+				return ext.DispatcherActionEndGroups
+			}
+
 			logger.Error().Err(err).Msg("An error occurred while handling update")
 
 			return ext.DispatcherActionNoop
@@ -84,7 +89,7 @@ func New(
 		},
 		MaxRoutines: 10,
 	})
-	registerHandlers(ctx, dispatcher, conf, tidal)
+	registerHandlers(ctx, logger, conf, dispatcher, t)
 	updater := ext.NewUpdater(dispatcher, nil)
 
 	return &Bot{
@@ -96,13 +101,13 @@ func New(
 	}, nil
 }
 
-func fillAccount(bot *gotgbot.Bot) Account {
+func fillAccount(b *gotgbot.Bot) Account {
 	return Account{
-		ID:        bot.Id,
-		IsBot:     bot.IsBot,
-		IsPremium: bot.IsPremium,
-		FirstName: bot.FirstName,
-		LastName:  bot.LastName,
+		ID:        b.Id,
+		IsBot:     b.IsBot,
+		IsPremium: b.IsPremium,
+		FirstName: b.FirstName,
+		LastName:  b.LastName,
 	}
 }
 
@@ -133,7 +138,7 @@ func (b *Bot) Start() error {
 		"🕒 Compiled At: `" + compiledAt.Format("2006/01/02 15:04:05") + " UTC`",
 	}, "\n")
 	if _, err := b.bot.SendMessage(b.papaChatID, msg, sendOpts); nil != err {
-		return fmt.Errorf("failed to send message: %v", err)
+		return fmt.Errorf("failed to send message: %w", err)
 	}
 
 	return nil
@@ -148,7 +153,7 @@ func (b *Bot) Stop() error {
 		ParseMode: gotgbot.ParseModeMarkdown,
 	}
 	if _, err := b.bot.SendMessage(b.papaChatID, "I'm going offline, Papa 🥲", sendOpts); nil != err {
-		return fmt.Errorf("failed to send message: %v", err)
+		return fmt.Errorf("failed to send message: %w", err)
 	}
 
 	return nil
@@ -161,7 +166,7 @@ type APIBot struct {
 
 func NewAPI(
 	ctx context.Context,
-	logger *zerolog.Logger,
+	logger zerolog.Logger,
 	conf *config.Bot,
 	token string,
 ) (*APIBot, error) {
@@ -192,12 +197,8 @@ func NewAPI(
 // After a successful call, you can immediately log in on a local server,
 // but will not be able to log in back to the cloud Bot API server for 10 minutes.
 func (b *APIBot) Logout(ctx context.Context) error {
-	ok, err := b.bot.LogOutWithContext(ctx, nil)
-	if nil != err {
-		return fmt.Errorf("failed to log out: %v", err)
-	}
-	if !ok {
-		return errors.New("failed to log out")
+	if _, err := b.bot.LogOutWithContext(ctx, nil); nil != err {
+		return fmt.Errorf("failed to log out: %w", err)
 	}
 
 	return nil
@@ -206,33 +207,31 @@ func (b *APIBot) Logout(ctx context.Context) error {
 // Close closes the bot instance before moving it from one local server to another.
 // The method will return error 429 in the first 10 minutes after the bot is launched.
 func (b *APIBot) Close(ctx context.Context) error {
-	ok, err := b.bot.DeleteWebhookWithContext(ctx, nil)
-	if nil != err {
-		return fmt.Errorf("failed to delete webhook: %v", err)
-	}
-	if !ok {
-		return errors.New("failed to delete webhook")
+	if _, err := b.bot.DeleteWebhookWithContext(ctx, nil); nil != err {
+		return fmt.Errorf("failed to delete webhook: %w", err)
 	}
 
-	ok, err = b.bot.CloseWithContext(ctx, nil)
-	if nil != err {
-		return fmt.Errorf("failed to close bot: %v", err)
-	}
-	if !ok {
-		return errors.New("failed to close bot")
+	if _, err := b.bot.CloseWithContext(ctx, nil); nil != err {
+		return fmt.Errorf("failed to close bot: %w", err)
 	}
 
 	return nil
 }
 
-func registerHandlers(ctx context.Context, d *ext.Dispatcher, conf *config.Bot, t *tidal.Client) {
+func registerHandlers(
+	ctx context.Context,
+	logger zerolog.Logger,
+	conf *config.Bot,
+	d *ext.Dispatcher,
+	t *tidal.Client,
+) {
 	d.AddHandler(
 		handlers.
 			NewMessage(
 				tidalURLFilter,
 				NewChainHandler(
 					NewPapaOnlyGuard(conf.PapaID),
-					NewTidalURLHandler(ctx, t),
+					NewTidalURLHandler(ctx, logger, t),
 				),
 			).
 			SetAllowChannel(true).
@@ -283,7 +282,7 @@ func registerHandlers(ctx context.Context, d *ext.Dispatcher, conf *config.Bot, 
 				"authorize",
 				NewChainHandler(
 					NewPapaOnlyGuard(conf.PapaID),
-					NewAuthorizeCommandHandler(ctx, t),
+					NewAuthorizeCommandHandler(ctx, logger, t),
 				),
 			).
 			SetAllowChannel(false).
@@ -342,7 +341,8 @@ func getMessageURL(msg *gotgbot.Message) string {
 		if ent.Type != "url" {
 			continue
 		}
+
 		return gotgbot.ParseEntity(msg.Text, ent).Text
 	}
-	panic("expected message to contain URL")
+	panic("expected message to contain URL at this point")
 }

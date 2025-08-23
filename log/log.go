@@ -1,4 +1,4 @@
-package logging
+package log
 
 import (
 	"os"
@@ -11,7 +11,7 @@ import (
 	"github.com/xeptore/tidalgram/constants"
 )
 
-func FromConfig(conf *config.Logging) zerolog.Logger {
+func FromConfig(conf *config.Log) zerolog.Logger {
 	level, err := zerolog.ParseLevel(conf.Level)
 	if nil != err {
 		panic("invalid logging level: " + conf.Level)
@@ -21,6 +21,7 @@ func FromConfig(conf *config.Logging) zerolog.Logger {
 	case "json":
 		return zerolog.
 			New(os.Stderr).
+			Hook(&stackHook{}).
 			With().
 			Timestamp().
 			Str("version", constants.Version).
@@ -34,6 +35,7 @@ func FromConfig(conf *config.Logging) zerolog.Logger {
 				TimeFormat:   time.RFC3339,
 				TimeLocation: time.UTC,
 			}).
+			Hook(&stackHook{}).
 			With().
 			Timestamp().
 			Str("version", constants.Version).
@@ -52,6 +54,7 @@ func NewDefault() zerolog.Logger {
 			TimeFormat:   time.RFC3339,
 			TimeLocation: time.UTC,
 		}).
+		Hook(&stackHook{}).
 		With().
 		Timestamp().
 		Str("version", constants.Version).

@@ -6,18 +6,29 @@ import (
 	"os"
 	"slices"
 
+	"github.com/rs/zerolog"
+	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
+
+	"github.com/xeptore/tidalgram/redact"
 )
 
 type Config struct {
-	Bot     Bot     `yaml:"bot"`
-	Logging Logging `yaml:"logging"`
-	Tidal   Tidal   `yaml:"tidal"`
+	Bot   Bot   `yaml:"bot"`
+	Log   Log   `yaml:"log"`
+	Tidal Tidal `yaml:"tidal"`
+}
+
+func (c *Config) ToDict() *zerolog.Event {
+	return zerolog.Dict().
+		Dict("bot", c.Bot.ToDict()).
+		Dict("log", c.Log.ToDict()).
+		Dict("tidal", c.Tidal.ToDict())
 }
 
 func (c *Config) setDefaults() {
 	c.Bot.setDefaults()
-	c.Logging.setDefaults()
+	c.Log.setDefaults()
 	c.Tidal.setDefaults()
 }
 
@@ -26,8 +37,8 @@ func (c *Config) validate() error {
 		return fmt.Errorf("bot config validation failed: %v", err)
 	}
 
-	if err := c.Logging.validate(); nil != err {
-		return fmt.Errorf("logging config validation failed: %v", err)
+	if err := c.Log.validate(); nil != err {
+		return fmt.Errorf("log config validation failed: %v", err)
 	}
 
 	if err := c.Tidal.validate(); nil != err {
@@ -44,6 +55,16 @@ type Bot struct {
 	CredsDir     string `yaml:"creds_dir"`
 	DownloadsDir string `yaml:"downloads_dir"`
 	Signature    string `yaml:"signature"`
+}
+
+func (c *Bot) ToDict() *zerolog.Event {
+	return zerolog.Dict().
+		Int64("papa_id", c.PapaID).
+		Str("api_url", c.APIURL).
+		Str("token", redact.String(c.Token)).
+		Str("creds_dir", c.CredsDir).
+		Str("downloads_dir", c.DownloadsDir).
+		Str("signature", c.Signature)
 }
 
 func (c *Bot) setDefaults() {
@@ -92,12 +113,18 @@ func (c *Bot) validate() error {
 	return nil
 }
 
-type Logging struct {
+type Log struct {
 	Level  string `yaml:"level"`
 	Format string `yaml:"format"`
 }
 
-func (c *Logging) setDefaults() {
+func (c *Log) ToDict() *zerolog.Event {
+	return zerolog.Dict().
+		Str("level", c.Level).
+		Str("format", c.Format)
+}
+
+func (c *Log) setDefaults() {
 	if c.Level == "" {
 		c.Level = "info"
 	}
@@ -107,7 +134,7 @@ func (c *Logging) setDefaults() {
 	}
 }
 
-func (c *Logging) validate() error {
+func (c *Log) validate() error {
 	if !slices.Contains([]string{"debug", "info", "warn", "error", "fatal", "panic"}, c.Level) {
 		return fmt.Errorf(
 			"level must be one of: debug, info, warn, error, fatal, panic, got: %s",
@@ -126,6 +153,11 @@ type Tidal struct {
 	Downloader TidalDownloader `yaml:"downloader"`
 }
 
+func (c *Tidal) ToDict() *zerolog.Event {
+	return zerolog.Dict().
+		Dict("downloader", c.Downloader.ToDict())
+}
+
 func (c *Tidal) setDefaults() {
 	c.Downloader.setDefaults()
 }
@@ -140,6 +172,11 @@ func (c *Tidal) validate() error {
 
 type TidalDownloader struct {
 	Timeouts TidalDownloadTimeouts `yaml:"timeouts"`
+}
+
+func (c *TidalDownloader) ToDict() *zerolog.Event {
+	return zerolog.Dict().
+		Dict("timeouts", c.Timeouts.ToDict())
 }
 
 func (c *TidalDownloader) setDefaults() {
@@ -166,6 +203,21 @@ type TidalDownloadTimeouts struct {
 	DownloadDashSegment int `yaml:"download_dash_segment"`
 	GetVNDTrackFileSize int `yaml:"get_vnd_track_file_size"`
 	DownloadVNDSegment  int `yaml:"download_vnd_segment"`
+}
+
+func (c *TidalDownloadTimeouts) ToDict() *zerolog.Event {
+	return zerolog.Dict().
+		Int("get_track_credits", c.GetTrackCredits).
+		Int("get_track_lyrics", c.GetTrackLyrics).
+		Int("download_cover", c.DownloadCover).
+		Int("get_album_info", c.GetAlbumInfo).
+		Int("get_stream_urls", c.GetStreamURLs).
+		Int("get_playlist_info", c.GetPlaylistInfo).
+		Int("get_mix_info", c.GetMixInfo).
+		Int("get_paged_tracks", c.GetPagedTracks).
+		Int("download_dash_segment", c.DownloadDashSegment).
+		Int("get_vnd_track_file_size", c.GetVNDTrackFileSize).
+		Int("download_vnd_segment", c.DownloadVNDSegment)
 }
 
 func (c *TidalDownloadTimeouts) setDefaults() {
@@ -263,7 +315,7 @@ func (c *TidalDownloadTimeouts) validate() error {
 }
 
 func Load(filename string) (*Config, error) {
-	data, err := os.ReadFile(filename)
+	data, err := os.ReadFile(lo.Ternary(len(filename) > 0, filename, "config.yaml"))
 	if nil != err {
 		return nil, fmt.Errorf("failed to read config file %s: %v", filename, err)
 	}
