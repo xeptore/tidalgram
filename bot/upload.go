@@ -297,15 +297,33 @@ func uploadTracksBatch(
 		func(ctx context.Context) error {
 			if _, err := b.SendMediaGroupWithContext(ctx, chatID, inputMedias, sendOpts); nil != err {
 				if tErr := new(gotgbot.TelegramError); errors.As(err, &tErr) {
-					if retryAfter := time.Duration(tErr.ResponseParams.RetryAfter) * time.Second; retryAfter > 0 {
-						logger.Error().Err(err).Dur("duration", retryAfter).Msg("Hit FLOOD_WAIT error")
-						select {
-						case <-ctx.Done():
-							return ctx.Err()
-						case <-time.After(retryAfter + time.Second):
-							return retry.RetryableError(err)
-						}
-					}
+					logger.Error().Err(err).Dict("response_params", zerolog.Dict().
+						Func(func(e *zerolog.Event) {
+							e.Str("method", tErr.Method)
+							e.Str("description", tErr.Description)
+							e.Int("code", tErr.Code)
+							dict := zerolog.Dict()
+							for k, v := range tErr.Params {
+								dict.Str(k, v)
+							}
+							e.Dict("params", dict)
+
+							if tErr.ResponseParams != nil {
+								dict := zerolog.Dict().
+									Int64("retry_after", tErr.ResponseParams.RetryAfter).
+									Int64("message_id", tErr.ResponseParams.MigrateToChatId)
+								e.Dict("response_params", dict)
+							}
+						})).Msg("Received Telegram error")
+					// if retryAfter := time.Duration(tErr.ResponseParams.RetryAfter) * time.Second; retryAfter > 0 {
+					// 	logger.Error().Err(err).Dur("duration", retryAfter).Msg("Hit FLOOD_WAIT error")
+					// 	select {
+					// 	case <-ctx.Done():
+					// 		return ctx.Err()
+					// 	case <-time.After(retryAfter + time.Second):
+					// 		return retry.RetryableError(err)
+					// 	}
+					// }
 
 					return fmt.Errorf("failed to send media group due to unknown Telegram error: %v", err)
 				}
