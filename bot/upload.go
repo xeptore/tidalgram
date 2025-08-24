@@ -297,12 +297,12 @@ func uploadTracksBatch(
 		func(ctx context.Context) error {
 			if _, err := b.SendMediaGroupWithContext(ctx, chatID, inputMedias, sendOpts); nil != err {
 				if tErr := new(gotgbot.TelegramError); errors.As(err, &tErr) {
-					if retryAfter := time.Duration(tErr.ResponseParams.RetryAfter); retryAfter > 0 {
-						logger.Error().Err(err).Dur("duration", retryAfter*time.Second).Msg("Hit FLOOD_WAIT error")
+					if retryAfter := time.Duration(tErr.ResponseParams.RetryAfter) * time.Second; retryAfter > 0 {
+						logger.Error().Err(err).Dur("duration", retryAfter).Msg("Hit FLOOD_WAIT error")
 						select {
 						case <-ctx.Done():
 							return ctx.Err()
-						case <-time.After((retryAfter + 1) * time.Second):
+						case <-time.After(retryAfter + time.Second):
 							return retry.RetryableError(err)
 						}
 					}
@@ -409,12 +409,12 @@ func uploadTrack(
 		func(ctx context.Context) error {
 			if _, err := b.SendAudioWithContext(ctx, chatID, trackMedia, sendOpts); nil != err {
 				if tErr := new(gotgbot.TelegramError); errors.As(err, &tErr) {
-					if retryAfter := time.Duration(tErr.ResponseParams.RetryAfter); retryAfter > 0 {
-						logger.Error().Err(err).Dur("duration", retryAfter*time.Second).Msg("Hit FLOOD_WAIT error")
+					if retryAfter := time.Duration(tErr.ResponseParams.RetryAfter) * time.Second; retryAfter > 0 {
+						logger.Error().Err(err).Dur("duration", retryAfter).Msg("Hit FLOOD_WAIT error")
 						select {
 						case <-ctx.Done():
 							return ctx.Err()
-						case <-time.After((retryAfter + 1) * time.Second):
+						case <-time.After(retryAfter + time.Second):
 							return retry.RetryableError(err)
 						}
 					}
