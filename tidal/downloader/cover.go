@@ -1,13 +1,18 @@
 package downloader
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -135,5 +140,200 @@ func (d *Downloader) downloadCover(
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	return respBytes, nil
+	compressed, err := compressImage(ctx, logger, respBytes, 200*1024)
+	if nil != err {
+		return nil, fmt.Errorf("failed to compress image: %w", err)
+	}
+
+	return compressed, nil
+}
+
+func compressImage(ctx context.Context, logger zerolog.Logger, b []byte, maxSize int64) ([]byte, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	image := bytes.Clone(b)
+
+	for quantizer := 1; quantizer < 32; quantizer++ {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		r, w, err := os.Pipe()
+		if nil != err {
+			logger.Error().Err(err).Msg("Failed to create pipe for ffmpeg command")
+			return nil, fmt.Errorf("failed to create pipe for ffmpeg command: %v", err)
+		}
+
+		cmd := exec.CommandContext(
+			ctx,
+			"ffmpeg",
+			"-i",
+			"-",
+			"-q:v",
+			strconv.Itoa(quantizer),
+			"-vf",
+			"scale=iw:ih",
+			"-frames:v",
+			"1",
+			"-f",
+			"mjpeg",
+			"-",
+		)
+		logger.Debug().Strs("args", cmd.Args).Msg("Starting ffmpeg command")
+
+		// Setpgid is required to kill the process group when the context is cancelled.
+		// Only works on Unix.
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} //nolint:exhaustruct
+
+		cmd.Cancel = func() error {
+			p := cmd.Process
+			if p == nil {
+				return nil
+			}
+
+			// Send SIGTERM to the process group (-PID) so children get it too.
+			_ = syscall.Kill(-p.Pid, syscall.SIGTERM)
+
+			for {
+				time.Sleep(1 * time.Second)
+
+				if err := syscall.Kill(cmd.Process.Pid, 0); nil != err {
+					return os.ErrProcessDone
+				}
+
+				_ = syscall.Kill(-p.Pid, syscall.SIGKILL)
+			}
+		}
+
+		cmd.Stdin = r
+
+		var stderr bytes.Buffer
+		cmd.Stdout = &stderr
+
+		var stdout bytes.Buffer
+		cmd.Stdout = &stdout
+
+		if err := cmd.Start(); nil != err {
+			logger.Error().Err(err).Msg("Failed to start ffmpeg command")
+
+			if closeErr := w.Close(); nil != closeErr {
+				logger.Error().Err(err).Msg("Failed to close ffmpeg pipe writer")
+				err = errors.Join(err, fmt.Errorf("failed to close ffmpeg pipe writer: %v", closeErr))
+			}
+
+			if closeErr := r.Close(); nil != closeErr {
+				logger.Error().Err(err).Msg("Failed to close ffmpeg pipe reader")
+				err = errors.Join(err, fmt.Errorf("failed to close ffmpeg pipe reader: %v", closeErr))
+			}
+
+			return nil, fmt.Errorf("failed to start ffmpeg command: %v", err)
+		}
+
+		if n, err := bytes.NewReader(image).WriteTo(w); nil != err {
+			cancel()
+			logger.Error().Err(err).Msg("Failed to write image to ffmpeg stdin")
+
+			if closeErr := w.Close(); nil != closeErr {
+				logger.Error().Err(err).Msg("Failed to close ffmpeg pipe writer")
+				err = errors.Join(err, fmt.Errorf("failed to close ffmpeg pipe writer: %v", closeErr))
+			}
+
+			if closeErr := r.Close(); nil != closeErr {
+				logger.Error().Err(err).Msg("Failed to close ffmpeg pipe reader")
+				err = errors.Join(err, fmt.Errorf("failed to close ffmpeg pipe reader: %v", closeErr))
+			}
+
+			if waitErr := cmd.Wait(); nil != waitErr {
+				logger.
+					Error().
+					Err(waitErr).
+					Bytes("stderr", stderr.Bytes()).
+					Msg("Failed to wait for ffmpeg command")
+				err = errors.Join(err, fmt.Errorf("failed to wait for ffmpeg command: %v", waitErr))
+			}
+
+			return nil, fmt.Errorf("failed to write image to ffmpeg stdin: %v", err)
+		} else if expected := int64(len(b)); n != expected {
+			cancel()
+			logger.Error().Int64("expected", expected).Int64("actual", n).Msg("Failed to write image to ffmpeg stdin")
+
+			var err error
+
+			if closeErr := w.Close(); nil != closeErr {
+				logger.Error().Err(err).Msg("Failed to close ffmpeg pipe writer")
+				err = errors.Join(err, fmt.Errorf("failed to close ffmpeg pipe writer: %v", closeErr))
+			}
+
+			if closeErr := r.Close(); nil != closeErr {
+				logger.Error().Err(err).Msg("Failed to close ffmpeg pipe reader")
+				err = errors.Join(err, fmt.Errorf("failed to close ffmpeg pipe reader: %v", closeErr))
+			}
+
+			if waitErr := cmd.Wait(); nil != waitErr {
+				logger.
+					Error().
+					Err(waitErr).
+					Bytes("stderr", stderr.Bytes()).
+					Msg("Failed to wait for ffmpeg command")
+				err = errors.Join(err, fmt.Errorf("failed to wait for ffmpeg command: %v", waitErr))
+			}
+
+			return nil, errors.Join(err, fmt.Errorf("failed to write image to ffmpeg stdin: %v", io.ErrShortWrite))
+		}
+
+		if err := w.Close(); nil != err {
+			cancel()
+			logger.Error().Err(err).Msg("Failed to close ffmpeg pipe writer")
+
+			if closeErr := r.Close(); nil != closeErr {
+				logger.Error().Err(err).Msg("Failed to close ffmpeg pipe reader")
+				err = errors.Join(err, fmt.Errorf("failed to close ffmpeg pipe reader: %v", closeErr))
+			}
+
+			if waitErr := cmd.Wait(); nil != waitErr {
+				logger.
+					Error().
+					Err(waitErr).
+					Bytes("stderr", stderr.Bytes()).
+					Msg("Failed to wait for ffmpeg command")
+				err = errors.Join(err, fmt.Errorf("failed to wait for ffmpeg command: %v", waitErr))
+			}
+
+			return nil, fmt.Errorf("failed to close ffmpeg pipe writer: %v", err)
+		}
+
+		if err := r.Close(); nil != err {
+			cancel()
+			logger.Error().Err(err).Msg("Failed to close ffmpeg pipe reader")
+
+			if waitErr := cmd.Wait(); nil != waitErr {
+				logger.
+					Error().
+					Err(waitErr).
+					Bytes("stderr", stderr.Bytes()).
+					Msg("Failed to wait for ffmpeg command")
+				err = errors.Join(err, fmt.Errorf("failed to wait for ffmpeg command: %v", waitErr))
+			}
+
+			return nil, fmt.Errorf("failed to close ffmpeg pipe reader: %v", err)
+		}
+
+		if err := cmd.Wait(); nil != err {
+			cancel()
+			logger.
+				Error().
+				Err(err).
+				Bytes("stderr", stderr.Bytes()).
+				Msg("Failed to wait for ffmpeg command")
+
+			return nil, fmt.Errorf("failed to wait for ffmpeg command: %v", err)
+		}
+
+		result := stdout.Bytes()
+		if len(result) <= int(maxSize) {
+			return result, nil
+		}
+	}
+
+	return nil, errors.New("failed to compress image after 32 quantizers")
 }
