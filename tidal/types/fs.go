@@ -2,7 +2,6 @@ package types
 
 import (
 	"fmt"
-	"strconv"
 )
 
 type StoredMix struct {
@@ -50,7 +49,7 @@ type StoredAlbumTrack struct {
 }
 
 func (t StoredAlbumTrack) UploadTitle() string {
-	title := strconv.Itoa(t.Index+1) + ". " + t.Title
+	title := t.Title
 	if nil != t.Version {
 		title += " (" + *t.Version + ")"
 	}
