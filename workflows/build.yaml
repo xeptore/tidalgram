@@ -1,0 +1,113 @@
+name: Build
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    tags:
+      - "v[0-9]+"
+concurrency:
+  group: ${{ github.workflow }}/${{ github.ref_type }}/${{ github.ref_name }}
+  cancel-in-progress: true
+permissions:
+  contents: none
+  deployments: none
+  actions: none
+  checks: none
+  discussions: none
+  id-token: none
+  issues: none
+  packages: none
+  pages: none
+  pull-requests: none
+  repository-projects: none
+  security-events: none
+  statuses: none
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+          check-latest: true
+      - name: Install Task
+        run: |
+          sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin/
+          export PATH="$PATH:~/.local/bin"
+      - name: Run Code Linter
+        run: task lint
+  build-docker-image:
+    name: Build Docker Image
+    needs:
+      - lint
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Docker Meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}
+          tags: |
+            type=edge,branch=${{ github.event.repository.default_branch }}
+            type=ref,event=pr
+          labels: |
+            maintainer=${{ github.repository_owner }}
+            org.opencontainers.image.authors=${{ github.repository_owner }}
+          flavor: |
+            # See https://github.com/docker/metadata-action#latest-tag
+            latest=auto
+            prefix=,onlatest=false
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker Image Build and Push
+        id: docker_build_and_push
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          pull: true
+          context: .
+          file: Dockerfile
+          no-cache: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64
+        timeout-minutes: 20
