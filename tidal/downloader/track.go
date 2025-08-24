@@ -716,10 +716,10 @@ func embedTrackAttributes(
 		"-map",
 		"0:a",
 		"-map",
-		"1:v",
+		"1",
 		"-c",
 		"copy",
-		"-disposition:v:0",
+		"-disposition:v",
 		"attached_pic",
 	}
 	args = append(args, metaArgs...)
