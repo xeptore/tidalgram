@@ -38,6 +38,8 @@ type AlbumTrackMeta struct {
 }
 
 func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string) error {
+	logger.Debug().Msg("Downloading album")
+
 	accessToken := d.auth.Credentials().Token
 	album, err := d.getAlbumMeta(ctx, logger, accessToken, id)
 	if nil != err {
