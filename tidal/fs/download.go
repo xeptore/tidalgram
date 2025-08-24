@@ -23,7 +23,7 @@ func (d DownloadsDir) Album(id string) Album {
 	return Album{
 		DirPath:  dirPath,
 		InfoFile: InfoFile[types.StoredAlbum]{Path: filepath.Join(dirPath, id+".json")},
-		Cover:    Cover{Path: filepath.Join(dirPath, id+".jpg")},
+		Cover:    Cover{Path: filepath.Join(dirPath, id+"."+types.CoverExt)},
 	}
 }
 
@@ -65,7 +65,7 @@ func (d DownloadsDir) Track(id string) Track {
 	return Track{
 		Path:     trackPath,
 		InfoFile: InfoFile[types.StoredTrack]{Path: trackPath + ".json"},
-		Cover:    Cover{Path: trackPath + ".jpg"},
+		Cover:    Cover{Path: trackPath + "." + types.CoverExt},
 	}
 }
 
@@ -89,7 +89,7 @@ func (p Playlist) Track(id string) Track {
 	return Track{
 		Path:     trackPath,
 		InfoFile: InfoFile[types.StoredTrack]{Path: trackPath + ".json"},
-		Cover:    Cover{Path: trackPath + ".jpg"},
+		Cover:    Cover{Path: trackPath + "." + types.CoverExt},
 	}
 }
 
@@ -117,7 +117,7 @@ func (d Mix) Track(id string) Track {
 	return Track{
 		Path:     trackPath,
 		InfoFile: InfoFile[types.StoredTrack]{Path: trackPath + ".json"},
-		Cover:    Cover{Path: trackPath + ".jpg"},
+		Cover:    Cover{Path: trackPath + "." + types.CoverExt},
 	}
 }
 

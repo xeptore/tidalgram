@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
@@ -256,19 +255,12 @@ func uploadTrack(
 		title += " (" + *info.Version + ")"
 	}
 
-	trackFileName, err := getTrackFilename(logger, dir, id)
-	if nil != err {
-		return fmt.Errorf("failed to get track file name: %v", err)
-	}
-
-	coverFileName := trackFileName[:len(trackFileName)-len(filepath.Ext(trackFileName))] + ".jpg" // FIXME
-
-	trackMedia := gotgbot.InputFileByReader(trackFileName, trackFile)
+	trackMedia := gotgbot.InputFileByReader(info.Filename(), trackFile)
 	sendOpts := &gotgbot.SendAudioOpts{ //nolint:exhaustruct
 		ReplyParameters: &gotgbot.ReplyParameters{ //nolint:exhaustruct
 			MessageId: replyMessageID,
 		},
-		Thumbnail: gotgbot.InputFileByReader(coverFileName, coverFile),
+		Thumbnail: gotgbot.InputFileByReader(info.CoverFilename(), coverFile),
 		Duration:  int64(info.Duration),
 		Performer: types.JoinArtists(info.Artists),
 		Title:     title,
@@ -281,21 +273,4 @@ func uploadTrack(
 	}
 
 	return nil
-}
-
-// FIXME.
-func getTrackFilename(logger zerolog.Logger, dir fs.DownloadsDir, id string) (string, error) {
-	track := dir.Track(id)
-	info, err := track.InfoFile.Read()
-	if nil != err {
-		logger.Error().Err(err).Msg("failed to read track info file")
-		return "", fmt.Errorf("failed to read track info file: %v", err)
-	}
-
-	artistName := types.JoinArtists(info.Artists)
-	if nil != info.Version {
-		return fmt.Sprintf("%s - %s (%s).%s", artistName, info.Title, *info.Version, info.Ext), nil
-	}
-
-	return fmt.Sprintf("%s - %s.%s", artistName, info.Title, info.Ext), nil
 }
