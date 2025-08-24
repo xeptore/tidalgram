@@ -5,6 +5,10 @@ vars:
   VERSION: "1"
 
 tasks:
+  version:
+    cmds:
+      - printf '%s' "{{.VERSION}}"
+
   build:
     requires:
       vars:
