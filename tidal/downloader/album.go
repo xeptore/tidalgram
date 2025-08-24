@@ -195,10 +195,6 @@ func (d *Downloader) getAlbumVolumes(
 			return nil, fmt.Errorf("failed to get album tracks page: %w", err)
 		}
 
-		if rem == 0 {
-			break
-		}
-
 		for _, track := range pageTracks {
 			switch track.VolumeNumber {
 			case currentVolume:
@@ -210,6 +206,10 @@ func (d *Downloader) getAlbumVolumes(
 			default:
 				return nil, fmt.Errorf("unexpected volume number: %d", track.VolumeNumber)
 			}
+		}
+
+		if rem == 0 {
+			break
 		}
 	}
 

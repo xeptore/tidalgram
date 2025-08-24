@@ -301,11 +301,11 @@ func (d *Downloader) getMixTracks(
 			return nil, fmt.Errorf("failed to get mix tracks page: %w", err)
 		}
 
+		tracks = append(tracks, pageTracks...)
+
 		if rem == 0 {
 			break
 		}
-
-		tracks = append(tracks, pageTracks...)
 	}
 
 	return tracks, nil
