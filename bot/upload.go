@@ -37,11 +37,10 @@ func uploadAlbum(
 
 	for volIdx, trackIDs := range info.VolumeTrackIDs {
 		var (
-			volNum       = volIdx + 1
-			batchSize    = mathutil.OptimalAlbumSize(len(trackIDs))
-			numBatches   = mathutil.DivCeil(len(trackIDs), batchSize)
-			batches      = slices.Collect(slices.Chunk(trackIDs, batchSize))
-			uploadMedias = make([]UploadMedia, 0, len(trackIDs))
+			volNum     = volIdx + 1
+			batchSize  = mathutil.OptimalAlbumSize(len(trackIDs))
+			numBatches = mathutil.DivCeil(len(trackIDs), batchSize)
+			batches    = slices.Collect(slices.Chunk(trackIDs, batchSize))
 		)
 		for i, trackIDs := range batches {
 			caption := strings.Join(
@@ -53,6 +52,7 @@ func uploadAlbum(
 				},
 				"\n",
 			)
+			uploadMedias := make([]UploadMedia, 0, len(trackIDs))
 
 			for _, trackID := range trackIDs {
 				trackFs := albumFs.Track(volNum, trackID)
@@ -62,12 +62,12 @@ func uploadAlbum(
 				}
 
 				uploadMedias = append(uploadMedias, UploadMedia{
-					TrackFilename: trackInfo.UploadFilename(),
-					TrackPath:     trackFs.Path,
-					CoverPath:     albumFs.Cover.Path,
-					Title:         trackInfo.UploadTitle(),
-					Performer:     types.JoinArtists(trackInfo.Artists),
-					Duration:      trackInfo.Duration,
+					UploadTrackFilename: trackInfo.UploadFilename(),
+					TrackPath:           trackFs.Path,
+					CoverPath:           albumFs.Cover.Path,
+					Title:               trackInfo.UploadTitle(),
+					Performer:           types.JoinArtists(trackInfo.Artists),
+					Duration:            trackInfo.Duration,
 				})
 			}
 
@@ -83,12 +83,12 @@ func uploadAlbum(
 }
 
 type UploadMedia struct {
-	TrackFilename string
-	TrackPath     string
-	CoverPath     string
-	Title         string
-	Performer     string
-	Duration      int
+	UploadTrackFilename string
+	TrackPath           string
+	CoverPath           string
+	Title               string
+	Performer           string
+	Duration            int
 }
 
 func uploadPlaylist(
@@ -109,10 +109,9 @@ func uploadPlaylist(
 	}
 
 	var (
-		batchSize    = mathutil.OptimalAlbumSize(len(info.TrackIDs))
-		batches      = slices.Collect(slices.Chunk(info.TrackIDs, batchSize))
-		numBatches   = mathutil.DivCeil(len(info.TrackIDs), batchSize)
-		uploadMedias = make([]UploadMedia, 0, len(info.TrackIDs))
+		batchSize  = mathutil.OptimalAlbumSize(len(info.TrackIDs))
+		batches    = slices.Collect(slices.Chunk(info.TrackIDs, batchSize))
+		numBatches = mathutil.DivCeil(len(info.TrackIDs), batchSize)
 	)
 	for i, trackIDs := range batches {
 		caption := strings.Join(
@@ -123,6 +122,7 @@ func uploadPlaylist(
 			},
 			"\n",
 		)
+		uploadMedias := make([]UploadMedia, 0, len(trackIDs))
 
 		for _, trackID := range trackIDs {
 			trackFs := playlistFs.Track(trackID)
@@ -132,12 +132,12 @@ func uploadPlaylist(
 			}
 
 			uploadMedias = append(uploadMedias, UploadMedia{
-				TrackFilename: trackInfo.UploadFilename(),
-				TrackPath:     trackFs.Path,
-				CoverPath:     trackFs.Cover.Path,
-				Title:         trackInfo.UploadTitle(),
-				Performer:     types.JoinArtists(trackInfo.Artists),
-				Duration:      trackInfo.Duration,
+				UploadTrackFilename: trackInfo.UploadFilename(),
+				TrackPath:           trackFs.Path,
+				CoverPath:           trackFs.Cover.Path,
+				Title:               trackInfo.UploadTitle(),
+				Performer:           types.JoinArtists(trackInfo.Artists),
+				Duration:            trackInfo.Duration,
 			})
 		}
 
@@ -169,10 +169,9 @@ func uploadMix(
 	}
 
 	var (
-		batchSize    = mathutil.OptimalAlbumSize(len(info.TrackIDs))
-		batches      = slices.Collect(slices.Chunk(info.TrackIDs, batchSize))
-		numBatches   = mathutil.DivCeil(len(info.TrackIDs), batchSize)
-		uploadMedias = make([]UploadMedia, 0, len(info.TrackIDs))
+		batchSize  = mathutil.OptimalAlbumSize(len(info.TrackIDs))
+		batches    = slices.Collect(slices.Chunk(info.TrackIDs, batchSize))
+		numBatches = mathutil.DivCeil(len(info.TrackIDs), batchSize)
 	)
 	for i, trackIDs := range batches {
 		caption := strings.Join(
@@ -183,6 +182,7 @@ func uploadMix(
 			},
 			"\n",
 		)
+		uploadMedias := make([]UploadMedia, 0, len(trackIDs))
 
 		for _, trackID := range trackIDs {
 			trackFs := mixFs.Track(trackID)
@@ -192,12 +192,12 @@ func uploadMix(
 			}
 
 			uploadMedias = append(uploadMedias, UploadMedia{
-				TrackFilename: trackInfo.UploadFilename(),
-				TrackPath:     trackFs.Path,
-				CoverPath:     trackFs.Cover.Path,
-				Title:         trackInfo.UploadTitle(),
-				Performer:     types.JoinArtists(trackInfo.Artists),
-				Duration:      trackInfo.Duration,
+				UploadTrackFilename: trackInfo.UploadFilename(),
+				TrackPath:           trackFs.Path,
+				CoverPath:           trackFs.Cover.Path,
+				Title:               trackInfo.UploadTitle(),
+				Performer:           types.JoinArtists(trackInfo.Artists),
+				Duration:            trackInfo.Duration,
 			})
 		}
 
@@ -222,8 +222,8 @@ func uploadTracksBatch(
 	caption string,
 ) (err error) {
 	var (
-		closers    = make([]func() error, 0, len(medias))
-		trackMedia = make([]gotgbot.InputMedia, 0, len(medias))
+		closers     = make([]func() error, 0, len(medias)*2)
+		inputMedias = make([]gotgbot.InputMedia, 0, len(medias))
 	)
 
 	defer func() {
@@ -252,12 +252,27 @@ func uploadTracksBatch(
 			return nil
 		})
 
+		coverFile, err := os.Open(media.CoverPath)
+		if nil != err {
+			logger.Error().Err(err).Msg("failed to open track cover file")
+			return fmt.Errorf("failed to open cover file: %v", err)
+		}
+
+		closers = append(closers, func() error {
+			if err := coverFile.Close(); nil != err {
+				logger.Error().Err(err).Msg("failed to close cover file")
+				return fmt.Errorf("failed to close cover file: %v", err)
+			}
+
+			return nil
+		})
+
 		inputMedia := gotgbot.InputMediaAudio{
-			Media:           gotgbot.InputFileByReader(media.TrackFilename, trackFile),
+			Media:           gotgbot.InputFileByReader(media.UploadTrackFilename, trackFile),
 			Title:           media.Title,
 			Performer:       media.Performer,
 			Duration:        int64(media.Duration),
-			Thumbnail:       gotgbot.InputFileByReader(media.CoverPath, trackFile),
+			Thumbnail:       gotgbot.InputFileByReader("cover.jpg", coverFile),
 			Caption:         "",
 			ParseMode:       "",
 			CaptionEntities: nil,
@@ -267,7 +282,7 @@ func uploadTracksBatch(
 			inputMedia.Caption = strings.Join([]string{caption, "", conf.Signature}, "\n")
 		}
 
-		trackMedia = append(trackMedia, inputMedia)
+		inputMedias = append(inputMedias, inputMedia)
 	}
 
 	sendOpts := &gotgbot.SendMediaGroupOpts{ //nolint:exhaustruct
@@ -275,8 +290,8 @@ func uploadTracksBatch(
 			MessageId: replyMessageID,
 		},
 	}
-	if _, err := b.SendMediaGroupWithContext(ctx, chatID, trackMedia, sendOpts); nil != err {
-		return fmt.Errorf("failed to send media album: %w", err)
+	if _, err := b.SendMediaGroupWithContext(ctx, chatID, inputMedias, sendOpts); nil != err {
+		return fmt.Errorf("failed to send media group: %w", err)
 	}
 
 	return nil
