@@ -11,6 +11,7 @@ import (
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/rs/zerolog"
+	"github.com/sethvargo/go-retry"
 
 	"github.com/xeptore/tidalgram/config"
 	"github.com/xeptore/tidalgram/mathutil"
@@ -234,8 +235,8 @@ func uploadTracksBatch(
 		}
 	}()
 
-	for i, media := range medias {
-		logger := logger.With().Int("index", i).Logger()
+	for idx, media := range medias {
+		logger := logger.With().Int("index", idx).Logger()
 
 		trackFile, err := os.Open(media.TrackPath)
 		if nil != err {
@@ -278,7 +279,7 @@ func uploadTracksBatch(
 			CaptionEntities: nil,
 		}
 
-		if i == len(medias)-1 {
+		if idx == len(medias)-1 {
 			inputMedia.Caption = strings.Join([]string{caption, "", conf.Signature}, "\n")
 		}
 
@@ -290,8 +291,32 @@ func uploadTracksBatch(
 			MessageId: replyMessageID,
 		},
 	}
-	if _, err := b.SendMediaGroupWithContext(ctx, chatID, inputMedias, sendOpts); nil != err {
-		return fmt.Errorf("failed to send media group: %w", err)
+	err = retry.Do(
+		ctx,
+		retry.WithMaxRetries(7, retry.NewFibonacci(1*time.Second)),
+		func(ctx context.Context) error {
+			if _, err := b.SendMediaGroupWithContext(ctx, chatID, inputMedias, sendOpts); nil != err {
+				if tErr := new(gotgbot.TelegramError); errors.As(err, &tErr) {
+					if retryAfter := time.Duration(tErr.ResponseParams.RetryAfter); retryAfter > 0 {
+						logger.Error().Err(err).Dur("duration", retryAfter*time.Second).Msg("Hit FLOOD_WAIT error")
+						select {
+						case <-ctx.Done():
+							return ctx.Err()
+						case <-time.After((retryAfter + 1) * time.Second):
+							return retry.RetryableError(err)
+						}
+					}
+
+					return fmt.Errorf("failed to send media group due to unknown Telegram error: %v", err)
+				}
+
+				return fmt.Errorf("failed to send media group: %w", err)
+			}
+
+			return nil
+		})
+	if nil != err {
+		return fmt.Errorf("failed to send media album: %w", err)
 	}
 
 	return nil
@@ -378,8 +403,31 @@ func uploadTrack(
 		Caption:   strings.Join([]string{trackInfo.Caption, "", conf.Signature}, "\n"),
 		ParseMode: gotgbot.ParseModeMarkdown,
 	}
-	if _, err := b.SendAudioWithContext(ctx, chatID, trackMedia, sendOpts); nil != err {
-		logger.Error().Err(err).Msg("failed to send audio")
+	err = retry.Do(
+		ctx,
+		retry.WithMaxRetries(7, retry.NewFibonacci(1*time.Second)),
+		func(ctx context.Context) error {
+			if _, err := b.SendAudioWithContext(ctx, chatID, trackMedia, sendOpts); nil != err {
+				if tErr := new(gotgbot.TelegramError); errors.As(err, &tErr) {
+					if retryAfter := time.Duration(tErr.ResponseParams.RetryAfter); retryAfter > 0 {
+						logger.Error().Err(err).Dur("duration", retryAfter*time.Second).Msg("Hit FLOOD_WAIT error")
+						select {
+						case <-ctx.Done():
+							return ctx.Err()
+						case <-time.After((retryAfter + 1) * time.Second):
+							return retry.RetryableError(err)
+						}
+					}
+
+					return fmt.Errorf("failed to send audio due to unknown Telegram error: %v", err)
+				}
+
+				return fmt.Errorf("failed to send audio: %w", err)
+			}
+
+			return nil
+		})
+	if nil != err {
 		return fmt.Errorf("failed to send audio: %w", err)
 	}
 
