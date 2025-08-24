@@ -14,7 +14,15 @@ COPY --chown=dev:dev . .
 RUN task build
 
 FROM lscr.io/linuxserver/ffmpeg:version-8.0-cli
-RUN useradd -m -u 1000 nonroot
+RUN <<eot
+  set -Eeux
+  useradd -m -u 1000 nonroot
+  apt-get update -y
+  apt-get upgrade -y
+  apt-get install -y libjpeg-turbo-progs
+  apt-get clean
+  rm -rf /var/lib/apt/lists/*
+eot
 USER nonroot
 COPY --chown=nonroot:nonroot --from=build /home/dev/src/bin/tidalgram /home/nonroot/tidalgram
 WORKDIR /home/nonroot
