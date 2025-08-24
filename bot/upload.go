@@ -274,7 +274,7 @@ func uploadTracksBatch(
 			Duration:        int64(media.Duration),
 			Thumbnail:       gotgbot.InputFileByReader("cover.jpg", coverFile),
 			Caption:         "",
-			ParseMode:       "",
+			ParseMode:       gotgbot.ParseModeMarkdown,
 			CaptionEntities: nil,
 		}
 
