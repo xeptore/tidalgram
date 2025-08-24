@@ -38,13 +38,13 @@ func (a Album) Track(vol int, id string) AlbumTrack {
 
 	return AlbumTrack{
 		Path:     trackPath,
-		InfoFile: InfoFile[types.StoredSingleTrack]{Path: trackPath + ".json"},
+		InfoFile: InfoFile[types.StoredTrack]{Path: trackPath + ".json"},
 	}
 }
 
 type AlbumTrack struct {
 	Path     string
-	InfoFile InfoFile[types.StoredSingleTrack]
+	InfoFile InfoFile[types.StoredTrack]
 }
 
 func (t AlbumTrack) Exists() (bool, error) {
@@ -64,7 +64,7 @@ func (d DownloadsDir) Track(id string) Track {
 
 	return Track{
 		Path:     trackPath,
-		InfoFile: InfoFile[types.StoredSingleTrack]{Path: trackPath + ".json"},
+		InfoFile: InfoFile[types.StoredTrack]{Path: trackPath + ".json"},
 		Cover:    Cover{Path: trackPath + ".jpg"},
 	}
 }
@@ -88,7 +88,7 @@ func (p Playlist) Track(id string) Track {
 
 	return Track{
 		Path:     trackPath,
-		InfoFile: InfoFile[types.StoredSingleTrack]{Path: trackPath + ".json"},
+		InfoFile: InfoFile[types.StoredTrack]{Path: trackPath + ".json"},
 		Cover:    Cover{Path: trackPath + ".jpg"},
 	}
 }
@@ -116,7 +116,7 @@ func (d Mix) Track(id string) Track {
 
 	return Track{
 		Path:     trackPath,
-		InfoFile: InfoFile[types.StoredSingleTrack]{Path: trackPath + ".json"},
+		InfoFile: InfoFile[types.StoredTrack]{Path: trackPath + ".json"},
 		Cover:    Cover{Path: trackPath + ".jpg"},
 	}
 }
@@ -180,7 +180,7 @@ func (c Cover) Read() ([]byte, error) {
 
 type Track struct {
 	Path     string
-	InfoFile InfoFile[types.StoredSingleTrack]
+	InfoFile InfoFile[types.StoredTrack]
 	Cover    Cover
 }
 

@@ -230,7 +230,7 @@ func (c *TidalDownloadTimeouts) setDefaults() {
 	}
 
 	if c.DownloadCover == 0 {
-		c.DownloadCover = 3
+		c.DownloadCover = 10
 	}
 
 	if c.GetAlbumInfo == 0 {
@@ -254,7 +254,7 @@ func (c *TidalDownloadTimeouts) setDefaults() {
 	}
 
 	if c.DownloadDashSegment == 0 {
-		c.DownloadDashSegment = 10
+		c.DownloadDashSegment = 60
 	}
 
 	if c.GetVNDTrackFileSize == 0 {
@@ -262,7 +262,7 @@ func (c *TidalDownloadTimeouts) setDefaults() {
 	}
 
 	if c.DownloadVNDSegment == 0 {
-		c.DownloadVNDSegment = 50
+		c.DownloadVNDSegment = 60
 	}
 }
 

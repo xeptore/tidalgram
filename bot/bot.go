@@ -231,7 +231,7 @@ func registerHandlers(
 				tidalURLFilter,
 				NewChainHandler(
 					NewPapaOnlyGuard(conf.PapaID),
-					NewTidalURLHandler(ctx, logger, t),
+					NewTidalURLHandler(ctx, logger, t, conf),
 				),
 			).
 			SetAllowChannel(true).

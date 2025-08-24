@@ -11,6 +11,7 @@ import (
 	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
 	"github.com/rs/zerolog"
 
+	"github.com/xeptore/tidalgram/config"
 	"github.com/xeptore/tidalgram/tidal"
 )
 
@@ -43,7 +44,11 @@ func NewPapaOnlyGuard(papaID int64) handlers.Response {
 	}
 }
 
-func NewTidalURLHandler(ctx context.Context, logger zerolog.Logger, t *tidal.Client) handlers.Response {
+func NewTidalURLHandler(
+	ctx context.Context,
+	logger zerolog.Logger,
+	t *tidal.Client, conf *config.Bot,
+) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
 		logger = logger.With().
 			Int64("chat_id", u.EffectiveMessage.Chat.Id).
@@ -131,6 +136,8 @@ func NewTidalURLHandler(ctx context.Context, logger zerolog.Logger, t *tidal.Cli
 				return fmt.Errorf("failed to send message: %w", err)
 			}
 
+			logger.Error().Err(err).Msg("failed to download link")
+
 			return nil
 		}
 
@@ -139,7 +146,7 @@ func NewTidalURLHandler(ctx context.Context, logger zerolog.Logger, t *tidal.Cli
 			return fmt.Errorf("failed to send message: %w", err)
 		}
 
-		if err := uploadTrack(ctx, logger, b, t.DownloadsDirFs, chatID, msgID, link.ID); nil != err {
+		if err := uploadTrack(ctx, logger, b, t.DownloadsDirFs, conf, chatID, msgID, link.ID); nil != err {
 			if errors.Is(err, context.DeadlineExceeded) {
 				msg := "⌛️ Upload request timed out. You might need to increase the timeout."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
@@ -162,6 +169,8 @@ func NewTidalURLHandler(ctx context.Context, logger zerolog.Logger, t *tidal.Cli
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 				return fmt.Errorf("failed to send message: %w", err)
 			}
+
+			logger.Error().Err(err).Msg("failed to upload to Telegram")
 
 			return nil
 		}
@@ -258,6 +267,8 @@ func NewAuthorizeCommandHandler(ctx context.Context, logger zerolog.Logger, t *t
 				return fmt.Errorf("failed to send message: %w", err)
 			}
 
+			logger.Error().Err(err).Msg("failed to initiate login flow")
+
 			return nil
 		}
 
@@ -298,6 +309,8 @@ func NewAuthorizeCommandHandler(ctx context.Context, logger zerolog.Logger, t *t
 			if _, err = b.SendMessage(chatID, msg, sendOpt); nil != err {
 				return fmt.Errorf("failed to send message: %w", err)
 			}
+
+			logger.Error().Err(err).Msg("failed to login wait")
 
 			return nil
 		}

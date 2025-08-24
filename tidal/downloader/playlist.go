@@ -86,7 +86,8 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				return fmt.Errorf("failed to download track lyrics: %w", err)
 			}
 
-			if err := d.downloadTrack(wgCtx, logger, accessToken, track.ID, trackFs.Path); nil != err {
+			ext, err := d.downloadTrack(wgCtx, logger, accessToken, track.ID, trackFs.Path)
+			if nil != err {
 				return fmt.Errorf("failed to download track: %w", err)
 			}
 
@@ -112,18 +113,20 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				TotalVolumes: album.TotalVolumes,
 				Credits:      *trackCredits,
 				Lyrics:       trackLyrics,
+				Ext:          ext,
 			}
 			if err := embedTrackAttributes(wgCtx, logger, trackFs.Path, attrs); nil != err {
 				return fmt.Errorf("failed to embed track attributes: %v", err)
 			}
 
-			info := types.StoredSingleTrack{
-				TrackInfo: types.TrackInfo{
+			info := types.StoredTrack{
+				Track: types.Track{
 					Artists:  track.Artists,
 					Title:    track.Title,
 					Duration: track.Duration,
 					Version:  track.Version,
 					CoverID:  track.CoverID,
+					Ext:      ext,
 				},
 				Caption: trackCaption(*album),
 			}

@@ -15,7 +15,8 @@ bot:
   # Default: ./downloads
   downloads_dir: ./downloads
   # OPTIONAL
-  # Signature to be added to the end of the caption in Markdown format
+  # Signature to be added to the end of the caption in Markdown format.
+  # See https://yaml-multiline.info/ for multiline syntax examples and standards.
   # Default: ""
   signature: ""
 
@@ -30,7 +31,7 @@ log:
   format: pretty
 
 tidal:
-  downloader:
+  download:
     # Download timeout durations in seconds
     timeouts:
       # OPTIONAL
@@ -40,8 +41,8 @@ tidal:
       # Default: 2
       get_track_lyrics: 2
       # OPTIONAL
-      # Default: 3
-      download_cover: 3
+      # Default: 10
+      download_cover: 10
       # OPTIONAL
       # Default: 2
       get_album_info: 2
@@ -58,11 +59,11 @@ tidal:
       # Default: 2
       get_paged_tracks: 2
       # OPTIONAL
-      # Default: 10
-      download_dash_segment: 10
+      # Default: 60
+      download_dash_segment: 60
       # OPTIONAL
       # Default: 5
       get_vnd_track_file_size: 5
       # OPTIONAL
-      # Default: 10
-      download_vnd_segment: 10
+      # Default: 60
+      download_vnd_segment: 60

@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/goccy/go-json"
@@ -82,7 +81,8 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 		}
 	}()
 
-	if err := d.downloadTrack(ctx, logger, accessToken, id, trackFs.Path); nil != err {
+	ext, err := d.downloadTrack(ctx, logger, accessToken, id, trackFs.Path)
+	if nil != err {
 		return fmt.Errorf("failed to download track: %w", err)
 	}
 
@@ -118,18 +118,20 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 		TotalVolumes: album.TotalVolumes,
 		Credits:      *trackCredits,
 		Lyrics:       trackLyrics,
+		Ext:          ext,
 	}
 	if err := embedTrackAttributes(ctx, logger, trackFs.Path, attrs); nil != err {
 		return fmt.Errorf("failed to embed track attributes: %v", err)
 	}
 
-	info := types.StoredSingleTrack{
-		TrackInfo: types.TrackInfo{
+	info := types.StoredTrack{
+		Track: types.Track{
 			Artists:  track.Artists,
 			Title:    track.Title,
 			Duration: track.Duration,
 			Version:  track.Version,
 			CoverID:  track.CoverID,
+			Ext:      ext,
 		},
 		Caption: trackCaption(*album),
 	}
@@ -301,21 +303,21 @@ func (d *Downloader) downloadTrack(
 	accessToken string,
 	id string,
 	fileName string,
-) error {
+) (ext string, err error) {
 	logger = logger.With().Str("file_name", fileName).Logger()
 
-	stream, err := d.getStream(ctx, logger, accessToken, id)
+	stream, ext, err := d.getStream(ctx, logger, accessToken, id)
 	if nil != err {
-		return fmt.Errorf("failed to get track stream: %w", err)
+		return "", fmt.Errorf("failed to get track stream: %w", err)
 	}
 
 	time.Sleep(ratelimit.TrackDownloadSleepMS())
 
 	if err := stream.saveTo(ctx, logger, accessToken, fileName); nil != err {
-		return fmt.Errorf("failed to download track: %w", err)
+		return "", fmt.Errorf("failed to download track: %w", err)
 	}
 
-	return nil
+	return ext, nil
 }
 
 func trackCaption(album types.AlbumMeta) string {
@@ -630,6 +632,7 @@ type TrackEmbeddedAttrs struct {
 	TotalVolumes int
 	Credits      types.TrackCredits
 	Lyrics       string
+	Ext          string
 }
 
 func (t TrackEmbeddedAttrs) toDict() *zerolog.Event {
@@ -649,7 +652,8 @@ func (t TrackEmbeddedAttrs) toDict() *zerolog.Event {
 		Int("total_volumes", t.TotalVolumes).
 		Dict("credits", t.Credits.ToDict()).
 		Str("lyrics", t.Lyrics).
-		Str("version", ptr.ValueOr(t.Version, "<nil>"))
+		Str("version", ptr.ValueOr(t.Version, "<nil>")).
+		Str("ext", t.Ext)
 }
 
 func embedTrackAttributes(
@@ -659,12 +663,6 @@ func embedTrackAttributes(
 	attrs TrackEmbeddedAttrs,
 ) (err error) {
 	logger = logger.With().Str("track_file_path", trackFilePath).Dict("attrs", attrs.toDict()).Logger()
-
-	trackFormat, err := extractTrackFormat(ctx, logger, trackFilePath)
-	if nil != err {
-		logger.Error().Err(err).Msg("Failed to extract track format")
-		return fmt.Errorf("failed to extract track format: %w", err)
-	}
 
 	metaTags := []string{
 		"artist=" + types.JoinArtists(attrs.Artists),
@@ -708,11 +706,9 @@ func embedTrackAttributes(
 		metaArgs = append(metaArgs, "-metadata", tag)
 	}
 
-	trackTempFilePath := trackFilePath + ".tmp"
+	trackFilenameExt := trackFilePath + "." + attrs.Ext
 
 	args := []string{
-		"-f",
-		trackFormat,
 		"-i",
 		trackFilePath,
 		"-i",
@@ -720,14 +716,14 @@ func embedTrackAttributes(
 		"-map",
 		"0:a",
 		"-map",
-		"1",
+		"1:v",
 		"-c",
 		"copy",
-		"-disposition:v",
+		"-disposition:v:0",
 		"attached_pic",
 	}
 	args = append(args, metaArgs...)
-	args = append(args, trackTempFilePath)
+	args = append(args, trackFilenameExt)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 
@@ -752,59 +748,10 @@ func embedTrackAttributes(
 		return fmt.Errorf("failed to write track attributes using ffmpeg (%w): %s", err, stdErr.String())
 	}
 
-	if err := os.Rename(trackTempFilePath, trackFilePath); nil != err {
+	if err := os.Rename(trackFilenameExt, trackFilePath); nil != err {
 		logger.Error().Err(err).Msg("Failed to rename track file")
 		return fmt.Errorf("failed to rename track file: %v", err)
 	}
 
 	return nil
-}
-
-func extractTrackFormat(ctx context.Context, logger zerolog.Logger, trackFilePath string) (string, error) {
-	cmd := exec.CommandContext(
-		ctx,
-		"ffprobe",
-		"-v",
-		"error",
-		"-show_entries",
-		"format=format_name",
-		"-of",
-		"json",
-		trackFilePath,
-	)
-
-	logger.Debug().Strs("args", cmd.Args).Msg("Running ffprobe")
-
-	var (
-		stdOut bytes.Buffer
-		stdErr bytes.Buffer
-	)
-
-	cmd.Stdout = &stdOut
-	cmd.Stderr = &stdErr
-
-	if err := cmd.Run(); nil != err {
-		if errors.Is(err, exec.ErrNotFound) {
-			logger.Error().Err(err).Msg("ffprobe not found")
-			return "", fmt.Errorf("ffprobe not found: %v", err)
-		}
-
-		logger.Error().Err(err).Str("stderr", stdErr.String()).Msg("ffprobe failed")
-
-		return "", fmt.Errorf("ffprobe failed using ffprobe (%w): %s", err, stdErr.String())
-	}
-
-	var output struct {
-		Format struct {
-			FormatName string `json:"format_name"`
-		} `json:"format"`
-	}
-	if err := json.Unmarshal(stdOut.Bytes(), &output); nil != err {
-		logger.Error().Err(err).Msg("Failed to unmarshal ffprobe command output")
-		return "", fmt.Errorf("failed to unmarshal ffprobe command output: %v", err)
-	}
-
-	formats := strings.Split(output.Format.FormatName, ",")
-
-	return strings.TrimSpace(formats[0]), nil
 }

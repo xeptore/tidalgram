@@ -5,16 +5,17 @@ type StoredMix struct {
 	TrackIDs []string `json:"track_ids"`
 }
 
-type TrackInfo struct {
+type Track struct {
 	Artists  []TrackArtist `json:"artists"`
 	Title    string        `json:"title"`
 	Duration int           `json:"duration"`
 	Version  *string       `json:"version"`
 	CoverID  string        `json:"cover_id"`
+	Ext      string        `json:"ext"`
 }
 
-type StoredSingleTrack struct {
-	TrackInfo
+type StoredTrack struct {
+	Track
 
 	Caption string `json:"caption"`
 }
