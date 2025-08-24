@@ -7,6 +7,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/rs/zerolog"
@@ -73,6 +74,8 @@ func uploadAlbum(
 			if err := uploadTracksBatch(ctx, logger, b, conf, chatID, replyMessageID, uploadMedias, caption); nil != err {
 				return fmt.Errorf("failed to upload album tracks batch: %w", err)
 			}
+
+			time.Sleep(time.Second * 10)
 		}
 	}
 
@@ -141,6 +144,8 @@ func uploadPlaylist(
 		if err := uploadTracksBatch(ctx, logger, b, conf, chatID, replyMessageID, uploadMedias, caption); nil != err {
 			return fmt.Errorf("failed to upload playlist tracks batch: %w", err)
 		}
+
+		time.Sleep(time.Second * 10)
 	}
 
 	return nil
@@ -199,6 +204,8 @@ func uploadMix(
 		if err := uploadTracksBatch(ctx, logger, b, conf, chatID, replyMessageID, uploadMedias, caption); nil != err {
 			return fmt.Errorf("failed to upload mix tracks batch: %w", err)
 		}
+
+		time.Sleep(time.Second * 10)
 	}
 
 	return nil
