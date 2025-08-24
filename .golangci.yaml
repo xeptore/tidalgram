@@ -50,7 +50,6 @@ linters:
     - intrange
     - lll
     - loggercheck
-    - maintidx
     - makezero
     - mirror
     - misspell

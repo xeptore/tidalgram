@@ -10,7 +10,6 @@ import (
 
 const (
 	ReleaseDateLayout = "2006/01/02"
-	CoverExt          = "jpg"
 )
 
 func JoinNames(names []string) string {

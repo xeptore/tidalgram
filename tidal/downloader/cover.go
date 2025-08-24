@@ -202,7 +202,7 @@ func ProbePixelFormat(ctx context.Context, logger zerolog.Logger, image []byte) 
 			time.Sleep(1 * time.Second)
 
 			if err := syscall.Kill(cmd.Process.Pid, 0); nil != err {
-				return nil
+				return os.ErrProcessDone
 			}
 
 			_ = syscall.Kill(-p.Pid, syscall.SIGKILL)
@@ -372,7 +372,7 @@ func Filter444(ctx context.Context, logger zerolog.Logger, image []byte) ([]byte
 			time.Sleep(1 * time.Second)
 
 			if err := syscall.Kill(djpeg.Process.Pid, 0); nil != err {
-				return nil
+				return os.ErrProcessDone
 			}
 
 			_ = syscall.Kill(-p.Pid, syscall.SIGKILL)
@@ -414,7 +414,7 @@ func Filter444(ctx context.Context, logger zerolog.Logger, image []byte) ([]byte
 			time.Sleep(1 * time.Second)
 
 			if err := syscall.Kill(cjpeg.Process.Pid, 0); nil != err {
-				return nil
+				return os.ErrProcessDone
 			}
 
 			_ = syscall.Kill(-p.Pid, syscall.SIGKILL)

@@ -23,7 +23,7 @@ func (d DownloadsDir) Album(id string) Album {
 	return Album{
 		DirPath:  dirPath,
 		InfoFile: InfoFile[types.StoredAlbum]{Path: filepath.Join(dirPath, id+".json")},
-		Cover:    Cover{Path: filepath.Join(dirPath, id+"."+types.CoverExt)},
+		Cover:    Cover{Path: filepath.Join(dirPath, id+".jpg")},
 	}
 }
 
@@ -38,13 +38,13 @@ func (a Album) Track(vol int, id string) AlbumTrack {
 
 	return AlbumTrack{
 		Path:     trackPath,
-		InfoFile: InfoFile[types.StoredTrack]{Path: trackPath + ".json"},
+		InfoFile: InfoFile[types.StoredAlbumTrack]{Path: trackPath + ".json"},
 	}
 }
 
 type AlbumTrack struct {
 	Path     string
-	InfoFile InfoFile[types.StoredTrack]
+	InfoFile InfoFile[types.StoredAlbumTrack]
 }
 
 func (t AlbumTrack) Exists() (bool, error) {
@@ -65,7 +65,7 @@ func (d DownloadsDir) Track(id string) Track {
 	return Track{
 		Path:     trackPath,
 		InfoFile: InfoFile[types.StoredTrack]{Path: trackPath + ".json"},
-		Cover:    Cover{Path: trackPath + "." + types.CoverExt},
+		Cover:    Cover{Path: trackPath + ".jpg"},
 	}
 }
 
@@ -89,7 +89,7 @@ func (p Playlist) Track(id string) Track {
 	return Track{
 		Path:     trackPath,
 		InfoFile: InfoFile[types.StoredTrack]{Path: trackPath + ".json"},
-		Cover:    Cover{Path: trackPath + "." + types.CoverExt},
+		Cover:    Cover{Path: trackPath + ".jpg"},
 	}
 }
 
@@ -117,7 +117,7 @@ func (d Mix) Track(id string) Track {
 	return Track{
 		Path:     trackPath,
 		InfoFile: InfoFile[types.StoredTrack]{Path: trackPath + ".json"},
-		Cover:    Cover{Path: trackPath + "." + types.CoverExt},
+		Cover:    Cover{Path: trackPath + ".jpg"},
 	}
 }
 

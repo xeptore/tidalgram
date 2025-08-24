@@ -146,7 +146,7 @@ func NewTidalURLHandler(
 			return fmt.Errorf("failed to send message: %w", err)
 		}
 
-		if err := uploadTrack(ctx, logger, b, t.DownloadsDirFs, conf, chatID, msgID, link.ID); nil != err {
+		if err := upload(ctx, logger, b, t.DownloadsDirFs, conf, chatID, msgID, link); nil != err {
 			if errors.Is(err, context.DeadlineExceeded) {
 				msg := "⌛️ Upload request timed out. You might need to increase the timeout."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {

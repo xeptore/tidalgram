@@ -79,8 +79,8 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 		albumVolumeTrackIDs[i] = lo.Map(tracks, func(t AlbumTrackMeta, _ int) string { return t.ID })
 
 		volNum := i + 1
-		for i, track := range tracks {
-			logger = logger.With().Int("track_index", i).Str("track_id", track.ID).Logger()
+		for idx, track := range tracks {
+			logger = logger.With().Int("track_index", idx).Str("track_id", track.ID).Logger()
 
 			wg.Go(func() (err error) {
 				trackFs := albumFs.Track(volNum, track.ID)
@@ -134,7 +134,7 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 					return fmt.Errorf("failed to embed track attributes: %v", err)
 				}
 
-				info := types.StoredTrack{
+				info := types.StoredAlbumTrack{
 					Track: types.Track{
 						Artists:  track.Artists,
 						Title:    track.Title,
@@ -143,7 +143,7 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 						CoverID:  album.CoverID,
 						Ext:      ext,
 					},
-					Caption: trackCaption(*album),
+					Index: idx,
 				}
 				if err := trackFs.InfoFile.Write(info); nil != err {
 					logger.Error().Err(err).Msg("Failed to write track info file")
@@ -316,7 +316,7 @@ func (d *Downloader) getAlbumPagedItems(
 	itemsURL string,
 	page int,
 ) ([]byte, error) {
-	logger = logger.With().Str("items_url", itemsURL).Int("page", page).Logger()
+	logger = logger.With().Str("items_url", itemsURL).Logger()
 
 	reqParams := make(url.Values, 3)
 	reqParams.Add("countryCode", "US")

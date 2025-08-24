@@ -5,207 +5,303 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/rs/zerolog"
 
 	"github.com/xeptore/tidalgram/config"
+	"github.com/xeptore/tidalgram/mathutil"
 	"github.com/xeptore/tidalgram/tidal/fs"
 	"github.com/xeptore/tidalgram/tidal/types"
 )
 
-// func uploadAlbum(ctx context.Context, dir fs.DownloadDir, id string) error {
-// 	albumFs := dir.Album(id)
+func uploadAlbum(
+	ctx context.Context,
+	logger zerolog.Logger,
+	b *gotgbot.Bot,
+	dir fs.DownloadsDir,
+	conf *config.Bot,
+	chatID int64,
+	replyMessageID int64,
+	id string,
+) error {
+	albumFs := dir.Album(id)
 
-// 	info, err := albumFs.InfoFile.Read()
-// 	if nil != err {
-// 		return fmt.Errorf("failed to read album info file: %v", err)
-// 	}
+	info, err := albumFs.InfoFile.Read()
+	if nil != err {
+		return fmt.Errorf("failed to read album info file: %v", err)
+	}
 
-// 	for volIdx, trackIDs := range info.VolumeTrackIDs {
-// 		var (
-// 			volNum     = volIdx + 1
-// 			batchSize  = mathutil.OptimalAlbumSize(len(trackIDs))
-// 			numBatches = mathutil.DivCeil(len(trackIDs), batchSize)
-// 			batches    = iterutil.WithIndex(slices.Chunk(trackIDs, batchSize))
-// 		)
-// 		for i, trackIDs := range batches {
-// 			caption := []styling.StyledTextOption{
-// 				// styling.Plain(info.Caption),
-// 				// styling.Plain("\n"),
-// 				// styling.Italic(fmt.Sprintf("Part: %d/%d", i+1, numBatches)),
-// 			}
+	for volIdx, trackIDs := range info.VolumeTrackIDs {
+		var (
+			volNum       = volIdx + 1
+			batchSize    = mathutil.OptimalAlbumSize(len(trackIDs))
+			numBatches   = mathutil.DivCeil(len(trackIDs), batchSize)
+			batches      = slices.Collect(slices.Chunk(trackIDs, batchSize))
+			uploadMedias = make([]UploadMedia, 0, len(trackIDs))
+		)
+		for i, trackIDs := range batches {
+			caption := strings.Join(
+				[]string{
+					info.Caption,
+					"",
+					fmt.Sprintf("_Volume: %d_", volNum),
+					fmt.Sprintf("_Part: %d/%d_", i+1, numBatches),
+				},
+				"\n",
+			)
 
-// 			items := make([]TrackUploadInfo, len(trackIDs))
-// 			for i, trackID := range trackIDs {
-// 				trackFs := albumFs.Track(volNum, trackID)
-// 				track, err := trackFs.InfoFile.Read()
-// 				if nil != err {
-// 					return err
-// 				}
-// 				info := TrackUploadInfo{
-// 					FilePath:   trackFs.Path,
-// 					ArtistName: types.JoinArtists(track.Artists),
-// 					Title:      track.Title,
-// 					Version:    track.Version,
-// 					Duration:   track.Duration,
-// 					Format:     track.Format,
-// 					CoverID:    track.CoverID,
-// 					CoverPath:  albumFs.Cover.Path,
-// 				}
-// 				items[i] = info
-// 			}
+			for _, trackID := range trackIDs {
+				trackFs := albumFs.Track(volNum, trackID)
+				trackInfo, err := trackFs.InfoFile.Read()
+				if nil != err {
+					return fmt.Errorf("failed to read album track info file: %v", err)
+				}
 
-// 			if err := uploadTracksBatch(ctx, items, caption); nil != err {
-// 				return fmt.Errorf("failed to upload album tracks batch: %v", err)
-// 			}
-// 		}
-// 	}
-// 	return nil
-// }
+				uploadMedias = append(uploadMedias, UploadMedia{
+					TrackFilename: trackInfo.UploadFilename(),
+					TrackPath:     trackFs.Path,
+					CoverPath:     albumFs.Cover.Path,
+					Title:         trackInfo.UploadTitle(),
+					Performer:     types.JoinArtists(trackInfo.Artists),
+					Duration:      trackInfo.Duration,
+				})
+			}
 
-// func uploadPlaylist(ctx context.Context, dir fs.DownloadDir, id string) error {
-// 	playlistFs := dir.Playlist(id)
+			if err := uploadTracksBatch(ctx, logger, b, conf, chatID, replyMessageID, uploadMedias, caption); nil != err {
+				return fmt.Errorf("failed to upload album tracks batch: %w", err)
+			}
+		}
+	}
 
-// 	info, err := playlistFs.InfoFile.Read()
-// 	if nil != err {
-// 		return err
-// 	}
+	return nil
+}
 
-// 	var (
-// 		batchSize  = mathutil.OptimalAlbumSize(len(info.TrackIDs))
-// 		batches    = iterutil.WithIndex(slices.Chunk(info.TrackIDs, batchSize))
-// 		numBatches = mathutil.DivCeil(len(info.TrackIDs), batchSize)
-// 	)
-// 	for i, trackIDs := range batches {
-// 		caption := []styling.StyledTextOption{
-// 			// styling.Plain(info.Caption),
-// 			// styling.Plain("\n"),
-// 			// styling.Italic(fmt.Sprintf("Part: %d/%d", i+1, numBatches)),
-// 		}
+type UploadMedia struct {
+	TrackFilename string
+	TrackPath     string
+	CoverPath     string
+	Title         string
+	Performer     string
+	Duration      int
+}
 
-// 		items := make([]TrackUploadInfo, len(trackIDs))
-// 		for i, trackID := range trackIDs {
-// 			trackFs := playlistFs.Track(trackID)
-// 			track, err := trackFs.InfoFile.Read()
-// 			if nil != err {
-// 				return err
-// 			}
-// 			info := TrackUploadInfo{
-// 				FilePath:   trackFs.Path,
-// 				ArtistName: types.JoinArtists(track.Artists),
-// 				Title:      track.Title,
-// 				Version:    track.Version,
-// 				Duration:   track.Duration,
-// 				Format:     track.Format,
-// 				CoverID:    track.CoverID,
-// 				CoverPath:  trackFs.Cover.Path,
-// 			}
-// 			items[i] = info
-// 		}
+func uploadPlaylist(
+	ctx context.Context,
+	logger zerolog.Logger,
+	b *gotgbot.Bot,
+	dir fs.DownloadsDir,
+	conf *config.Bot,
+	chatID int64,
+	replyMessageID int64,
+	id string,
+) error {
+	playlistFs := dir.Playlist(id)
 
-// 		if err := uploadTracksBatch(ctx, items, caption); nil != err {
-// 			return fmt.Errorf("failed to upload playlist tracks batch: %v", err)
-// 		}
-// 	}
-// 	return nil
-// }
+	info, err := playlistFs.InfoFile.Read()
+	if nil != err {
+		return fmt.Errorf("failed to read playlist info file: %v", err)
+	}
 
-// func uploadMix(ctx context.Context, dir fs.DownloadDir, id string) error {
-// 	mixFs := dir.Mix(id)
+	var (
+		batchSize    = mathutil.OptimalAlbumSize(len(info.TrackIDs))
+		batches      = slices.Collect(slices.Chunk(info.TrackIDs, batchSize))
+		numBatches   = mathutil.DivCeil(len(info.TrackIDs), batchSize)
+		uploadMedias = make([]UploadMedia, 0, len(info.TrackIDs))
+	)
+	for i, trackIDs := range batches {
+		caption := strings.Join(
+			[]string{
+				info.Caption,
+				"",
+				fmt.Sprintf("_Part: %d/%d_", i+1, numBatches),
+			},
+			"\n",
+		)
 
-// 	info, err := mixFs.InfoFile.Read()
-// 	if nil != err {
-// 		return err
-// 	}
+		for _, trackID := range trackIDs {
+			trackFs := playlistFs.Track(trackID)
+			trackInfo, err := trackFs.InfoFile.Read()
+			if nil != err {
+				return fmt.Errorf("failed to read playlist track info file: %v", err)
+			}
 
-// 	var (
-// 		batchSize  = mathutil.OptimalAlbumSize(len(info.TrackIDs))
-// 		batches    = iterutil.WithIndex(slices.Chunk(info.TrackIDs, batchSize))
-// 		numBatches = mathutil.DivCeil(len(info.TrackIDs), batchSize)
-// 	)
-// 	for i, trackIDs := range batches {
-// 		caption := []styling.StyledTextOption{
-// 			// styling.Plain(info.Caption),
-// 			// styling.Plain("\n"),
-// 			// styling.Italic(fmt.Sprintf("Part: %d/%d", i+1, numBatches)),
-// 		}
+			uploadMedias = append(uploadMedias, UploadMedia{
+				TrackFilename: trackInfo.UploadFilename(),
+				TrackPath:     trackFs.Path,
+				CoverPath:     trackFs.Cover.Path,
+				Title:         trackInfo.UploadTitle(),
+				Performer:     types.JoinArtists(trackInfo.Artists),
+				Duration:      trackInfo.Duration,
+			})
+		}
 
-// 		items := make([]TrackUploadInfo, len(trackIDs))
-// 		for i, trackID := range trackIDs {
-// 			trackFs := mixFs.Track(trackID)
-// 			track, err := trackFs.InfoFile.Read()
-// 			if nil != err {
-// 				return err
-// 			}
-// 			info := TrackUploadInfo{
-// 				FilePath:   trackFs.Path,
-// 				ArtistName: types.JoinArtists(track.Artists),
-// 				Title:      track.Title,
-// 				Version:    track.Version,
-// 				Duration:   track.Duration,
-// 				Format:     track.Format,
-// 				CoverID:    track.CoverID,
-// 				CoverPath:  trackFs.Cover.Path,
-// 			}
-// 			items[i] = info
-// 		}
+		if err := uploadTracksBatch(ctx, logger, b, conf, chatID, replyMessageID, uploadMedias, caption); nil != err {
+			return fmt.Errorf("failed to upload playlist tracks batch: %w", err)
+		}
+	}
 
-// 		if err := uploadTracksBatch(ctx, items, caption); nil != err {
-// 			return fmt.Errorf("failed to upload mix tracks batch: %v", err)
-// 		}
-// 	}
-// 	return nil
-// }
+	return nil
+}
 
-// func uploadTracksBatch(ctx context.Context, batch []TrackUploadInfo, caption []styling.StyledTextOption) (err error) {
-// 	album := make([]message.MultiMediaOption, len(batch))
+func uploadMix(
+	ctx context.Context,
+	logger zerolog.Logger,
+	b *gotgbot.Bot,
+	dir fs.DownloadsDir,
+	conf *config.Bot,
+	chatID int64,
+	replyMessageID int64,
+	id string,
+) error {
+	mixFs := dir.Mix(id)
 
-// 	wg, wgCtx := errgroup.WithContext(ctx)
-// 	wg.SetLimit(ratelimit.BatchUploadConcurrency)
+	info, err := mixFs.InfoFile.Read()
+	if nil != err {
+		return fmt.Errorf("failed to read mix info file: %v", err)
+	}
 
-// 	for i, item := range batch {
-// 		wg.Go(func() error {
-// 			builder := newTrackUploadBuilder(&w.cache.UploadedCovers)
-// 			if i == len(batch)-1 { // last track in this batch
-// 				caption := append(caption, styling.Plain("\n"), html.String(nil, w.config.Signature))
-// 				builder.WithCaption(caption)
-// 			}
-// 			document, err := builder.uploadTrack(wgCtx, w.logger, w.uploader, item)
-// 			if nil != err {
-// 				return fmt.Errorf("failed to upload track: %v", err)
-// 			}
-// 			album[i] = document
-// 			return nil
-// 		})
-// 	}
+	var (
+		batchSize    = mathutil.OptimalAlbumSize(len(info.TrackIDs))
+		batches      = slices.Collect(slices.Chunk(info.TrackIDs, batchSize))
+		numBatches   = mathutil.DivCeil(len(info.TrackIDs), batchSize)
+		uploadMedias = make([]UploadMedia, 0, len(info.TrackIDs))
+	)
+	for i, trackIDs := range batches {
+		caption := strings.Join(
+			[]string{
+				info.Caption,
+				"",
+				fmt.Sprintf("_Part: %d/%d_", i+1, numBatches),
+			},
+			"\n",
+		)
 
-// 	if err := wg.Wait(); nil != err {
-// 		return fmt.Errorf("failed to upload tracks batch: %v", err)
-// 	}
+		for _, trackID := range trackIDs {
+			trackFs := mixFs.Track(trackID)
+			trackInfo, err := trackFs.InfoFile.Read()
+			if nil != err {
+				return fmt.Errorf("failed to read mix track info file: %v", err)
+			}
 
-// 	var rest []message.MultiMediaOption
-// 	if len(album) > 1 {
-// 		rest = album[1:]
-// 	}
+			uploadMedias = append(uploadMedias, UploadMedia{
+				TrackFilename: trackInfo.UploadFilename(),
+				TrackPath:     trackFs.Path,
+				CoverPath:     trackFs.Cover.Path,
+				Title:         trackInfo.UploadTitle(),
+				Performer:     types.JoinArtists(trackInfo.Artists),
+				Duration:      trackInfo.Duration,
+			})
+		}
 
-// 	sendOpts := &gotgbot.SendMediaGroupOpts{
-// 		ReplyParameters: &gotgbot.ReplyParameters{
-// 			MessageId: replyToMessageID,
-// 		},
-// 	}
+		if err := uploadTracksBatch(ctx, logger, b, conf, chatID, replyMessageID, uploadMedias, caption); nil != err {
+			return fmt.Errorf("failed to upload mix tracks batch: %w", err)
+		}
+	}
 
-// 	var sentMessages []gotgbot.Message
-// 	if msgs, err := b.SendMediaGroup(chatID, album, sendOpts); nil != err {
-// 		return fmt.Errorf("failed to send media album: %v", err)
-// 	} else if msgs[0].Chat.Type != gotgbot.ChatTypePrivate {
-// 		if len(chunks) > 1 {
-// 			time.Sleep(3 * time.Second) // avoid floodwait?
-// 		}
-// 	}
-// 	return nil
-// }
+	return nil
+}
+
+func uploadTracksBatch(
+	ctx context.Context,
+	logger zerolog.Logger,
+	b *gotgbot.Bot,
+	conf *config.Bot,
+	chatID int64,
+	replyMessageID int64,
+	medias []UploadMedia,
+	caption string,
+) (err error) {
+	var (
+		closers    = make([]func() error, 0, len(medias))
+		trackMedia = make([]gotgbot.InputMedia, 0, len(medias))
+	)
+
+	defer func() {
+		for _, closer := range closers {
+			if closeErr := closer(); nil != closeErr {
+				err = errors.Join(err, fmt.Errorf("failed to close track file: %v", closeErr))
+			}
+		}
+	}()
+
+	for i, media := range medias {
+		logger := logger.With().Int("index", i).Logger()
+
+		trackFile, err := os.Open(media.TrackPath)
+		if nil != err {
+			logger.Error().Err(err).Msg("failed to open track file")
+			return fmt.Errorf("failed to open track file: %v", err)
+		}
+
+		closers = append(closers, func() error {
+			if err := trackFile.Close(); nil != err {
+				logger.Error().Err(err).Msg("failed to close track file")
+				return fmt.Errorf("failed to close track file: %v", err)
+			}
+
+			return nil
+		})
+
+		inputMedia := gotgbot.InputMediaAudio{
+			Media:           gotgbot.InputFileByReader(media.TrackFilename, trackFile),
+			Title:           media.Title,
+			Performer:       media.Performer,
+			Duration:        int64(media.Duration),
+			Thumbnail:       gotgbot.InputFileByReader(media.CoverPath, trackFile),
+			Caption:         "",
+			ParseMode:       "",
+			CaptionEntities: nil,
+		}
+
+		if i == len(medias)-1 {
+			inputMedia.Caption = strings.Join([]string{caption, "", conf.Signature}, "\n")
+		}
+
+		trackMedia = append(trackMedia, inputMedia)
+	}
+
+	sendOpts := &gotgbot.SendMediaGroupOpts{ //nolint:exhaustruct
+		ReplyParameters: &gotgbot.ReplyParameters{ //nolint:exhaustruct
+			MessageId: replyMessageID,
+		},
+	}
+	if _, err := b.SendMediaGroupWithContext(ctx, chatID, trackMedia, sendOpts); nil != err {
+		return fmt.Errorf("failed to send media album: %w", err)
+	}
+
+	return nil
+}
+
+func upload(
+	ctx context.Context,
+	logger zerolog.Logger,
+	b *gotgbot.Bot,
+	dir fs.DownloadsDir,
+	conf *config.Bot,
+	chatID int64,
+	replyMessageID int64,
+	link types.Link,
+) error {
+	switch link.Kind {
+	case types.LinkKindTrack:
+		return uploadTrack(ctx, logger, b, dir, conf, chatID, replyMessageID, link)
+	case types.LinkKindAlbum:
+		return uploadAlbum(ctx, logger, b, dir, conf, chatID, replyMessageID, link.ID)
+	case types.LinkKindPlaylist:
+		return uploadPlaylist(ctx, logger, b, dir, conf, chatID, replyMessageID, link.ID)
+	case types.LinkKindMix:
+		return uploadMix(ctx, logger, b, dir, conf, chatID, replyMessageID, link.ID)
+	case types.LinkKindArtist:
+		return fmt.Errorf("unsupported link kind: %s", link.Kind)
+	case types.LinkKindVideo:
+		return fmt.Errorf("unsupported link kind: %s", link.Kind)
+	default:
+		panic(fmt.Sprintf("unsupported link kind: %s", link.Kind))
+	}
+}
 
 func uploadTrack(
 	ctx context.Context,
@@ -215,12 +311,10 @@ func uploadTrack(
 	conf *config.Bot,
 	chatID int64,
 	replyMessageID int64,
-	id string,
+	link types.Link,
 ) (err error) {
-	logger = logger.With().Str("track_id", id).Logger()
-
-	track := dir.Track(id)
-	info, err := track.InfoFile.Read()
+	track := dir.Track(link.ID)
+	trackInfo, err := track.InfoFile.Read()
 	if nil != err {
 		logger.Error().Err(err).Msg("failed to read track info file")
 		return fmt.Errorf("failed to read track info file: %v", err)
@@ -250,26 +344,21 @@ func uploadTrack(
 		}
 	}()
 
-	title := info.Title
-	if nil != info.Version {
-		title += " (" + *info.Version + ")"
-	}
-
-	trackMedia := gotgbot.InputFileByReader(info.Filename(), trackFile)
+	trackMedia := gotgbot.InputFileByReader(trackInfo.UploadFilename(), trackFile)
 	sendOpts := &gotgbot.SendAudioOpts{ //nolint:exhaustruct
 		ReplyParameters: &gotgbot.ReplyParameters{ //nolint:exhaustruct
 			MessageId: replyMessageID,
 		},
-		Thumbnail: gotgbot.InputFileByReader(info.CoverFilename(), coverFile),
-		Duration:  int64(info.Duration),
-		Performer: types.JoinArtists(info.Artists),
-		Title:     title,
-		Caption:   strings.Join([]string{info.Caption, "", conf.Signature}, "\n"),
+		Thumbnail: gotgbot.InputFileByReader("cover.jpg", coverFile),
+		Duration:  int64(trackInfo.Duration),
+		Performer: types.JoinArtists(trackInfo.Artists),
+		Title:     trackInfo.UploadTitle(),
+		Caption:   strings.Join([]string{trackInfo.Caption, "", conf.Signature}, "\n"),
 		ParseMode: gotgbot.ParseModeMarkdown,
 	}
 	if _, err := b.SendAudioWithContext(ctx, chatID, trackMedia, sendOpts); nil != err {
 		logger.Error().Err(err).Msg("failed to send audio")
-		return fmt.Errorf("failed to send audio: %v", err)
+		return fmt.Errorf("failed to send audio: %w", err)
 	}
 
 	return nil

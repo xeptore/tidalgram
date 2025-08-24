@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"strconv"
 )
 
 type StoredMix struct {
@@ -18,27 +19,52 @@ type Track struct {
 	Ext      string        `json:"ext"`
 }
 
-func (t Track) filenameBase() string {
-	artistName := JoinArtists(t.Artists)
+func (t Track) UploadTitle() string {
+	title := t.Title
 	if nil != t.Version {
-		return fmt.Sprintf("%s - %s (%s)", artistName, t.Title, *t.Version)
+		title += " (" + *t.Version + ")"
 	}
 
-	return fmt.Sprintf("%s - %s", artistName, t.Title)
+	return title
 }
 
-func (t Track) Filename() string {
-	return t.filenameBase() + "." + t.Ext
-}
+func (t Track) UploadFilename() string {
+	artistName := JoinArtists(t.Artists)
+	if nil != t.Version {
+		return fmt.Sprintf("%s - %s (%s).%s", artistName, t.Title, *t.Version, t.Ext)
+	}
 
-func (t Track) CoverFilename() string {
-	return t.filenameBase() + "." + CoverExt
+	return fmt.Sprintf("%s - %s.%s", artistName, t.Title, t.Ext)
 }
 
 type StoredTrack struct {
 	Track
 
 	Caption string `json:"caption"`
+}
+
+type StoredAlbumTrack struct {
+	Track
+
+	Index int `json:"index"`
+}
+
+func (t StoredAlbumTrack) UploadTitle() string {
+	title := strconv.Itoa(t.Index+1) + ". " + t.Title
+	if nil != t.Version {
+		title += " (" + *t.Version + ")"
+	}
+
+	return title
+}
+
+func (t StoredAlbumTrack) UploadFilename() string {
+	artistName := JoinArtists(t.Artists)
+	if nil != t.Version {
+		return fmt.Sprintf("%d. %s - %s (%s).%s", t.Index+1, artistName, t.Title, *t.Version, t.Ext)
+	}
+
+	return fmt.Sprintf("%d. %s - %s.%s", t.Index+1, artistName, t.Title, t.Ext)
 }
 
 type StoredPlaylist struct {

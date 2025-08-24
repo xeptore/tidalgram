@@ -133,7 +133,7 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 			CoverID:  track.CoverID,
 			Ext:      ext,
 		},
-		Caption: trackCaption(*album),
+		Caption: trackCaption(album.Title, album.ReleaseDate),
 	}
 	if err := trackFs.InfoFile.Write(info); nil != err {
 		logger.Error().Err(err).Msg("Failed to write track info file")
@@ -320,8 +320,8 @@ func (d *Downloader) downloadTrack(
 	return ext, nil
 }
 
-func trackCaption(album types.AlbumMeta) string {
-	return fmt.Sprintf("%s (%s)", album.Title, album.ReleaseDate.Format(types.ReleaseDateLayout))
+func trackCaption(albumTitle string, releaseDate time.Time) string {
+	return fmt.Sprintf("%s (%s)", albumTitle, releaseDate.Format(types.ReleaseDateLayout))
 }
 
 func (d *Downloader) getTrackCredits(

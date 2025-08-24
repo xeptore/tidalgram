@@ -106,7 +106,7 @@ func (d *Downloader) getListPagedItems(
 	itemsURL string,
 	page int,
 ) ([]byte, error) {
-	logger = logger.With().Str("items_url", itemsURL).Int("page", page).Logger()
+	logger = logger.With().Str("items_url", itemsURL).Logger()
 
 	reqParams := make(url.Values, 3)
 	reqParams.Add("countryCode", "US")
