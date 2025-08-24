@@ -80,7 +80,9 @@ jobs:
           export PATH="$PATH:~/.local/bin"
       - name: Get Version
         id: version
-        run: task version
+        run: |
+          version=$(task version)
+          echo "version=${version}" >> $GITHUB_OUTPUT
       - name: Docker Meta
         id: meta
         uses: docker/metadata-action@v5
