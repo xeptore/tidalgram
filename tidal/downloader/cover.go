@@ -165,6 +165,7 @@ func compressImage(ctx context.Context, logger zerolog.Logger, b []byte, maxSize
 			return nil, fmt.Errorf("failed to create pipe for ffmpeg command: %v", err)
 		}
 
+		//nolint:gosec // No user input in the command.
 		cmd := exec.CommandContext(
 			ctx,
 			"ffmpeg",
