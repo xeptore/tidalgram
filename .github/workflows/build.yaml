@@ -93,6 +93,7 @@ jobs:
             type=edge,branch=${{ github.event.repository.default_branch }}
             type=ref,event=pr
             type=raw,value=${{ steps.version.outputs.version }}
+            type=match,pattern=\d
           labels: |
             maintainer=${{ github.repository_owner }}
             org.opencontainers.image.authors=${{ github.repository_owner }}
