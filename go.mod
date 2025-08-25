@@ -10,7 +10,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/samber/lo v1.51.0
 	github.com/sethvargo/go-retry v0.3.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	github.com/tidwall/gjson v1.18.0
 	github.com/urfave/cli/v3 v3.4.1
 	golang.org/x/exp v0.0.0-20250819193227-8b4c13bb791b
