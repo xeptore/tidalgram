@@ -20,7 +20,10 @@ import (
 	"github.com/xeptore/tidalgram/cache"
 	"github.com/xeptore/tidalgram/httputil"
 	"github.com/xeptore/tidalgram/tidal/auth"
-	"github.com/xeptore/tidalgram/unit"
+)
+
+const (
+	maxCoverSize = 204799
 )
 
 func (d *Downloader) getCover(
@@ -141,7 +144,7 @@ func (d *Downloader) downloadCover(
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	compressed, err := compressImage(ctx, logger, respBytes, 200*unit.Kibibyte)
+	compressed, err := compressImage(ctx, logger, respBytes, maxCoverSize)
 	if nil != err {
 		return nil, fmt.Errorf("failed to compress image: %w", err)
 	}
