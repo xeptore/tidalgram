@@ -33,7 +33,7 @@ func (d *DashTrackStream) saveTo(
 ) (err error) {
 	var (
 		numChunks = mathutil.DivCeil(d.Info.Parts.Count, maxChunkParts)
-		wg, wgCtx = errgroup.WithContext(ctx)
+		wg, wgctx = errgroup.WithContext(ctx)
 	)
 
 	wg.SetLimit(numChunks)
@@ -41,7 +41,7 @@ func (d *DashTrackStream) saveTo(
 		logger = logger.With().Int("chunk_index", i).Logger()
 
 		wg.Go(func() error {
-			if err := d.downloadChunk(wgCtx, logger, accessToken, fileName, i); nil != err {
+			if err := d.downloadChunk(wgctx, logger, accessToken, fileName, i); nil != err {
 				return fmt.Errorf("failed to download track chunk: %w", err)
 			}
 

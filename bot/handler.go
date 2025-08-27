@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/xeptore/tidalgram/config"
+	"github.com/xeptore/tidalgram/telegram"
 	"github.com/xeptore/tidalgram/tidal"
 )
 
@@ -22,14 +23,14 @@ func NewChainHandler(handlers ...handlers.Response) handlers.Response {
 		for _, handler := range handlers {
 			if err := handler(b, u); nil != err {
 				if errors.Is(err, ErrNotPapa) {
-					return nil
+					return ext.EndGroups
 				}
 
 				return err
 			}
 		}
 
-		return nil
+		return ext.ContinueGroups
 	}
 }
 
@@ -47,7 +48,9 @@ func NewPapaOnlyGuard(papaID int64) handlers.Response {
 func NewTidalURLHandler(
 	ctx context.Context,
 	logger zerolog.Logger,
-	t *tidal.Client, conf *config.Bot,
+	td *tidal.Client,
+	conf config.Bot,
+	up *telegram.Uploader,
 ) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
 		logger = logger.With().
@@ -67,7 +70,7 @@ func NewTidalURLHandler(
 
 		link := tidal.ParseLink(getMessageURL(u.EffectiveMessage))
 		logger.Debug().Str("link_id", link.ID).Str("link_kind", link.Kind.String()).Msg("Parsed link")
-		if err := t.TryDownloadLink(ctx, logger, link); nil != err {
+		if err := td.TryDownloadLink(ctx, logger, link); nil != err {
 			if errors.Is(err, context.DeadlineExceeded) {
 				msg := "⌛️ Download request timed out. You might need to increase the timeout."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
@@ -146,7 +149,7 @@ func NewTidalURLHandler(
 			return fmt.Errorf("failed to send message: %w", err)
 		}
 
-		if err := upload(ctx, logger, b, t.DownloadsDirFs, conf, chatID, msgID, link); nil != err {
+		if err := up.Upload(ctx, logger, td.DownloadsDirFs, link); nil != err {
 			if errors.Is(err, context.DeadlineExceeded) {
 				msg := "⌛️ Upload request timed out. You might need to increase the timeout."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
@@ -211,13 +214,13 @@ func NewStartCommandHandler(ctx context.Context, adminID int64) handlers.Respons
 	}
 }
 
-func NewCancelCommandHandler(ctx context.Context, t *tidal.Client) handlers.Response {
+func NewCancelCommandHandler(ctx context.Context, td *tidal.Client) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
 		panic("not implemented")
 	}
 }
 
-func NewAuthorizeCommandHandler(ctx context.Context, logger zerolog.Logger, t *tidal.Client) handlers.Response {
+func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td *tidal.Client) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
 		logger = logger.With().
 			Int64("chat_id", u.EffectiveMessage.Chat.Id).
@@ -233,7 +236,7 @@ func NewAuthorizeCommandHandler(ctx context.Context, logger zerolog.Logger, t *t
 		}
 		chatID := u.EffectiveMessage.Chat.Id
 
-		link, wait, err := t.TryInitiateLoginFlow(ctx, logger)
+		link, wait, err := td.TryInitiateLoginFlow(ctx, logger)
 		if nil != err {
 			if errors.Is(err, context.DeadlineExceeded) {
 				msg := "⏳ Tidal login request timed out. You might need to increase the timeout."
@@ -324,10 +327,8 @@ func NewAuthorizeCommandHandler(ctx context.Context, logger zerolog.Logger, t *t
 	}
 }
 
-func NewStatusCommandHandler(ctx context.Context, t *tidal.Client) handlers.Response {
+func NewTidalAuthStatusCommandHandler(ctx context.Context, logger zerolog.Logger, td *tidal.Client) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
-		// Report Tidal auth status
-		// Report worker job processing status
 		panic("not implemented")
 	}
 }

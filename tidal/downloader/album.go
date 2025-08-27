@@ -56,6 +56,7 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 			return fmt.Errorf("failed to get album cover: %w", err)
 		}
 		if err := albumFs.Cover.Write(coverBytes); nil != err {
+			logger.Error().Err(err).Msg("Failed to write album cover")
 			return fmt.Errorf("failed to write album cover: %v", err)
 		}
 	}
@@ -72,7 +73,7 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 	}
 
 	var (
-		wg, wgCtx           = errgroup.WithContext(ctx)
+		wg, wgctx           = errgroup.WithContext(ctx)
 		albumVolumeTrackIDs = make([][]string, len(volumes))
 	)
 
@@ -103,12 +104,12 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 					}
 				}()
 
-				trackLyrics, err := d.downloadTrackLyrics(ctx, logger, accessToken, track.ID)
+				trackLyrics, err := d.downloadTrackLyrics(wgctx, logger, accessToken, track.ID)
 				if nil != err {
 					return fmt.Errorf("failed to download track lyrics: %w", err)
 				}
 
-				ext, err := d.downloadTrack(wgCtx, logger, accessToken, track.ID, trackFs.Path)
+				ext, err := d.downloadTrack(wgctx, logger, accessToken, track.ID, trackFs.Path)
 				if nil != err {
 					return fmt.Errorf("failed to download track: %w", err)
 				}
@@ -132,7 +133,7 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 					Lyrics:       trackLyrics,
 					Ext:          ext,
 				}
-				if err := embedTrackAttributes(ctx, logger, trackFs.Path, attrs); nil != err {
+				if err := embedTrackAttributes(wgctx, logger, trackFs.Path, attrs); nil != err {
 					return fmt.Errorf("failed to embed track attributes: %v", err)
 				}
 

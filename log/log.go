@@ -11,7 +11,7 @@ import (
 	"github.com/xeptore/tidalgram/constants"
 )
 
-func FromConfig(conf *config.Log) zerolog.Logger {
+func FromConfig(conf config.Log) zerolog.Logger {
 	level, err := zerolog.ParseLevel(conf.Level)
 	if nil != err {
 		panic("invalid logging level: " + conf.Level)

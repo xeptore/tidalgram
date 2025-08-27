@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -16,14 +17,12 @@ import (
 	"github.com/xeptore/tidalgram/config"
 	"github.com/xeptore/tidalgram/constants"
 	"github.com/xeptore/tidalgram/log"
+	"github.com/xeptore/tidalgram/telegram"
 	"github.com/xeptore/tidalgram/tidal"
 )
 
 func main() {
 	logger := log.NewDefault()
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	//nolint:exhaustruct
 	app := &cli.Command{
@@ -37,78 +36,93 @@ func main() {
 		EnableShellCompletion:      true,
 		ShellCompletionCommandName: "shell-completion",
 		AllowExtFlags:              false,
-		Commands: []*cli.Command{
+		Flags: []cli.Flag{
 			//nolint:exhaustruct
+			&cli.StringFlag{
+				Name:     "config",
+				Usage:    "Config file path",
+				Required: false,
+			},
+		},
+		Commands: []*cli.Command{
 			{
-				Name:    "run",
-				Aliases: []string{"r"},
-				Usage:   "Run the bot",
-				Action:  runBot,
-				Flags: []cli.Flag{
+				Name:  "telegram",
+				Usage: "Telegram commands",
+				Commands: []*cli.Command{
 					//nolint:exhaustruct
-					&cli.StringFlag{
-						Name:     "config",
-						Aliases:  []string{"c"},
-						Usage:    "Config file path",
-						Required: false,
+					{
+						Name:   "login",
+						Usage:  "Login to Telegram",
+						Action: tdLogin,
+					},
+					{
+						Name:   "logout",
+						Usage:  "Logout from Telegram",
+						Action: tdLogout,
 					},
 				},
 			},
 			{
-				Name:    "logout",
-				Aliases: []string{"l"},
-				Usage:   "Logout the bot",
-				Description: strings.Join([]string{
-					"Execute before you want to move the bot from the cloud Bot API server.",
-					"Otherwise there is no guarantee that the bot will receive updates.",
-					"After a successful call, you can immediately log in on a local server,",
-					"but will not be able to log in back to the cloud Bot API server for 10 minutes.",
-				}, "\n"),
-				Action: logoutBot,
-				Flags: []cli.Flag{
+				Name:  "bot",
+				Usage: "Bot commands",
+				Commands: []*cli.Command{
 					//nolint:exhaustruct
-					&cli.StringFlag{
-						Name:     "config",
-						Aliases:  []string{"c"},
-						Usage:    "Config file path",
-						Required: false,
+					{
+						Name:   "run",
+						Usage:  "Run the bot",
+						Action: botRun,
 					},
-				},
-			},
-			{
-				Name:    "close",
-				Aliases: []string{"c"},
-				Usage:   "Closes the bot",
-				Description: strings.Join([]string{
-					"Execute before you want to move the bot from one local server to another.",
-					"Errors if execute in the first 10 minutes of the bot being launched.",
-				}, "\n"),
-				Action: closeBot,
-				Flags: []cli.Flag{
-					//nolint:exhaustruct
-					&cli.StringFlag{
-						Name:     "config",
-						Aliases:  []string{"c"},
-						Usage:    "Config file path",
-						Required: false,
+					{
+						Name:  "logout",
+						Usage: "Logout the bot",
+						Description: strings.Join([]string{
+							"Execute before you want to move the bot from the cloud Bot API server.",
+							"Otherwise there is no guarantee that the bot will receive updates.",
+							"After a successful call, you can immediately log in on a local server,",
+							"but will not be able to log in back to the cloud Bot API server for 10 minutes.",
+						}, "\n"),
+						Action: botLogout,
+					},
+					{
+						Name:  "close",
+						Usage: "Closes the bot",
+						Description: strings.Join([]string{
+							"Execute before you want to move the bot from one local server to another.",
+							"Errors if execute in the first 10 minutes of the bot being launched.",
+						}, "\n"),
+						Action: botClose,
 					},
 				},
 			},
 		},
 	}
 
-	if err := app.Run(ctx, os.Args); nil != err {
-		if err := ctx.Err(); nil != err {
-			if errors.Is(err, context.Canceled) {
-				logger.Trace().Msg("Application was canceled")
-				return
-			}
+	if err := app.Run(context.Background(), os.Args); nil != err {
+		if errors.Is(err, context.Canceled) {
+			logger.Trace().Msg("Application was canceled")
+			os.Exit(1)
 		}
+
+		var exitCode exitCodeError
+		if errors.As(err, &exitCode) {
+			os.Exit(int(exitCode))
+		}
+
 		logger.Error().Err(err).Msg("Application exited with error")
+		os.Exit(10)
 	}
 }
 
-func runBot(ctx context.Context, cmd *cli.Command) error {
+type exitCodeError int
+
+func (e exitCodeError) Error() string {
+	return "error with exit code: " + strconv.Itoa(int(e))
+}
+
+func tdLogin(ctx context.Context, cmd *cli.Command) error {
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	logger := log.NewDefault()
 
 	if err := godotenv.Load(); nil != err {
@@ -126,15 +140,95 @@ func runBot(ctx context.Context, cmd *cli.Command) error {
 	}
 	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
-	logger = log.FromConfig(&conf.Log)
+	logger = log.FromConfig(conf.Log)
 
-	t, err := tidal.NewClient(logger, conf.Bot.CredsDir, conf.Bot.DownloadsDir, conf.Tidal)
+	if err := telegram.Login(ctx, logger, conf.TD); nil != err {
+		if errors.Is(err, syscall.ENOTTY) {
+			logger.Error().Msg("No TTY detected. Please run the container with `--tty` or set `tty: true` in Docker Compose.")
+			return exitCodeError(1)
+		}
+
+		return fmt.Errorf("failed to login to telegram: %v", err)
+	}
+
+	logger.Info().Msg("Telegram client logged in successfully")
+
+	return nil
+}
+
+func tdLogout(ctx context.Context, cmd *cli.Command) error {
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	logger := log.NewDefault()
+
+	if err := godotenv.Load(); nil != err {
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("failed to load .env file: %v", err)
+		}
+		logger.Info().Msg(".env file was not found")
+	} else {
+		logger.Debug().Msg(".env file was loaded")
+	}
+
+	conf, err := config.Load(cmd.String("config"))
+	if nil != err {
+		return fmt.Errorf("failed to load config: %v", err)
+	}
+	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
+
+	logger = log.FromConfig(conf.Log)
+
+	if err := telegram.Logout(ctx, logger, conf.TD); nil != err {
+		if errors.Is(err, syscall.ENOTTY) {
+			logger.Error().Msg("No TTY detected. Please run the container with `--tty` or set `tty: true` in Docker Compose.")
+			return exitCodeError(1)
+		}
+
+		return fmt.Errorf("failed to login to telegram: %v", err)
+	}
+
+	logger.Info().Msg("Telegram client logged in successfully")
+
+	return nil
+}
+
+func botRun(ctx context.Context, cmd *cli.Command) error {
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	logger := log.NewDefault()
+
+	if err := godotenv.Load(); nil != err {
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("failed to load .env file: %v", err)
+		}
+		logger.Info().Msg(".env file was not found")
+	} else {
+		logger.Debug().Msg(".env file was loaded")
+	}
+
+	conf, err := config.Load(cmd.String("config"))
+	if nil != err {
+		return fmt.Errorf("failed to load config: %v", err)
+	}
+	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
+
+	logger = log.FromConfig(conf.Log)
+
+	td, err := tidal.NewClient(logger, conf.Bot.CredsDir, conf.Bot.DownloadsDir, conf.Tidal)
 	if nil != err {
 		return fmt.Errorf("failed to create tidal client: %v", err)
 	}
 	logger.Debug().Msg("Tidal client created")
 
-	b, err := bot.New(ctx, logger, &conf.Bot, conf.Bot.Token, t)
+	up, err := telegram.NewUploader(ctx, logger, conf.TD)
+	if nil != err {
+		return fmt.Errorf("failed to create telegram uploader: %v", err)
+	}
+	logger.Debug().Msg("Telegram uploader created")
+
+	b, err := bot.New(ctx, logger, conf.Bot, td, up)
 	if nil != err {
 		return fmt.Errorf("failed to create tidalgram bot: %v", err)
 	}
@@ -157,7 +251,10 @@ func runBot(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-func logoutBot(ctx context.Context, cmd *cli.Command) error {
+func botLogout(ctx context.Context, cmd *cli.Command) error {
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	logger := log.NewDefault()
 
 	if err := godotenv.Load(); nil != err {
@@ -175,9 +272,9 @@ func logoutBot(ctx context.Context, cmd *cli.Command) error {
 	}
 	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
-	logger = log.FromConfig(&conf.Log)
+	logger = log.FromConfig(conf.Log)
 
-	b, err := bot.NewAPI(ctx, logger, &conf.Bot, conf.Bot.Token)
+	b, err := bot.NewAPI(ctx, logger, conf.Bot)
 	if nil != err {
 		return fmt.Errorf("failed to create tidalgram API bot: %v", err)
 	}
@@ -191,7 +288,10 @@ func logoutBot(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-func closeBot(ctx context.Context, cmd *cli.Command) error {
+func botClose(ctx context.Context, cmd *cli.Command) error {
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	logger := log.NewDefault()
 
 	if err := godotenv.Load(); nil != err {
@@ -209,9 +309,9 @@ func closeBot(ctx context.Context, cmd *cli.Command) error {
 	}
 	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
-	logger = log.FromConfig(&conf.Log)
+	logger = log.FromConfig(conf.Log)
 
-	b, err := bot.NewAPI(ctx, logger, &conf.Bot, conf.Bot.Token)
+	b, err := bot.NewAPI(ctx, logger, conf.Bot)
 	if nil != err {
 		return fmt.Errorf("failed to create tidalgram API bot: %v", err)
 	}

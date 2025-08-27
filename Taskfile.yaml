@@ -72,3 +72,9 @@ tasks:
   tidy:
     cmds:
       - go mod tidy -v -x
+
+  update:
+    deps:
+      - task: tidy
+    cmds:
+      - go get -u -x ./...

@@ -17,6 +17,7 @@ import (
 
 	"github.com/xeptore/tidalgram/config"
 	"github.com/xeptore/tidalgram/constants"
+	"github.com/xeptore/tidalgram/telegram"
 	"github.com/xeptore/tidalgram/tidal"
 )
 
@@ -49,11 +50,11 @@ func (a *Account) ToDict() *zerolog.Event {
 func New(
 	ctx context.Context,
 	logger zerolog.Logger,
-	conf *config.Bot,
-	token string,
-	t *tidal.Client,
+	conf config.Bot,
+	td *tidal.Client,
+	up *telegram.Uploader,
 ) (*Bot, error) {
-	b, err := gotgbot.NewBot(token, &gotgbot.BotOpts{ //nolint:exhaustruct
+	b, err := gotgbot.NewBot(conf.Token, &gotgbot.BotOpts{ //nolint:exhaustruct
 		BotClient: &gotgbot.BaseBotClient{
 			Client: http.Client{ //nolint:exhaustruct
 				Transport: &http.Transport{ //nolint:exhaustruct
@@ -89,7 +90,7 @@ func New(
 		},
 		MaxRoutines: 10,
 	})
-	registerHandlers(ctx, logger, conf, dispatcher, t)
+	registerHandlers(ctx, logger, conf, dispatcher, td, up)
 	updater := ext.NewUpdater(dispatcher, nil)
 
 	return &Bot{
@@ -164,13 +165,8 @@ type APIBot struct {
 	Account Account
 }
 
-func NewAPI(
-	ctx context.Context,
-	logger zerolog.Logger,
-	conf *config.Bot,
-	token string,
-) (*APIBot, error) {
-	b, err := gotgbot.NewBot(token, &gotgbot.BotOpts{ //nolint:exhaustruct
+func NewAPI(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*APIBot, error) {
+	b, err := gotgbot.NewBot(conf.Token, &gotgbot.BotOpts{ //nolint:exhaustruct
 		BotClient: &gotgbot.BaseBotClient{ //nolint:exhaustruct
 			Client: http.Client{ //nolint:exhaustruct
 				Transport: &http.Transport{ //nolint:exhaustruct
@@ -221,9 +217,10 @@ func (b *APIBot) Close(ctx context.Context) error {
 func registerHandlers(
 	ctx context.Context,
 	logger zerolog.Logger,
-	conf *config.Bot,
+	conf config.Bot,
 	d *ext.Dispatcher,
-	t *tidal.Client,
+	td *tidal.Client,
+	up *telegram.Uploader,
 ) {
 	d.AddHandler(
 		handlers.
@@ -231,11 +228,11 @@ func registerHandlers(
 				tidalURLFilter,
 				NewChainHandler(
 					NewPapaOnlyGuard(conf.PapaID),
-					NewTidalURLHandler(ctx, logger, t, conf),
+					NewTidalURLHandler(ctx, logger, td, conf, up),
 				),
 			).
-			SetAllowChannel(true).
-			SetAllowEdited(true),
+			SetAllowChannel(false).
+			SetAllowEdited(false),
 	)
 
 	d.AddHandler(
@@ -253,10 +250,10 @@ func registerHandlers(
 	d.AddHandler(
 		handlers.
 			NewCommand(
-				"status",
+				"cancel",
 				NewChainHandler(
 					NewPapaOnlyGuard(conf.PapaID),
-					NewStatusCommandHandler(ctx, t),
+					// NewCancelCommandHandler(ctx, tidal),
 				),
 			).
 			SetAllowChannel(false).
@@ -266,23 +263,23 @@ func registerHandlers(
 	d.AddHandler(
 		handlers.
 			NewCommand(
-				"cancel",
+				"tidal_login",
 				NewChainHandler(
 					NewPapaOnlyGuard(conf.PapaID),
-					NewCancelCommandHandler(ctx, t),
+					NewTidalLoginCommandHandler(ctx, logger, td),
 				),
 			).
-			SetAllowChannel(true).
+			SetAllowChannel(false).
 			SetAllowEdited(false),
 	)
 
 	d.AddHandler(
 		handlers.
 			NewCommand(
-				"authorize",
+				"tidal_auth_status",
 				NewChainHandler(
 					NewPapaOnlyGuard(conf.PapaID),
-					NewAuthorizeCommandHandler(ctx, logger, t),
+					NewTidalAuthStatusCommandHandler(ctx, logger, td),
 				),
 			).
 			SetAllowChannel(false).

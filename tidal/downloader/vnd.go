@@ -36,7 +36,7 @@ func (d *VndTrackStream) saveTo(
 		return fmt.Errorf("unexpected error while getting track file size: %w", err)
 	}
 
-	wg, wgCtx := errgroup.WithContext(ctx)
+	wg, wgctx := errgroup.WithContext(ctx)
 	wg.SetLimit(ratelimit.MultipartTrackDownloadConcurrency)
 
 	numChunks := mathutil.DivCeil(fileSize, singlePartChunkSize)
@@ -67,7 +67,7 @@ func (d *VndTrackStream) saveTo(
 				}
 			}()
 
-			if err := d.downloadChunkRange(wgCtx, logger, accessToken, start, end, f); nil != err {
+			if err := d.downloadChunkRange(wgctx, logger, accessToken, start, end, f); nil != err {
 				return fmt.Errorf("failed to download track chunk %d: %w", i, err)
 			}
 

@@ -67,3 +67,33 @@ tidal:
       # OPTIONAL
       # Default: 60
       download_vnd_segment: 60
+
+td:
+  # REQUIRED
+  # Telegram app ID (see https://my.telegram.org/apps)
+  app_id: 1234567890
+  # REQUIRED
+  # Telegram app hash (see https://my.telegram.org/apps)
+  app_hash: "1234567890"
+  # OPTIONAL
+  # Telegram storage path
+  # Default: ./td.db
+  storage:
+    path: ./td.db
+  upload:
+    # OPTIONAL
+    # Default: 8
+    threads: 8
+    # OPTIONAL
+    # Default: 16
+    pool_size: 16
+    # OPTIONAL
+    # Default: 4
+    limit: 4
+    # OPTIONAL
+    # Default: 5m
+    pause_duration: 5m
+    # OPTIONAL
+    # Will send to Saved Messages chat if not set, or set to 0.
+    to_chat_id: 0
+

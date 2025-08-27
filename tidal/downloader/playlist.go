@@ -36,7 +36,7 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 
 	var (
 		playlistFs = d.dir.Playlist(id)
-		wg, wgCtx  = errgroup.WithContext(ctx)
+		wg, wgctx  = errgroup.WithContext(ctx)
 	)
 
 	wg.SetLimit(ratelimit.PlaylistDownloadConcurrency)
@@ -49,7 +49,7 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				logger.Error().Err(err).Msg("Failed to check if track cover exists")
 				return fmt.Errorf("failed to check if track cover exists: %v", err)
 			} else if !exists {
-				coverBytes, err := d.getCover(wgCtx, logger, accessToken, track.CoverID)
+				coverBytes, err := d.getCover(wgctx, logger, accessToken, track.CoverID)
 				if nil != err {
 					return fmt.Errorf("failed to get track cover: %w", err)
 				}
@@ -76,22 +76,22 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				}
 			}()
 
-			trackCredits, err := d.getTrackCredits(wgCtx, logger, accessToken, track.ID)
+			trackCredits, err := d.getTrackCredits(wgctx, logger, accessToken, track.ID)
 			if nil != err {
 				return fmt.Errorf("failed to get track credits: %w", err)
 			}
 
-			trackLyrics, err := d.downloadTrackLyrics(wgCtx, logger, accessToken, track.ID)
+			trackLyrics, err := d.downloadTrackLyrics(wgctx, logger, accessToken, track.ID)
 			if nil != err {
 				return fmt.Errorf("failed to download track lyrics: %w", err)
 			}
 
-			ext, err := d.downloadTrack(wgCtx, logger, accessToken, track.ID, trackFs.Path)
+			ext, err := d.downloadTrack(wgctx, logger, accessToken, track.ID, trackFs.Path)
 			if nil != err {
 				return fmt.Errorf("failed to download track: %w", err)
 			}
 
-			album, err := d.getAlbumMeta(wgCtx, logger, accessToken, track.AlbumID)
+			album, err := d.getAlbumMeta(wgctx, logger, accessToken, track.AlbumID)
 			if nil != err {
 				return fmt.Errorf("failed to get album meta: %w", err)
 			}
@@ -115,7 +115,7 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				Lyrics:       trackLyrics,
 				Ext:          ext,
 			}
-			if err := embedTrackAttributes(wgCtx, logger, trackFs.Path, attrs); nil != err {
+			if err := embedTrackAttributes(wgctx, logger, trackFs.Path, attrs); nil != err {
 				return fmt.Errorf("failed to embed track attributes: %v", err)
 			}
 
