@@ -21,7 +21,7 @@ import (
 	"github.com/xeptore/tidalgram/config"
 )
 
-func Login(ctx context.Context, logger zerolog.Logger, conf config.TD) (err error) {
+func Login(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (err error) {
 	var (
 		stdin  = os.Stdin
 		stdout = os.Stdout
@@ -47,82 +47,90 @@ func Login(ctx context.Context, logger zerolog.Logger, conf config.TD) (err erro
 	opts.NoUpdates = false
 	client := telegram.NewClient(conf.AppID, conf.AppHash, opts)
 
-	var lines int
-	_, err = client.QR().Auth(
-		ctx,
-		qrlogin.OnLoginToken(dispatcher),
-		func(ctx context.Context, token qrlogin.Token) error {
-			qr, err := qrcode.New(token.URL(), qrcode.Highest)
-			if nil != err {
-				return fmt.Errorf("failed to create qr code: %v", err)
+	err = client.Run(ctx, func(ctx context.Context) error {
+		var lines int
+		_, err = client.QR().Auth(
+			ctx,
+			qrlogin.OnLoginToken(dispatcher),
+			func(ctx context.Context, token qrlogin.Token) error {
+				qr, err := qrcode.New(token.URL(), qrcode.Highest)
+				if nil != err {
+					return fmt.Errorf("failed to create qr code: %v", err)
+				}
+
+				const noInverseColor = false
+				code := qr.ToSmallString(noInverseColor)
+				lines = strings.Count(code, "\n")
+
+				fmt.Fprint(stdout, code)
+				fmt.Fprint(stdout, strings.Repeat(text.CursorUp.Sprint(), lines))
+
+				return nil
+			},
+		)
+
+		// Clear the QR code from the console
+		var out strings.Builder
+		for range lines {
+			out.WriteString(text.EraseLine.Sprint())
+			out.WriteString(text.CursorDown.Sprint())
+		}
+		out.WriteString(text.CursorUp.Sprintn(lines))
+		fmt.Fprint(stdout, out.String())
+
+		if nil != err {
+			// https://core.telegram.org/api/auth#2fa
+			if !tgerr.Is(err, "SESSION_PASSWORD_NEEDED") {
+				return fmt.Errorf("unknown error from QR code login: %v", err)
 			}
 
-			const noInverseColor = false
-			code := qr.ToSmallString(noInverseColor)
-			lines = strings.Count(code, "\n")
+			var pwd string
+			prompt := &survey.Password{ //nolint:exhaustruct
+				Message: "Enter 2FA Password:",
+			}
+			askOpts := []survey.AskOpt{
+				survey.WithValidator(survey.Required),
+				survey.WithHideCharacter('*'),
+				survey.WithStdio(stdin, stdout, stdout),
+				survey.WithShowCursor(true),
+			}
+			if err = survey.AskOne(prompt, &pwd, askOpts...); nil != err {
+				return fmt.Errorf("failed to ask for 2fa password: %v", err)
+			}
 
-			fmt.Fprint(stdout, code)
-			fmt.Fprint(stdout, strings.Repeat(text.CursorUp.Sprint(), lines))
+			if _, err = client.Auth().Password(ctx, pwd); nil != err {
+				return fmt.Errorf("failed to finalize login with 2fa password: %v", err)
+			}
+		}
 
-			return nil
-		},
-	)
+		user, err := client.Self(ctx)
+		if nil != err {
+			return fmt.Errorf("failed to get logged in user: %v", err)
+		}
 
-	// Clear the QR code from the console
-	var out strings.Builder
-	for range lines {
-		out.WriteString(text.EraseLine.Sprint())
-		out.WriteString(text.CursorDown.Sprint())
-	}
-	out.WriteString(text.CursorUp.Sprintn(lines))
-	fmt.Fprint(stdout, out.String())
+		fmt.Fprint(stdout, text.EraseLine.Sprint())
+
+		logger.
+			Info().
+			Int64("id", user.ID).
+			Str("username", user.Username).
+			Str("first_name", user.FirstName).
+			Str("last_name", user.LastName).
+			Bool("premium", user.Premium).
+			Bool("verified", user.Verified).
+			Msg("Login successfully!")
+
+		return nil
+	})
 
 	if nil != err {
-		// https://core.telegram.org/api/auth#2fa
-		if !tgerr.Is(err, "SESSION_PASSWORD_NEEDED") {
-			return fmt.Errorf("unknown error from QR code login: %v", err)
-		}
-
-		var pwd string
-		prompt := &survey.Password{ //nolint:exhaustruct
-			Message: "Enter 2FA Password:",
-		}
-		askOpts := []survey.AskOpt{
-			survey.WithValidator(survey.Required),
-			survey.WithHideCharacter('*'),
-			survey.WithStdio(stdin, stdout, stdout),
-			survey.WithShowCursor(true),
-		}
-		if err = survey.AskOne(prompt, &pwd, askOpts...); nil != err {
-			return fmt.Errorf("failed to ask for 2fa password: %v", err)
-		}
-
-		if _, err = client.Auth().Password(ctx, pwd); nil != err {
-			return fmt.Errorf("failed to finalize login with 2fa password: %v", err)
-		}
+		return fmt.Errorf("failed to login: %v", err)
 	}
-
-	user, err := client.Self(ctx)
-	if nil != err {
-		return fmt.Errorf("failed to get logged in user: %v", err)
-	}
-
-	fmt.Fprint(stdout, text.EraseLine.Sprint())
-
-	logger.
-		Info().
-		Int64("id", user.ID).
-		Str("username", user.Username).
-		Str("first_name", user.FirstName).
-		Str("last_name", user.LastName).
-		Bool("premium", user.Premium).
-		Bool("verified", user.Verified).
-		Msg("Login successfully!")
 
 	return nil
 }
 
-func Logout(ctx context.Context, logger zerolog.Logger, conf config.TD) (err error) {
+func Logout(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (err error) {
 	storage, err := NewStorage(conf.Storage.Path)
 	if nil != err {
 		return fmt.Errorf("failed to create storage: %v", err)
@@ -136,23 +144,29 @@ func Logout(ctx context.Context, logger zerolog.Logger, conf config.TD) (err err
 	opts := defaultNoUpdatesClientOpts(ctx, logger, storage)
 	client := telegram.NewClient(conf.AppID, conf.AppHash, opts)
 
-	status, err := client.Auth().Status(ctx)
-	if nil != err {
-		return fmt.Errorf("failed to get auth status: %v", err)
-	}
-	if !status.Authorized {
-		return nil
-	}
+	err = client.Run(ctx, func(ctx context.Context) error {
+		status, err := client.Auth().Status(ctx)
+		if nil != err {
+			return fmt.Errorf("failed to get auth status: %v", err)
+		}
+		if !status.Authorized {
+			return nil
+		}
 
-	if _, err := client.API().AuthLogOut(ctx); nil != err {
+		if _, err := client.API().AuthLogOut(ctx); nil != err {
+			return fmt.Errorf("failed to logout: %v", err)
+		}
+
+		if err := storage.DeleteSession(ctx); nil != err {
+			return fmt.Errorf("failed to delete session: %v", err)
+		}
+
+		return nil
+	})
+
+	if nil != err {
 		return fmt.Errorf("failed to logout: %v", err)
 	}
-
-	if err := storage.DeleteSession(ctx); nil != err {
-		return fmt.Errorf("failed to delete session: %v", err)
-	}
-
-	logger.Info().Msg("Logged out")
 
 	return nil
 }

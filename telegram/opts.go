@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/gotd/contrib/middleware/floodwait"
 	"github.com/gotd/contrib/middleware/ratelimit"
 	"github.com/gotd/td/telegram"
 	"github.com/rs/zerolog"
@@ -44,14 +43,15 @@ func defaultNoUpdatesClientOpts(ctx context.Context, logger zerolog.Logger, stor
 		Logger:         nil,
 		SessionStorage: storage,
 		Middlewares: []telegram.Middleware{
-			floodwait.
-				NewWaiter().
-				WithCallback(func(ctx context.Context, wait floodwait.FloodWait) {
-					logger.
-						Error().
-						Int("seconds", int(wait.Duration.Seconds())).
-						Msg("Got FLOOD_WAIT. Will retry after")
-				}),
+			// FIXME
+			// floodwait.
+			// 	NewWaiter().
+			// 	WithCallback(func(ctx context.Context, wait floodwait.FloodWait) {
+			// 		logger.
+			// 			Error().
+			// 			Int("seconds", int(wait.Duration.Seconds())).
+			// 			Msg("Got FLOOD_WAIT. Will retry after")
+			// 	}),
 			ratelimit.New(rate.Every(time.Millisecond*100), 5),
 		},
 	}

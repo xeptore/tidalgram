@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/gotd/contrib/bg"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/message"
 	"github.com/gotd/td/telegram/message/styling"
@@ -27,13 +28,17 @@ import (
 // MaxPartSize refer to https://core.telegram.org/api/files#uploading-files
 const MaxPartSize = 512 * 1024
 
+var ErrUnauthorized = errors.New("unauthorized")
+
 type Uploader struct {
 	client *tg.Client
-	conf   config.TD
+	stop   bg.StopFunc
+	conf   config.Telegram
 	engine *uploader.Uploader
+	logger zerolog.Logger
 }
 
-func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.TD) (*Uploader, error) {
+func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (*Uploader, error) {
 	storage, err := NewStorage(conf.Storage.Path)
 	if nil != err {
 		return nil, fmt.Errorf("failed to create storage: %v", err)
@@ -41,15 +46,45 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.TD) (*U
 
 	const maxRecoveryElapsedTime = 5 * time.Minute
 	opts := defaultNoUpdatesClientOpts(ctx, logger, storage)
+	client := telegram.NewClient(conf.AppID, conf.AppHash, opts)
+
+	stop, err := bg.Connect(client, bg.WithContext(ctx))
+	if nil != err {
+		return nil, fmt.Errorf("failed to connect to telegram: %w", err)
+	}
+
+	if status, err := client.Auth().Status(ctx); nil != err {
+		return nil, fmt.Errorf("failed to get auth status: %w", err)
+	} else if !status.Authorized {
+		return nil, ErrUnauthorized
+	}
+
+	user, err := client.Self(ctx)
+	if nil != err {
+		return nil, fmt.Errorf("failed to get self: %w", err)
+	}
+	logger.Info().Int64("id", user.ID).Msg("Got self")
+
 	pool := dcpool.NewPool(
-		telegram.NewClient(conf.AppID, conf.AppHash, opts),
+		client,
 		int64(conf.Upload.PoolSize),
 		tclient.NewDefaultMiddlewares(ctx, maxRecoveryElapsedTime)...,
 	)
-	client := pool.Default(ctx)
-	engine := uploader.NewUploader(client).WithPartSize(MaxPartSize).WithThreads(conf.Upload.Threads)
+	tgClient := pool.Default(ctx)
 
-	return &Uploader{client: client, conf: conf, engine: engine}, nil
+	engine := uploader.NewUploader(tgClient).WithPartSize(MaxPartSize).WithThreads(conf.Upload.Threads)
+
+	return &Uploader{client: tgClient, stop: stop, conf: conf, engine: engine, logger: logger}, nil
+}
+
+func (c *Uploader) Close() error {
+	c.logger.Debug().Msg("Closing telegram uploader")
+	if err := c.stop(); nil != err {
+		return fmt.Errorf("failed to stop background client: %v", err)
+	}
+	c.logger.Debug().Msg("Telegram uploader closed")
+
+	return nil
 }
 
 func (c *Uploader) Upload(ctx context.Context, logger zerolog.Logger, dir fs.DownloadsDir, link types.Link) error {
@@ -179,7 +214,7 @@ func (c *Uploader) uploadAlbum(
 			res, err := message.
 				NewSender(c.client).
 				WithUploader(c.engine).
-				To(c.conf.Upload.ToChatID.InputPeerClass).
+				To(c.conf.Upload.ToUserID).
 				Clear().
 				Album(wgctx, album[0], rest...)
 			if nil != err {
@@ -311,7 +346,7 @@ func (c *Uploader) uploadMix(
 		res, err := message.
 			NewSender(c.client).
 			WithUploader(c.engine).
-			To(c.conf.Upload.ToChatID.InputPeerClass).
+			To(c.conf.Upload.ToUserID).
 			Clear().
 			Album(ctx, album[0], rest...)
 		if nil != err {
@@ -442,7 +477,7 @@ func (c *Uploader) uploadPlaylist(
 		res, err := message.
 			NewSender(c.client).
 			WithUploader(c.engine).
-			To(c.conf.Upload.ToChatID.InputPeerClass).
+			To(c.conf.Upload.ToUserID).
 			Clear().
 			Album(ctx, album[0], rest...)
 		if nil != err {
@@ -523,7 +558,7 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	res, err := message.
 		NewSender(c.client).
 		WithUploader(c.engine).
-		To(c.conf.Upload.ToChatID.InputPeerClass).
+		To(c.conf.Upload.ToUserID).
 		Media(ctx, doc)
 	if nil != err {
 		return fmt.Errorf("failed to send message: %w", err)

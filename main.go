@@ -53,12 +53,12 @@ func main() {
 					{
 						Name:   "login",
 						Usage:  "Login to Telegram",
-						Action: tdLogin,
+						Action: telegramLogin,
 					},
 					{
 						Name:   "logout",
 						Usage:  "Logout from Telegram",
-						Action: tdLogout,
+						Action: telegramLogout,
 					},
 				},
 			},
@@ -119,7 +119,7 @@ func (e exitCodeError) Error() string {
 	return "error with exit code: " + strconv.Itoa(int(e))
 }
 
-func tdLogin(ctx context.Context, cmd *cli.Command) error {
+func telegramLogin(ctx context.Context, cmd *cli.Command) error {
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -142,7 +142,7 @@ func tdLogin(ctx context.Context, cmd *cli.Command) error {
 
 	logger = log.FromConfig(conf.Log)
 
-	if err := telegram.Login(ctx, logger, conf.TD); nil != err {
+	if err := telegram.Login(ctx, logger, conf.Telegram); nil != err {
 		if errors.Is(err, syscall.ENOTTY) {
 			logger.Error().Msg("No TTY detected. Please run the container with `--tty` or set `tty: true` in Docker Compose.")
 			return exitCodeError(1)
@@ -150,13 +150,11 @@ func tdLogin(ctx context.Context, cmd *cli.Command) error {
 
 		return fmt.Errorf("failed to login to telegram: %v", err)
 	}
-
-	logger.Info().Msg("Telegram client logged in successfully")
 
 	return nil
 }
 
-func tdLogout(ctx context.Context, cmd *cli.Command) error {
+func telegramLogout(ctx context.Context, cmd *cli.Command) error {
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -179,7 +177,7 @@ func tdLogout(ctx context.Context, cmd *cli.Command) error {
 
 	logger = log.FromConfig(conf.Log)
 
-	if err := telegram.Logout(ctx, logger, conf.TD); nil != err {
+	if err := telegram.Logout(ctx, logger, conf.Telegram); nil != err {
 		if errors.Is(err, syscall.ENOTTY) {
 			logger.Error().Msg("No TTY detected. Please run the container with `--tty` or set `tty: true` in Docker Compose.")
 			return exitCodeError(1)
@@ -188,7 +186,7 @@ func tdLogout(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("failed to login to telegram: %v", err)
 	}
 
-	logger.Info().Msg("Telegram client logged in successfully")
+	logger.Info().Msg("Telegram client logged out successfully")
 
 	return nil
 }
@@ -222,15 +220,25 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 	}
 	logger.Debug().Msg("Tidal client created")
 
-	up, err := telegram.NewUploader(ctx, logger, conf.TD)
+	up, err := telegram.NewUploader(ctx, logger, conf.Telegram)
 	if nil != err {
-		return fmt.Errorf("failed to create telegram uploader: %v", err)
+		if errors.Is(err, telegram.ErrUnauthorized) {
+			logger.Error().Msg("Telegram client is not authorized. Please login to Telegram.")
+			return exitCodeError(2)
+		}
+
+		return fmt.Errorf("failed to create telegram uploader: %w", err)
 	}
+	defer func() {
+		if err := up.Close(); nil != err {
+			logger.Error().Err(err).Msg("Failed to close telegram uploader")
+		}
+	}()
 	logger.Debug().Msg("Telegram uploader created")
 
 	b, err := bot.New(ctx, logger, conf.Bot, td, up)
 	if nil != err {
-		return fmt.Errorf("failed to create tidalgram bot: %v", err)
+		return fmt.Errorf("failed to create tidalgram bot: %w", err)
 	}
 	logger.Info().Dict("account", b.Account.ToDict()).Msg("Bot instance created")
 

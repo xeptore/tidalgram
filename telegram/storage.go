@@ -40,7 +40,11 @@ func NewStorage(path string) (*Storage, error) {
 func createBuckets(db *bbolt.DB) error {
 	err := db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(sessionBucketName)
-		return fmt.Errorf("failed to create session bucket: %v", err)
+		if nil != err {
+			return fmt.Errorf("failed to create session bucket: %v", err)
+		}
+
+		return nil
 	})
 	if nil != err {
 		return fmt.Errorf("failed to create buckets: %v", err)

@@ -77,16 +77,16 @@ td:
   app_hash: "1234567890"
   # OPTIONAL
   # Telegram storage path
-  # Default: ./td.db
+  # Default: ./telegram.db
   storage:
-    path: ./td.db
+    path: ./telegram.db
   upload:
     # OPTIONAL
     # Default: 8
     threads: 8
     # OPTIONAL
-    # Default: 16
-    pool_size: 16
+    # Default: 8
+    pool_size: 8
     # OPTIONAL
     # Default: 4
     limit: 4
@@ -95,5 +95,5 @@ td:
     pause_duration: 5m
     # OPTIONAL
     # Will send to Saved Messages chat if not set, or set to 0.
-    to_chat_id: 0
+    to_user_id: 0
 

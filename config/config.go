@@ -16,10 +16,10 @@ import (
 )
 
 type Config struct {
-	Bot   Bot   `yaml:"bot"`
-	Log   Log   `yaml:"log"`
-	Tidal Tidal `yaml:"tidal"`
-	TD    TD    `yaml:"td"`
+	Bot      Bot      `yaml:"bot"`
+	Log      Log      `yaml:"log"`
+	Tidal    Tidal    `yaml:"tidal"`
+	Telegram Telegram `yaml:"telegram"`
 }
 
 func (c *Config) ToDict() *zerolog.Event {
@@ -27,14 +27,14 @@ func (c *Config) ToDict() *zerolog.Event {
 		Dict("bot", c.Bot.ToDict()).
 		Dict("log", c.Log.ToDict()).
 		Dict("tidal", c.Tidal.ToDict()).
-		Dict("td", c.TD.ToDict())
+		Dict("telegram", c.Telegram.ToDict())
 }
 
 func (c *Config) setDefaults() {
 	c.Bot.setDefaults()
 	c.Log.setDefaults()
 	c.Tidal.setDefaults()
-	c.TD.setDefaults()
+	c.Telegram.setDefaults()
 }
 
 func (c *Config) validate() error {
@@ -50,8 +50,8 @@ func (c *Config) validate() error {
 		return fmt.Errorf("tidal config validation failed: %v", err)
 	}
 
-	if err := c.TD.validate(); nil != err {
-		return fmt.Errorf("td config validation failed: %v", err)
+	if err := c.Telegram.validate(); nil != err {
+		return fmt.Errorf("telegram config validation failed: %v", err)
 	}
 
 	return nil
@@ -323,14 +323,14 @@ func (c *TidalDownloadTimeouts) validate() error {
 	return nil
 }
 
-type TD struct {
-	AppID   int       `yaml:"app_id"`
-	AppHash string    `yaml:"app_hash"`
-	Storage TDStorage `yaml:"storage"`
-	Upload  TDUpload  `yaml:"upload"`
+type Telegram struct {
+	AppID   int             `yaml:"app_id"`
+	AppHash string          `yaml:"app_hash"`
+	Storage TelegramStorage `yaml:"storage"`
+	Upload  TelegramUpload  `yaml:"upload"`
 }
 
-func (c *TD) ToDict() *zerolog.Event {
+func (c *Telegram) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
 		Int("app_id", c.AppID).
@@ -339,12 +339,12 @@ func (c *TD) ToDict() *zerolog.Event {
 		Dict("upload", c.Upload.ToDict())
 }
 
-func (c *TD) setDefaults() {
+func (c *Telegram) setDefaults() {
 	c.Storage.setDefaults()
 	c.Upload.setDefaults()
 }
 
-func (c *TD) validate() error {
+func (c *Telegram) validate() error {
 	if c.AppID == 0 {
 		return errors.New("app_id is required")
 	}
@@ -364,23 +364,23 @@ func (c *TD) validate() error {
 	return nil
 }
 
-type TDStorage struct {
+type TelegramStorage struct {
 	Path string `yaml:"path"`
 }
 
-func (c *TDStorage) ToDict() *zerolog.Event {
+func (c *TelegramStorage) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
 		Str("path", c.Path)
 }
 
-func (c *TDStorage) setDefaults() {
+func (c *TelegramStorage) setDefaults() {
 	if c.Path == "" {
-		c.Path = "td.db"
+		c.Path = "telegram.db"
 	}
 }
 
-func (c *TDStorage) validate() error {
+func (c *TelegramStorage) validate() error {
 	return nil
 }
 
@@ -404,11 +404,11 @@ func (d *Duration) UnmarshalYAML(unmarshal func(any) error) error {
 	return nil
 }
 
-type UploadChat struct {
+type UserID struct {
 	tg.InputPeerClass
 }
 
-func (d *UploadChat) UnmarshalYAML(unmarshal func(any) error) error {
+func (d *UserID) UnmarshalYAML(unmarshal func(any) error) error {
 	var id int64
 	if err := unmarshal(&id); err != nil {
 		return fmt.Errorf("failed to parse chat id: %v", err)
@@ -418,22 +418,22 @@ func (d *UploadChat) UnmarshalYAML(unmarshal func(any) error) error {
 	case 0:
 		d.InputPeerClass = &tg.InputPeerSelf{}
 	default:
-		d.InputPeerClass = &tg.InputPeerChat{ChatID: id}
+		d.InputPeerClass = &tg.InputPeerUser{UserID: id, AccessHash: 0}
 	}
 
 	return nil
 }
 
-type TDUpload struct {
-	Threads       int        `yaml:"threads"`
-	PoolSize      int        `yaml:"pool_size"`
-	Limit         int        `yaml:"limit"`
-	Signature     string     `yaml:"signature"`
-	PauseDuration Duration   `yaml:"pause_duration"`
-	ToChatID      UploadChat `yaml:"to_chat_id"`
+type TelegramUpload struct {
+	Threads       int      `yaml:"threads"`
+	PoolSize      int      `yaml:"pool_size"`
+	Limit         int      `yaml:"limit"`
+	Signature     string   `yaml:"signature"`
+	PauseDuration Duration `yaml:"pause_duration"`
+	ToUserID      UserID   `yaml:"to_user_id"`
 }
 
-func (c *TDUpload) ToDict() *zerolog.Event {
+func (c *TelegramUpload) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
 		Int("threads", c.Threads).
@@ -441,16 +441,16 @@ func (c *TDUpload) ToDict() *zerolog.Event {
 		Int("limit", c.Limit).
 		Str("signature", c.Signature).
 		Str("pause_duration", c.PauseDuration.String()).
-		Str("to_chat_id", c.ToChatID.String())
+		Str("to_user_id", c.ToUserID.String())
 }
 
-func (c *TDUpload) setDefaults() {
+func (c *TelegramUpload) setDefaults() {
 	if c.Threads == 0 {
 		c.Threads = 8
 	}
 
 	if c.PoolSize == 0 {
-		c.PoolSize = 16
+		c.PoolSize = 8
 	}
 
 	if c.Limit == 0 {
@@ -460,9 +460,13 @@ func (c *TDUpload) setDefaults() {
 	if c.PauseDuration.Duration == 0 {
 		c.PauseDuration.Duration = 5 * time.Minute
 	}
+
+	if c.ToUserID == (UserID{}) {
+		c.ToUserID.InputPeerClass = &tg.InputPeerSelf{}
+	}
 }
 
-func (c *TDUpload) validate() error {
+func (c *TelegramUpload) validate() error {
 	if c.Threads < 0 {
 		return errors.New("threads must be greater than 0")
 	}
