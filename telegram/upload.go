@@ -11,6 +11,7 @@ import (
 	"github.com/gotd/contrib/bg"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/message"
+	"github.com/gotd/td/telegram/message/html"
 	"github.com/gotd/td/telegram/message/styling"
 	"github.com/gotd/td/telegram/uploader"
 	"github.com/gotd/td/tg"
@@ -222,11 +223,7 @@ func (c *Uploader) uploadAlbum(
 					var caption []message.StyledTextOption
 					if idx == len(trackIDs)-1 {
 						caption = append(caption, partCaption...)
-						signature, err := markdownToStyled(c.conf.Upload.Signature, nil)
-						if nil != err {
-							return fmt.Errorf("failed to convert signature to styled text: %v", err)
-						}
-						caption = append(caption, signature...)
+						caption = append(caption, html.String(nil, c.conf.Upload.Signature))
 					}
 
 					doc := message.
@@ -274,7 +271,6 @@ func (c *Uploader) uploadAlbum(
 			if nil != err {
 				return fmt.Errorf("failed to send mix: %w", err)
 			}
-			// TODO: Cache uploaded documents to avoid re-uploading them
 			switch v := res.(type) {
 			case *tg.UpdatesTooLong:
 				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesTooLong")
@@ -357,11 +353,7 @@ func (c *Uploader) uploadMix(
 				var caption []message.StyledTextOption
 				if idx == len(trackIDs)-1 {
 					caption = append(caption, partCaption...)
-					signature, err := markdownToStyled(c.conf.Upload.Signature, nil)
-					if nil != err {
-						return fmt.Errorf("failed to convert signature to styled text: %v", err)
-					}
-					caption = append(caption, signature...)
+					caption = append(caption, html.String(nil, c.conf.Upload.Signature))
 				}
 
 				doc := message.
@@ -409,7 +401,6 @@ func (c *Uploader) uploadMix(
 		if nil != err {
 			return fmt.Errorf("failed to send mix: %w", err)
 		}
-		// TODO: Cache uploaded documents to avoid re-uploading them
 		switch v := res.(type) {
 		case *tg.UpdatesTooLong:
 			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesTooLong")
@@ -491,11 +482,7 @@ func (c *Uploader) uploadPlaylist(
 				var caption []message.StyledTextOption
 				if idx == len(trackIDs)-1 {
 					caption = append(caption, partCaption...)
-					signature, err := markdownToStyled(c.conf.Upload.Signature, nil)
-					if nil != err {
-						return fmt.Errorf("failed to convert signature to styled text: %v", err)
-					}
-					caption = append(caption, signature...)
+					caption = append(caption, html.String(nil, c.conf.Upload.Signature))
 				}
 
 				doc := message.
@@ -543,7 +530,6 @@ func (c *Uploader) uploadPlaylist(
 		if nil != err {
 			return fmt.Errorf("failed to send playlist: %w", err)
 		}
-		// TODO: Cache uploaded documents to avoid re-uploading them
 		switch v := res.(type) {
 		case *tg.UpdatesTooLong:
 			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesTooLong")
@@ -592,12 +578,8 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 
 	caption := []message.StyledTextOption{
 		styling.Plain(trackInfo.Caption),
+		html.String(nil, c.conf.Upload.Signature),
 	}
-	signature, err := markdownToStyled(c.conf.Upload.Signature, nil)
-	if nil != err {
-		return fmt.Errorf("failed to convert signature to styled text: %v", err)
-	}
-	caption = append(caption, signature...)
 
 	doc := message.
 		UploadedDocument(trackInputFile, caption...).
@@ -626,7 +608,6 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	if nil != err {
 		return fmt.Errorf("failed to send message: %w", err)
 	}
-	// TODO: Cache uploaded document to avoid re-uploading it
 	switch v := res.(type) {
 	case *tg.UpdatesTooLong:
 		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesTooLong")

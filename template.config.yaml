@@ -15,8 +15,10 @@ bot:
   # Default: ./downloads
   downloads_dir: ./downloads
   # OPTIONAL
-  # Signature to be added to the end of the caption in Markdown format.
-  # See https://yaml-multiline.info/ for multiline syntax examples and standards.
+  # Signature to be added to the end of the caption in Telegram-flavored HTML format.
+  # See:
+  #   https://core.telegram.org/bots/api#html-style
+  #   https://core.telegram.org/api/entities#allowed-entities
   # Default: ""
   signature: ""
 

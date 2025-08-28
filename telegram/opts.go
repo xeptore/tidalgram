@@ -43,7 +43,6 @@ func defaultNoUpdatesClientOpts(ctx context.Context, logger zerolog.Logger, stor
 		Logger:         nil,
 		SessionStorage: storage,
 		Middlewares: []telegram.Middleware{
-			// FIXME
 			// floodwait.
 			// 	NewWaiter().
 			// 	WithCallback(func(ctx context.Context, wait floodwait.FloodWait) {
