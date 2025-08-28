@@ -18,7 +18,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/xeptore/tidalgram/config"
-	"github.com/xeptore/tidalgram/constants"
+	"github.com/xeptore/tidalgram/constant"
 	"github.com/xeptore/tidalgram/telegram"
 	"github.com/xeptore/tidalgram/tidal"
 )
@@ -138,12 +138,13 @@ func (b *Bot) Start() error {
 	sendOpts := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
 		ParseMode: gotgbot.ParseModeMarkdown,
 	}
-	compiledAt, _ := time.Parse(time.RFC3339, constants.CompileTime)
+	compiledAt, _ := time.Parse(time.RFC3339, constant.CompileTime)
 	msg := strings.Join([]string{
 		`I'm online, Papa 🙂`,
 		``,
-		"🏷️ Version: `" + constants.Version + "`",
-		"🕒 Compiled At: `" + compiledAt.Format("2006/01/02 15:04:05") + " UTC`",
+		``,
+		"> 🏷️ Version: `" + constant.Version + "`",
+		"> 🕒 Compiled At: `" + compiledAt.Format("2006/01/02 15:04:05") + " UTC`",
 	}, "\n")
 	if _, err := b.bot.SendMessage(b.papaChatID, msg, sendOpts); nil != err {
 		return fmt.Errorf("failed to send message: %w", err)

@@ -15,7 +15,7 @@ import (
 
 	"github.com/xeptore/tidalgram/bot"
 	"github.com/xeptore/tidalgram/config"
-	"github.com/xeptore/tidalgram/constants"
+	"github.com/xeptore/tidalgram/constant"
 	"github.com/xeptore/tidalgram/log"
 	"github.com/xeptore/tidalgram/telegram"
 	"github.com/xeptore/tidalgram/tidal"
@@ -27,9 +27,9 @@ func main() {
 	//nolint:exhaustruct
 	app := &cli.Command{
 		Name:    "tidalgram",
-		Version: constants.Version,
+		Version: constant.Version,
 		Metadata: map[string]any{
-			"compiled_at": constants.CompileTime,
+			"compiled_at": constant.CompileTime,
 		},
 		Suggest:                    true,
 		Usage:                      "Telegram Tidal Downloader",

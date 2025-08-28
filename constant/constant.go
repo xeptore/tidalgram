@@ -1,4 +1,4 @@
-package constants
+package constant
 
 var (
 	Version     = "0"

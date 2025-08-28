@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/xeptore/tidalgram/config"
-	"github.com/xeptore/tidalgram/constants"
+	"github.com/xeptore/tidalgram/constant"
 )
 
 func FromConfig(conf config.Log) zerolog.Logger {
@@ -24,8 +24,8 @@ func FromConfig(conf config.Log) zerolog.Logger {
 			Hook(&stackHook{}).
 			With().
 			Timestamp().
-			Str("version", constants.Version).
-			Str("compile_time", constants.CompileTime).
+			Str("version", constant.Version).
+			Str("compile_time", constant.CompileTime).
 			Logger().
 			Level(level)
 	case "pretty":
@@ -38,8 +38,8 @@ func FromConfig(conf config.Log) zerolog.Logger {
 			Hook(&stackHook{}).
 			With().
 			Timestamp().
-			Str("version", constants.Version).
-			Str("compile_time", constants.CompileTime).
+			Str("version", constant.Version).
+			Str("compile_time", constant.CompileTime).
 			Logger().
 			Level(level)
 	default:
@@ -57,8 +57,8 @@ func NewDefault() zerolog.Logger {
 		Hook(&stackHook{}).
 		With().
 		Timestamp().
-		Str("version", constants.Version).
-		Str("compile_time", constants.CompileTime).
+		Str("version", constant.Version).
+		Str("compile_time", constant.CompileTime).
 		Logger().
 		Level(zerolog.InfoLevel)
 }
