@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -487,7 +488,9 @@ func Load(filename string) (*Config, error) {
 	}
 
 	var conf Config
-	if err := yaml.Unmarshal(data, &conf); nil != err {
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&conf); nil != err {
 		return nil, fmt.Errorf("failed to parse config file %s: %v", filename, err)
 	}
 
