@@ -102,15 +102,19 @@ func NewUploader(
 }
 
 func resolveBotPeer(ctx context.Context, client *tg.Client, botUsername string) (tg.InputPeerClass, error) {
-	res, err := client.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
+	res, err := client.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{ //nolint:exhaustruct
 		Username: botUsername,
 	})
 	if nil != err {
 		return nil, fmt.Errorf("failed to resolve bot peer by username: %w", err)
 	}
 
-	u := res.Users[0].(*tg.User)
-	botPeer := &tg.InputPeerUser{UserID: u.ID, AccessHash: u.AccessHash}
+	user, ok := res.Users[0].(*tg.User)
+	if !ok {
+		return nil, fmt.Errorf("expected *tg.User, got %T", res.Users[0])
+	}
+
+	botPeer := &tg.InputPeerUser{UserID: user.ID, AccessHash: user.AccessHash}
 
 	return botPeer, nil
 }
