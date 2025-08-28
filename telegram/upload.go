@@ -160,9 +160,6 @@ func (c *Uploader) uploadAlbum(
 		return fmt.Errorf("failed to upload album track cover file: %w", err)
 	}
 
-	wg, wgctx := errgroup.WithContext(ctx)
-	wg.SetLimit(c.conf.Upload.Limit)
-
 	for volIdx, trackIDs := range info.VolumeTrackIDs {
 		var (
 			volNum     = volIdx + 1
@@ -173,12 +170,17 @@ func (c *Uploader) uploadAlbum(
 		for partIdx, trackIDs := range batches {
 			const notCollapsed = false
 			partCaption := []message.StyledTextOption{
+				styling.Plain("\n"),
 				styling.Blockquote(info.Caption, notCollapsed),
+				styling.Plain("\n"),
 				styling.Plain("\n"),
 				styling.Italic(fmt.Sprintf("Volume: %d", volNum)),
 				styling.Plain("\n"),
 				styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
 			}
+
+			wg, wgctx := errgroup.WithContext(ctx)
+			wg.SetLimit(c.conf.Upload.Limit)
 
 			album := make([]message.MultiMediaOption, len(trackIDs))
 			for idx, trackID := range trackIDs {
@@ -208,7 +210,9 @@ func (c *Uploader) uploadAlbum(
 					var caption []message.StyledTextOption
 					if idx == len(trackIDs)-1 {
 						caption = append(caption, partCaption...)
-						caption = append(caption, html.String(nil, c.conf.Upload.Signature))
+						if sig := c.conf.Upload.Signature; len(sig) > 0 {
+							caption = append(caption, html.String(nil, sig))
+						}
 					}
 
 					doc := message.
@@ -274,20 +278,23 @@ func (c *Uploader) uploadMix(
 		return fmt.Errorf("failed to read playlist info file: %v", err)
 	}
 
-	wg, wgctx := errgroup.WithContext(ctx)
-	wg.SetLimit(c.conf.Upload.Limit)
-
 	var (
 		batchSize  = mathutil.OptimalAlbumSize(len(info.TrackIDs))
 		batches    = slices.Collect(slices.Chunk(info.TrackIDs, batchSize))
 		numBatches = mathutil.DivCeil(len(info.TrackIDs), batchSize)
 	)
 	for partIdx, trackIDs := range batches {
+		const notCollapsed = false
 		partCaption := []styling.StyledTextOption{
-			styling.Plain(info.Caption),
+			styling.Plain("\n"),
+			styling.Blockquote(info.Caption, notCollapsed),
+			styling.Plain("\n"),
 			styling.Plain("\n"),
 			styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
 		}
+
+		wg, wgctx := errgroup.WithContext(ctx)
+		wg.SetLimit(c.conf.Upload.Limit)
 
 		album := make([]message.MultiMediaOption, len(trackIDs))
 		for idx, trackID := range trackIDs {
@@ -320,7 +327,9 @@ func (c *Uploader) uploadMix(
 				var caption []message.StyledTextOption
 				if idx == len(trackIDs)-1 {
 					caption = append(caption, partCaption...)
-					caption = append(caption, html.String(nil, c.conf.Upload.Signature))
+					if sig := c.conf.Upload.Signature; len(sig) > 0 {
+						caption = append(caption, html.String(nil, sig))
+					}
 				}
 
 				doc := message.
@@ -385,20 +394,23 @@ func (c *Uploader) uploadPlaylist(
 		return fmt.Errorf("failed to read playlist info file: %v", err)
 	}
 
-	wg, wgctx := errgroup.WithContext(ctx)
-	wg.SetLimit(c.conf.Upload.Limit)
-
 	var (
 		batchSize  = mathutil.OptimalAlbumSize(len(info.TrackIDs))
 		batches    = slices.Collect(slices.Chunk(info.TrackIDs, batchSize))
 		numBatches = mathutil.DivCeil(len(info.TrackIDs), batchSize)
 	)
 	for partIdx, trackIDs := range batches {
+		const notCollapsed = false
 		partCaption := []styling.StyledTextOption{
-			styling.Plain(info.Caption),
+			styling.Plain("\n"),
+			styling.Blockquote(info.Caption, notCollapsed),
+			styling.Plain("\n"),
 			styling.Plain("\n"),
 			styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
 		}
+
+		wg, wgctx := errgroup.WithContext(ctx)
+		wg.SetLimit(c.conf.Upload.Limit)
 
 		album := make([]message.MultiMediaOption, len(trackIDs))
 		for idx, trackID := range trackIDs {
@@ -431,7 +443,9 @@ func (c *Uploader) uploadPlaylist(
 				var caption []message.StyledTextOption
 				if idx == len(trackIDs)-1 {
 					caption = append(caption, partCaption...)
-					caption = append(caption, html.String(nil, c.conf.Upload.Signature))
+					if sig := c.conf.Upload.Signature; len(sig) > 0 {
+						caption = append(caption, html.String(nil, sig))
+					}
 				}
 
 				doc := message.
@@ -507,9 +521,12 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		return fmt.Errorf("failed to detect mime: %w", err)
 	}
 
+	const notCollapsed = false
 	caption := []message.StyledTextOption{
-		styling.Plain(trackInfo.Caption),
-		html.String(nil, c.conf.Upload.Signature),
+		styling.Blockquote(trackInfo.Caption, notCollapsed),
+	}
+	if sig := c.conf.Upload.Signature; len(sig) > 0 {
+		caption = append(caption, html.String(nil, sig))
 	}
 
 	doc := message.
