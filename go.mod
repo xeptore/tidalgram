@@ -19,7 +19,7 @@ require (
 	github.com/samber/lo v1.51.0
 	github.com/sethvargo/go-retry v0.3.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
-	github.com/stretchr/testify v1.11.0
+	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
 	github.com/urfave/cli/v3 v3.4.1
 	github.com/yuin/goldmark v1.7.13
