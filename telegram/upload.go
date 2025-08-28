@@ -252,7 +252,7 @@ func (c *Uploader) uploadAlbum(
 				WithUploader(c.engine).
 				To(c.peer).
 				Clear().
-				Album(wgctx, album[0], rest...)
+				Album(ctx, album[0], rest...)
 			if nil != err {
 				return fmt.Errorf("failed to send mix: %w", err)
 			}
