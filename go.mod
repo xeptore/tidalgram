@@ -22,9 +22,9 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
 	github.com/urfave/cli/v3 v3.4.1
-	github.com/yuin/goldmark v1.7.13
 	go.etcd.io/bbolt v1.4.3
 	golang.org/x/exp v0.0.0-20250819193227-8b4c13bb791b
+	golang.org/x/net v0.43.0
 	golang.org/x/sync v0.16.0
 	golang.org/x/time v0.12.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -64,7 +64,6 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/mod v0.27.0 // indirect
-	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/term v0.34.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
