@@ -77,7 +77,7 @@ func newClientOptions(
 			)
 		},
 		OnDead: func() {
-			logger.Error().Msg("Connection to Telegram server was lost")
+			logger.Warn().Msg("Connection to Telegram server was lost")
 		},
 		Logger:         nil,
 		SessionStorage: storage,
