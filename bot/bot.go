@@ -58,7 +58,7 @@ func New(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*Bot, err
 	proxy := func(*http.Request) (*url.URL, error) { return nil, nil }
 	if len(conf.Proxy.Host) > 0 && conf.Proxy.Port > 0 {
 		proxy = func(_ *http.Request) (*url.URL, error) {
-			return url.Parse(fmt.Sprintf("socks5://%s", net.JoinHostPort(conf.Proxy.Host, strconv.Itoa(conf.Proxy.Port))))
+			return url.Parse("socks5://" + net.JoinHostPort(conf.Proxy.Host, strconv.Itoa(conf.Proxy.Port)))
 		}
 	}
 

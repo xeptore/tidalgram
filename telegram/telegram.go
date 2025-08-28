@@ -42,10 +42,14 @@ func Login(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (er
 	}()
 
 	dispatcher := tg.NewUpdateDispatcher()
-	opts := defaultNoUpdatesClientOpts(ctx, logger, storage)
+	opts, err := defaultNoUpdatesClientOpts(ctx, logger, storage, conf)
+	if nil != err {
+		return fmt.Errorf("failed to get client options: %v", err)
+	}
+
 	opts.UpdateHandler = dispatcher
 	opts.NoUpdates = false
-	client := telegram.NewClient(conf.AppID, conf.AppHash, opts)
+	client := telegram.NewClient(conf.AppID, conf.AppHash, *opts)
 
 	err = client.Run(ctx, func(ctx context.Context) error {
 		var lines int
@@ -141,8 +145,12 @@ func Logout(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (e
 		}
 	}()
 
-	opts := defaultNoUpdatesClientOpts(ctx, logger, storage)
-	client := telegram.NewClient(conf.AppID, conf.AppHash, opts)
+	opts, err := defaultNoUpdatesClientOpts(ctx, logger, storage, conf)
+	if nil != err {
+		return fmt.Errorf("failed to get client options: %v", err)
+	}
+
+	client := telegram.NewClient(conf.AppID, conf.AppHash, *opts)
 
 	err = client.Run(ctx, func(ctx context.Context) error {
 		status, err := client.Auth().Status(ctx)

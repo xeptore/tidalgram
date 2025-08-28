@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"errors"
 	"net"
 	"strconv"
 	"time"
@@ -11,12 +12,18 @@ import (
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/dcs"
 	"github.com/rs/zerolog"
-	"github.com/xeptore/tidalgram/config"
 	"golang.org/x/net/proxy"
 	"golang.org/x/time/rate"
+
+	"github.com/xeptore/tidalgram/config"
 )
 
-func defaultNoUpdatesClientOpts(ctx context.Context, logger zerolog.Logger, storage *Storage, conf config.Telegram) telegram.Options {
+func defaultNoUpdatesClientOpts(
+	ctx context.Context,
+	logger zerolog.Logger,
+	storage *Storage,
+	conf config.Telegram,
+) (*telegram.Options, error) {
 	const maxReconnects = 1_000
 
 	var resolver dcs.Resolver
@@ -35,13 +42,16 @@ func defaultNoUpdatesClientOpts(ctx context.Context, logger zerolog.Logger, stor
 			proxyAuth,
 			proxy.Direct,
 		)
-		dc := sock5.(proxy.ContextDialer)
-		resolver = dcs.Plain(dcs.PlainOptions{
+		dc, ok := sock5.(proxy.ContextDialer)
+		if !ok {
+			return nil, errors.New("failed to cast proxy to ContextDialer")
+		}
+		resolver = dcs.Plain(dcs.PlainOptions{ //nolint:exhaustruct
 			Dial: dc.DialContext,
 		})
 	}
 
-	return telegram.Options{ //nolint:exhaustruct
+	return &telegram.Options{ //nolint:exhaustruct
 		Device: telegram.DeviceConfig{ //nolint:exhaustruct
 			DeviceModel:    "Desktop",
 			SystemVersion:  "Windows 11 x64",
@@ -82,5 +92,5 @@ func defaultNoUpdatesClientOpts(ctx context.Context, logger zerolog.Logger, stor
 			// 	}),
 			ratelimit.New(rate.Every(time.Millisecond*100), 5),
 		},
-	}
+	}, nil
 }
