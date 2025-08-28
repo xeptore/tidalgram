@@ -59,11 +59,12 @@ func (c *Config) validate() error {
 }
 
 type Bot struct {
-	PapaID       int64  `yaml:"papa_id"`
-	APIURL       string `yaml:"api_url"`
-	Token        string `yaml:"-"`
-	CredsDir     string `yaml:"creds_dir"`
-	DownloadsDir string `yaml:"downloads_dir"`
+	PapaID       int64    `yaml:"papa_id"`
+	APIURL       string   `yaml:"api_url"`
+	Token        string   `yaml:"-"`
+	CredsDir     string   `yaml:"creds_dir"`
+	DownloadsDir string   `yaml:"downloads_dir"`
+	Proxy        BotProxy `yaml:"proxy"`
 }
 
 func (c *Bot) ToDict() *zerolog.Event {
@@ -73,7 +74,8 @@ func (c *Bot) ToDict() *zerolog.Event {
 		Str("api_url", c.APIURL).
 		Str("token", redact.String(c.Token)).
 		Str("creds_dir", c.CredsDir).
-		Str("downloads_dir", c.DownloadsDir)
+		Str("downloads_dir", c.DownloadsDir).
+		Dict("proxy", c.Proxy.ToDict())
 }
 
 func (c *Bot) setDefaults() {
@@ -88,6 +90,58 @@ func (c *Bot) setDefaults() {
 	if c.DownloadsDir == "" {
 		c.DownloadsDir = "./downloads"
 	}
+
+	c.Proxy.setDefaults()
+}
+
+type BotProxy struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
+func (c *BotProxy) ToDict() *zerolog.Event {
+	return zerolog.
+		Dict().
+		Str("host", c.Host).
+		Int("port", c.Port).
+		Str("username", redact.String(c.Username)).
+		Str("password", redact.String(c.Password))
+}
+
+func (c *BotProxy) setDefaults() {}
+
+func (c *BotProxy) validate() error {
+	if len(c.Host) > 0 {
+		if c.Port == 0 {
+			return errors.New("port is required if host is set")
+		}
+
+		if c.Port < 0 {
+			return errors.New("port must be greater than or equal to 0")
+		}
+
+		if c.Port > 65535 {
+			return errors.New("port must be less than or equal to 65535")
+		}
+	}
+
+	if c.Port != 0 {
+		if c.Port < 0 {
+			return errors.New("port must be greater than or equal to 0")
+		}
+
+		if c.Port > 65535 {
+			return errors.New("port must be less than or equal to 65535")
+		}
+
+		if c.Host == "" {
+			return errors.New("host is required if port is set")
+		}
+	}
+
+	return nil
 }
 
 func (c *Bot) validate() error {
@@ -117,6 +171,10 @@ func (c *Bot) validate() error {
 		return fmt.Errorf("failed to stat downloads_dir: %v", err)
 	} else if !i.IsDir() {
 		return errors.New("downloads_dir must be a directory")
+	}
+
+	if err := c.Proxy.validate(); nil != err {
+		return fmt.Errorf("proxy config validation failed: %v", err)
 	}
 
 	return nil
@@ -391,12 +449,28 @@ func (c *TelegramProxy) ToDict() *zerolog.Event {
 func (c *TelegramProxy) setDefaults() {}
 
 func (c *TelegramProxy) validate() error {
-	if len(c.Host) > 0 && c.Port == 0 {
-		return errors.New("port is required")
+	if len(c.Host) > 0 {
+		if c.Port == 0 {
+			return errors.New("port is required if host is set")
+		}
+
+		if c.Port < 0 {
+			return errors.New("port must be greater than or equal to 0")
+		}
 	}
 
-	if c.Port != 0 && c.Host == "" {
-		return errors.New("host is required")
+	if c.Port != 0 {
+		if c.Port < 0 {
+			return errors.New("port must be greater than or equal to 0")
+		}
+
+		if c.Port > 65535 {
+			return errors.New("port must be less than or equal to 65535")
+		}
+
+		if c.Host == "" {
+			return errors.New("host is required if port is set")
+		}
 	}
 
 	return nil

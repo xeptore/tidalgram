@@ -21,6 +21,20 @@ bot:
   #   https://core.telegram.org/api/entities#allowed-entities
   # Default: ""
   signature: ""
+  # OPTIONAL
+  # Socks5 proxy
+  # Ignored if both port and host are not set or are empty
+  proxy:
+    # OPTIONAL
+    # Required if port is set
+    host: ""
+    # OPTIONAL
+    # Required if host is set
+    port: 0
+    # OPTIONAL
+    username: ""
+    # OPTIONAL
+    password: ""
 
 log:
   # OPTIONAL
@@ -95,19 +109,17 @@ telegram:
     # OPTIONAL
     # Default: 5m
     pause_duration: 5m
-  # Ignored if port and host are not set or are empty
+  # OPTIONAL
+  # Socks5 proxy
+  # Ignored if both port and host are not set or are empty
   proxy:
     # OPTIONAL
-    # Required if port is not 0
-    # Default: ""
+    # Required if port is set
     host: ""
     # OPTIONAL
-    # Required if host is not ""
-    # Default: 0
+    # Required if host is set
     port: 0
     # OPTIONAL
-    # Default: ""
     username: ""
     # OPTIONAL
-    # Default: ""
     password: ""

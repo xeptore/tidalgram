@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,13 +55,18 @@ func (a *Account) ToDict() *zerolog.Event {
 }
 
 func New(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*Bot, error) {
+	proxy := func(*http.Request) (*url.URL, error) { return nil, nil }
+	if len(conf.Proxy.Host) > 0 && conf.Proxy.Port > 0 {
+		proxy = func(_ *http.Request) (*url.URL, error) {
+			return url.Parse(fmt.Sprintf("socks5://%s", net.JoinHostPort(conf.Proxy.Host, strconv.Itoa(conf.Proxy.Port))))
+		}
+	}
+
 	b, err := gotgbot.NewBot(conf.Token, &gotgbot.BotOpts{ //nolint:exhaustruct
 		BotClient: &gotgbot.BaseBotClient{
 			Client: http.Client{ //nolint:exhaustruct
 				Transport: &http.Transport{ //nolint:exhaustruct
-					Proxy: func(_ *http.Request) (*url.URL, error) {
-						return nil, nil
-					},
+					Proxy: proxy,
 				},
 			},
 			UseTestEnvironment: false,
