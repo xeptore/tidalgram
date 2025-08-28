@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/gotd/contrib/middleware/floodwait"
 	"github.com/gotd/td/telegram"
@@ -20,13 +19,10 @@ func connect(
 	ctx, cancel := context.WithCancel(ctx)
 
 	var (
-		wg       sync.WaitGroup
-		runErr   = make(chan error, 1)
+		runErr   = make(chan error)
 		initDone = make(chan struct{})
 	)
-	defer wg.Wait()
-
-	wg.Go(func() {
+	go func() {
 		defer func() {
 			logger.Debug().Msg("Closing runErr channel")
 			close(runErr)
@@ -45,7 +41,7 @@ func connect(
 				return ctx.Err()
 			})
 		})
-	})
+	}()
 
 	select {
 	case <-ctx.Done():
