@@ -220,7 +220,13 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 	}
 	logger.Debug().Msg("Tidal client created")
 
-	up, err := telegram.NewUploader(ctx, logger, conf.Telegram)
+	b, err := bot.New(ctx, logger, conf.Bot)
+	if nil != err {
+		return fmt.Errorf("failed to create tidalgram bot: %w", err)
+	}
+	logger.Info().Dict("account", b.Account.ToDict()).Msg("Bot instance created")
+
+	up, err := telegram.NewUploader(ctx, logger, conf.Telegram, b.Account.Username)
 	if nil != err {
 		if errors.Is(err, telegram.ErrUnauthorized) {
 			logger.Error().Msg("Telegram client is not authorized. Please login to Telegram.")
@@ -236,11 +242,7 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 	}()
 	logger.Debug().Msg("Telegram uploader created")
 
-	b, err := bot.New(ctx, logger, conf.Bot, td, up)
-	if nil != err {
-		return fmt.Errorf("failed to create tidalgram bot: %w", err)
-	}
-	logger.Info().Dict("account", b.Account.ToDict()).Msg("Bot instance created")
+	b.RegisterHandlers(ctx, logger, conf.Bot, td, up)
 
 	logger.Debug().Msg("Starting TidalGram bot")
 	if err := b.Start(); nil != err {

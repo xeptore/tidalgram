@@ -21,9 +21,12 @@ import (
 	"github.com/xeptore/tidalgram/tidal"
 )
 
+var ErrChatNotFound = errors.New("chat not found")
+
 type Bot struct {
 	bot        *gotgbot.Bot
 	updater    *ext.Updater
+	dispatcher *ext.Dispatcher
 	logger     zerolog.Logger
 	papaChatID int64
 	Account    Account
@@ -31,6 +34,7 @@ type Bot struct {
 
 type Account struct {
 	ID        int64
+	Username  string
 	IsBot     bool
 	IsPremium bool
 	FirstName string
@@ -41,19 +45,14 @@ func (a *Account) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
 		Int64("id", a.ID).
+		Str("username", a.Username).
 		Bool("is_bot", a.IsBot).
 		Bool("is_premium", a.IsPremium).
 		Str("first_name", a.FirstName).
 		Str("last_name", a.LastName)
 }
 
-func New(
-	ctx context.Context,
-	logger zerolog.Logger,
-	conf config.Bot,
-	td *tidal.Client,
-	up *telegram.Uploader,
-) (*Bot, error) {
+func New(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*Bot, error) {
 	b, err := gotgbot.NewBot(conf.Token, &gotgbot.BotOpts{ //nolint:exhaustruct
 		BotClient: &gotgbot.BaseBotClient{
 			Client: http.Client{ //nolint:exhaustruct
@@ -90,12 +89,12 @@ func New(
 		},
 		MaxRoutines: 10,
 	})
-	registerHandlers(ctx, logger, conf, dispatcher, td, up)
 	updater := ext.NewUpdater(dispatcher, nil)
 
 	return &Bot{
 		bot:        b,
 		updater:    updater,
+		dispatcher: dispatcher,
 		logger:     logger,
 		papaChatID: conf.PapaID,
 		Account:    fillAccount(b),
@@ -105,6 +104,7 @@ func New(
 func fillAccount(b *gotgbot.Bot) Account {
 	return Account{
 		ID:        b.Id,
+		Username:  b.Username,
 		IsBot:     b.IsBot,
 		IsPremium: b.IsPremium,
 		FirstName: b.FirstName,
@@ -214,15 +214,14 @@ func (b *APIBot) Close(ctx context.Context) error {
 	return nil
 }
 
-func registerHandlers(
+func (b *Bot) RegisterHandlers(
 	ctx context.Context,
 	logger zerolog.Logger,
 	conf config.Bot,
-	d *ext.Dispatcher,
 	td *tidal.Client,
 	up *telegram.Uploader,
 ) {
-	d.AddHandler(
+	b.dispatcher.AddHandler(
 		handlers.
 			NewMessage(
 				tidalURLFilter,
@@ -235,7 +234,7 @@ func registerHandlers(
 			SetAllowEdited(false),
 	)
 
-	d.AddHandler(
+	b.dispatcher.AddHandler(
 		handlers.
 			NewCommand(
 				"start",
@@ -247,7 +246,7 @@ func registerHandlers(
 			SetAllowEdited(false),
 	)
 
-	d.AddHandler(
+	b.dispatcher.AddHandler(
 		handlers.
 			NewCommand(
 				"cancel",
@@ -260,7 +259,7 @@ func registerHandlers(
 			SetAllowEdited(false),
 	)
 
-	d.AddHandler(
+	b.dispatcher.AddHandler(
 		handlers.
 			NewCommand(
 				"tidal_login",
@@ -273,7 +272,7 @@ func registerHandlers(
 			SetAllowEdited(false),
 	)
 
-	d.AddHandler(
+	b.dispatcher.AddHandler(
 		handlers.
 			NewCommand(
 				"tidal_auth_status",

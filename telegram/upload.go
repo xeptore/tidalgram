@@ -35,10 +35,16 @@ type Uploader struct {
 	stop   bg.StopFunc
 	conf   config.Telegram
 	engine *uploader.Uploader
+	peer   tg.InputPeerClass
 	logger zerolog.Logger
 }
 
-func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (*Uploader, error) {
+func NewUploader(
+	ctx context.Context,
+	logger zerolog.Logger,
+	conf config.Telegram,
+	botUsername string,
+) (*Uploader, error) {
 	storage, err := NewStorage(conf.Storage.Path)
 	if nil != err {
 		return nil, fmt.Errorf("failed to create storage: %v", err)
@@ -71,10 +77,51 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 		tclient.NewDefaultMiddlewares(ctx, maxRecoveryElapsedTime)...,
 	)
 	tgClient := pool.Default(ctx)
+	engine := uploader.
+		NewUploader(tgClient).
+		WithPartSize(MaxPartSize).
+		WithThreads(conf.Upload.Threads)
 
-	engine := uploader.NewUploader(tgClient).WithPartSize(MaxPartSize).WithThreads(conf.Upload.Threads)
+	peer, err := resolveBotPeer(ctx, tgClient, botUsername)
+	if nil != err {
+		return nil, fmt.Errorf("failed to resolve bot peer by username: %w", err)
+	}
 
-	return &Uploader{client: tgClient, stop: stop, conf: conf, engine: engine, logger: logger}, nil
+	if err := initiateBotChat(ctx, tgClient, peer); nil != err {
+		return nil, fmt.Errorf("failed to initiate bot chat: %w", err)
+	}
+
+	return &Uploader{
+		client: tgClient,
+		stop:   stop,
+		conf:   conf,
+		engine: engine,
+		peer:   peer,
+		logger: logger,
+	}, nil
+}
+
+func resolveBotPeer(ctx context.Context, client *tg.Client, botUsername string) (tg.InputPeerClass, error) {
+	res, err := client.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
+		Username: botUsername,
+	})
+	if nil != err {
+		return nil, fmt.Errorf("failed to resolve bot peer by username: %w", err)
+	}
+
+	u := res.Users[0].(*tg.User)
+	botPeer := &tg.InputPeerUser{UserID: u.ID, AccessHash: u.AccessHash}
+
+	return botPeer, nil
+}
+
+func initiateBotChat(ctx context.Context, client *tg.Client, botPeer tg.InputPeerClass) error {
+	_, err := message.NewSender(client).To(botPeer).Clear().Silent().Background().Text(ctx, "/start")
+	if nil != err {
+		return fmt.Errorf("failed to initiate bot chat: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Uploader) Close() error {
@@ -192,7 +239,10 @@ func (c *Uploader) uploadAlbum(
 								Duration:  trackInfo.Duration,
 							}).
 						Thumb(coverInputFile).
-						Audio()
+						Audio().
+						DurationSeconds(trackInfo.Duration).
+						Performer(types.JoinArtists(trackInfo.Artists)).
+						Title(trackInfo.Title)
 
 					album[idx] = doc
 
@@ -214,7 +264,7 @@ func (c *Uploader) uploadAlbum(
 			res, err := message.
 				NewSender(c.client).
 				WithUploader(c.engine).
-				To(c.conf.Upload.ToUserID).
+				To(c.peer).
 				Clear().
 				Album(wgctx, album[0], rest...)
 			if nil != err {
@@ -324,7 +374,10 @@ func (c *Uploader) uploadMix(
 							Duration:  trackInfo.Duration,
 						}).
 					Thumb(coverInputFile).
-					Audio()
+					Audio().
+					DurationSeconds(trackInfo.Duration).
+					Performer(types.JoinArtists(trackInfo.Artists)).
+					Title(trackInfo.Title)
 
 				album[idx] = doc
 
@@ -346,7 +399,7 @@ func (c *Uploader) uploadMix(
 		res, err := message.
 			NewSender(c.client).
 			WithUploader(c.engine).
-			To(c.conf.Upload.ToUserID).
+			To(c.peer).
 			Clear().
 			Album(ctx, album[0], rest...)
 		if nil != err {
@@ -455,7 +508,10 @@ func (c *Uploader) uploadPlaylist(
 							Duration:  trackInfo.Duration,
 						}).
 					Thumb(coverInputFile).
-					Audio()
+					Audio().
+					DurationSeconds(trackInfo.Duration).
+					Performer(types.JoinArtists(trackInfo.Artists)).
+					Title(trackInfo.Title)
 
 				album[idx] = doc
 
@@ -477,7 +533,7 @@ func (c *Uploader) uploadPlaylist(
 		res, err := message.
 			NewSender(c.client).
 			WithUploader(c.engine).
-			To(c.conf.Upload.ToUserID).
+			To(c.peer).
 			Clear().
 			Album(ctx, album[0], rest...)
 		if nil != err {
@@ -553,12 +609,15 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 				Duration:  trackInfo.Duration,
 			}).
 		Thumb(coverInputFile).
-		Audio()
+		Audio().
+		DurationSeconds(trackInfo.Duration).
+		Performer(types.JoinArtists(trackInfo.Artists)).
+		Title(trackInfo.Title)
 
 	res, err := message.
 		NewSender(c.client).
 		WithUploader(c.engine).
-		To(c.conf.Upload.ToUserID).
+		To(c.peer).
 		Media(ctx, doc)
 	if nil != err {
 		return fmt.Errorf("failed to send message: %w", err)

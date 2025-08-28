@@ -68,7 +68,7 @@ tidal:
       # Default: 60
       download_vnd_segment: 60
 
-td:
+telegram:
   # REQUIRED
   # Telegram app ID (see https://my.telegram.org/apps)
   app_id: 1234567890
@@ -93,7 +93,3 @@ td:
     # OPTIONAL
     # Default: 5m
     pause_duration: 5m
-    # OPTIONAL
-    # Will send to Saved Messages chat if not set, or set to 0.
-    to_user_id: 0
-

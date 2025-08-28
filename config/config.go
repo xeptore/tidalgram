@@ -430,7 +430,6 @@ type TelegramUpload struct {
 	Limit         int      `yaml:"limit"`
 	Signature     string   `yaml:"signature"`
 	PauseDuration Duration `yaml:"pause_duration"`
-	ToUserID      UserID   `yaml:"to_user_id"`
 }
 
 func (c *TelegramUpload) ToDict() *zerolog.Event {
@@ -440,8 +439,7 @@ func (c *TelegramUpload) ToDict() *zerolog.Event {
 		Int("pool_size", c.PoolSize).
 		Int("limit", c.Limit).
 		Str("signature", c.Signature).
-		Str("pause_duration", c.PauseDuration.String()).
-		Str("to_user_id", c.ToUserID.String())
+		Str("pause_duration", c.PauseDuration.String())
 }
 
 func (c *TelegramUpload) setDefaults() {
@@ -459,10 +457,6 @@ func (c *TelegramUpload) setDefaults() {
 
 	if c.PauseDuration.Duration == 0 {
 		c.PauseDuration.Duration = 5 * time.Minute
-	}
-
-	if c.ToUserID == (UserID{}) {
-		c.ToUserID.InputPeerClass = &tg.InputPeerSelf{}
 	}
 }
 
