@@ -136,7 +136,7 @@ func (b *Bot) Start() error {
 	}
 
 	sendOpts := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
-		ParseMode: gotgbot.ParseModeMarkdown,
+		ParseMode: gotgbot.ParseModeMarkdownV2,
 	}
 	compiledAt, _ := time.Parse(time.RFC3339, constant.CompileTime)
 	msg := strings.Join([]string{
