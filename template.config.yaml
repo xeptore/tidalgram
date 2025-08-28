@@ -95,3 +95,19 @@ telegram:
     # OPTIONAL
     # Default: 5m
     pause_duration: 5m
+  # Ignored if port and host are not set or are empty
+  proxy:
+    # OPTIONAL
+    # Required if port is not 0
+    # Default: ""
+    host: ""
+    # OPTIONAL
+    # Required if host is not ""
+    # Default: 0
+    port: 0
+    # OPTIONAL
+    # Default: ""
+    username: ""
+    # OPTIONAL
+    # Default: ""
+    password: ""

@@ -328,6 +328,7 @@ type Telegram struct {
 	AppID   int             `yaml:"app_id"`
 	AppHash string          `yaml:"app_hash"`
 	Storage TelegramStorage `yaml:"storage"`
+	Proxy   TelegramProxy   `yaml:"proxy"`
 	Upload  TelegramUpload  `yaml:"upload"`
 }
 
@@ -337,11 +338,13 @@ func (c *Telegram) ToDict() *zerolog.Event {
 		Int("app_id", c.AppID).
 		Str("app_hash", c.AppHash).
 		Dict("storage", c.Storage.ToDict()).
+		Dict("proxy", c.Proxy.ToDict()).
 		Dict("upload", c.Upload.ToDict())
 }
 
 func (c *Telegram) setDefaults() {
 	c.Storage.setDefaults()
+	c.Proxy.setDefaults()
 	c.Upload.setDefaults()
 }
 
@@ -358,8 +361,42 @@ func (c *Telegram) validate() error {
 		return fmt.Errorf("storage config validation failed: %v", err)
 	}
 
+	if err := c.Proxy.validate(); nil != err {
+		return fmt.Errorf("proxy config validation failed: %v", err)
+	}
+
 	if err := c.Upload.validate(); nil != err {
 		return fmt.Errorf("upload config validation failed: %v", err)
+	}
+
+	return nil
+}
+
+type TelegramProxy struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
+func (c *TelegramProxy) ToDict() *zerolog.Event {
+	return zerolog.
+		Dict().
+		Str("host", c.Host).
+		Int("port", c.Port).
+		Str("username", redact.String(c.Username)).
+		Str("password", redact.String(c.Password))
+}
+
+func (c *TelegramProxy) setDefaults() {}
+
+func (c *TelegramProxy) validate() error {
+	if len(c.Host) > 0 && c.Port == 0 {
+		return errors.New("port is required")
+	}
+
+	if c.Port != 0 && c.Host == "" {
+		return errors.New("host is required")
 	}
 
 	return nil

@@ -52,7 +52,7 @@ func NewUploader(
 	}
 
 	const maxRecoveryElapsedTime = 5 * time.Minute
-	opts := defaultNoUpdatesClientOpts(ctx, logger, storage)
+	opts := defaultNoUpdatesClientOpts(ctx, logger, storage, conf)
 	client := telegram.NewClient(conf.AppID, conf.AppHash, opts)
 
 	stop, err := bg.Connect(client, bg.WithContext(ctx))

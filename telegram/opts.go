@@ -2,17 +2,45 @@ package telegram
 
 import (
 	"context"
+	"net"
+	"strconv"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/gotd/contrib/middleware/ratelimit"
 	"github.com/gotd/td/telegram"
+	"github.com/gotd/td/telegram/dcs"
 	"github.com/rs/zerolog"
+	"github.com/xeptore/tidalgram/config"
+	"golang.org/x/net/proxy"
 	"golang.org/x/time/rate"
 )
 
-func defaultNoUpdatesClientOpts(ctx context.Context, logger zerolog.Logger, storage *Storage) telegram.Options {
+func defaultNoUpdatesClientOpts(ctx context.Context, logger zerolog.Logger, storage *Storage, conf config.Telegram) telegram.Options {
 	const maxReconnects = 1_000
+
+	var resolver dcs.Resolver
+
+	if len(conf.Proxy.Host) > 0 && conf.Proxy.Port > 0 {
+		var proxyAuth *proxy.Auth
+		if len(conf.Proxy.Username) > 0 && len(conf.Proxy.Password) > 0 {
+			proxyAuth = &proxy.Auth{
+				User:     conf.Proxy.Username,
+				Password: conf.Proxy.Password,
+			}
+		}
+		sock5, _ := proxy.SOCKS5(
+			"tcp",
+			net.JoinHostPort(conf.Proxy.Host, strconv.Itoa(conf.Proxy.Port)),
+			proxyAuth,
+			proxy.Direct,
+		)
+		dc := sock5.(proxy.ContextDialer)
+		resolver = dcs.Plain(dcs.PlainOptions{
+			Dial: dc.DialContext,
+		})
+	}
+
 	return telegram.Options{ //nolint:exhaustruct
 		Device: telegram.DeviceConfig{ //nolint:exhaustruct
 			DeviceModel:    "Desktop",
@@ -24,6 +52,7 @@ func defaultNoUpdatesClientOpts(ctx context.Context, logger zerolog.Logger, stor
 		},
 		NoUpdates:     true,
 		UpdateHandler: nil,
+		Resolver:      resolver,
 		ReconnectionBackoff: func() backoff.BackOff {
 			return backoff.WithContext(
 				backoff.WithMaxRetries(
