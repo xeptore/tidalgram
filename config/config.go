@@ -8,7 +8,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/gotd/td/tg"
 	"github.com/rs/zerolog"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
@@ -512,26 +511,6 @@ func (d *Duration) UnmarshalYAML(unmarshal func(any) error) error {
 	}
 
 	d.Duration = parsed
-
-	return nil
-}
-
-type UserID struct {
-	tg.InputPeerClass
-}
-
-func (d *UserID) UnmarshalYAML(unmarshal func(any) error) error {
-	var id int64
-	if err := unmarshal(&id); err != nil {
-		return fmt.Errorf("failed to parse chat id: %v", err)
-	}
-
-	switch id {
-	case 0:
-		d.InputPeerClass = &tg.InputPeerSelf{}
-	default:
-		d.InputPeerClass = &tg.InputPeerUser{UserID: id, AccessHash: 0}
-	}
 
 	return nil
 }
