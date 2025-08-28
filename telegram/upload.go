@@ -56,9 +56,16 @@ func NewUploader(
 	if nil != err {
 		return nil, fmt.Errorf("failed to get client options: %v", err)
 	}
+
+	waiter := newWaiterMiddleware(logger)
+	opts.Middlewares = []telegram.Middleware{
+		waiter,
+		newRateLimitMiddleware(),
+	}
+
 	client := telegram.NewClient(conf.AppID, conf.AppHash, *opts)
 
-	stop, err := bg.Connect(client, bg.WithContext(ctx))
+	stop, err := connect(ctx, logger, client, waiter)
 	if nil != err {
 		return nil, fmt.Errorf("failed to connect to telegram: %w", err)
 	}
@@ -88,7 +95,7 @@ func NewUploader(
 
 	_, err = message.
 		NewSender(tgClient).
-		To(&tg.InputPeerUser{UserID: peerUserID}).
+		To(&tg.InputPeerUser{UserID: peerUserID}). //nolint:exhaustruct
 		Clear().
 		Background().
 		Silent().
@@ -102,7 +109,7 @@ func NewUploader(
 		stop:   stop,
 		conf:   conf,
 		engine: engine,
-		peer:   &tg.InputPeerUser{UserID: peerUserID},
+		peer:   &tg.InputPeerUser{UserID: peerUserID}, //nolint:exhaustruct
 		logger: logger,
 	}, nil
 }

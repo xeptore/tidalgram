@@ -8,12 +8,10 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/gotd/contrib/middleware/ratelimit"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/dcs"
 	"github.com/rs/zerolog"
 	"golang.org/x/net/proxy"
-	"golang.org/x/time/rate"
 
 	"github.com/xeptore/tidalgram/config"
 )
@@ -60,7 +58,7 @@ func newClientOptions(
 			SystemLangCode: "en-US",
 			LangPack:       "tdesktop",
 		},
-		NoUpdates:     true,
+		NoUpdates:     false,
 		UpdateHandler: nil,
 		Resolver:      resolver,
 		ReconnectionBackoff: func() backoff.BackOff {
@@ -81,16 +79,5 @@ func newClientOptions(
 		},
 		Logger:         nil,
 		SessionStorage: storage,
-		Middlewares: []telegram.Middleware{
-			// floodwait.
-			// 	NewWaiter().
-			// 	WithCallback(func(ctx context.Context, wait floodwait.FloodWait) {
-			// 		logger.
-			// 			Error().
-			// 			Int("seconds", int(wait.Duration.Seconds())).
-			// 			Msg("Got FLOOD_WAIT. Will retry after")
-			// 	}),
-			ratelimit.New(rate.Every(time.Millisecond*100), 5),
-		},
 	}, nil
 }
