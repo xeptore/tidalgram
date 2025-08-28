@@ -18,7 +18,7 @@ import (
 	"github.com/xeptore/tidalgram/config"
 )
 
-func defaultNoUpdatesClientOpts(
+func newClientOptions(
 	ctx context.Context,
 	logger zerolog.Logger,
 	storage *Storage,
@@ -53,7 +53,7 @@ func defaultNoUpdatesClientOpts(
 
 	return &telegram.Options{ //nolint:exhaustruct
 		Device: telegram.DeviceConfig{ //nolint:exhaustruct
-			DeviceModel:    "Desktop",
+			DeviceModel:    "Tidalgram",
 			SystemVersion:  "Windows 11 x64",
 			AppVersion:     "6.0.2 x64",
 			LangCode:       "en",

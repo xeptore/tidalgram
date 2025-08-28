@@ -52,7 +52,7 @@ func NewUploader(
 	}
 
 	const maxRecoveryElapsedTime = 5 * time.Minute
-	opts, err := defaultNoUpdatesClientOpts(ctx, logger, storage, conf)
+	opts, err := newClientOptions(ctx, logger, storage, conf)
 	if nil != err {
 		return nil, fmt.Errorf("failed to get client options: %v", err)
 	}
