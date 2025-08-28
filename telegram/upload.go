@@ -44,7 +44,7 @@ func NewUploader(
 	ctx context.Context,
 	logger zerolog.Logger,
 	conf config.Telegram,
-	botUsername string,
+	peerUserID int64,
 ) (*Uploader, error) {
 	storage, err := NewStorage(conf.Storage.Path)
 	if nil != err {
@@ -86,13 +86,15 @@ func NewUploader(
 		WithPartSize(MaxPartSize).
 		WithThreads(conf.Upload.Threads)
 
-	peer, err := resolveBotPeer(ctx, tgClient, botUsername)
+	_, err = message.
+		NewSender(tgClient).
+		To(&tg.InputPeerUser{UserID: peerUserID}).
+		Clear().
+		Background().
+		Silent().
+		Text(ctx, "Hey! I'm TidalGram uploader!")
 	if nil != err {
-		return nil, fmt.Errorf("failed to resolve bot peer by username: %w", err)
-	}
-
-	if err := initiateBotChat(ctx, tgClient, peer); nil != err {
-		return nil, fmt.Errorf("failed to initiate bot chat: %w", err)
+		return nil, fmt.Errorf("failed to send message to peer: %w", err)
 	}
 
 	return &Uploader{
@@ -100,36 +102,9 @@ func NewUploader(
 		stop:   stop,
 		conf:   conf,
 		engine: engine,
-		peer:   peer,
+		peer:   &tg.InputPeerUser{UserID: peerUserID},
 		logger: logger,
 	}, nil
-}
-
-func resolveBotPeer(ctx context.Context, client *tg.Client, botUsername string) (tg.InputPeerClass, error) {
-	res, err := client.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{ //nolint:exhaustruct
-		Username: botUsername,
-	})
-	if nil != err {
-		return nil, fmt.Errorf("failed to resolve bot peer by username: %w", err)
-	}
-
-	user, ok := res.Users[0].(*tg.User)
-	if !ok {
-		return nil, fmt.Errorf("expected *tg.User, got %T", res.Users[0])
-	}
-
-	botPeer := &tg.InputPeerUser{UserID: user.ID, AccessHash: user.AccessHash}
-
-	return botPeer, nil
-}
-
-func initiateBotChat(ctx context.Context, client *tg.Client, botPeer tg.InputPeerClass) error {
-	_, err := message.NewSender(client).To(botPeer).Clear().Silent().Background().Text(ctx, "/start")
-	if nil != err {
-		return fmt.Errorf("failed to initiate bot chat: %w", err)
-	}
-
-	return nil
 }
 
 func (c *Uploader) Close() error {

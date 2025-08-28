@@ -226,7 +226,7 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 	}
 	logger.Info().Dict("account", b.Account.ToDict()).Msg("Bot instance created")
 
-	up, err := telegram.NewUploader(ctx, logger, conf.Telegram, b.Account.Username)
+	up, err := telegram.NewUploader(ctx, logger, conf.Telegram, conf.Bot.PapaID)
 	if nil != err {
 		if errors.Is(err, telegram.ErrUnauthorized) {
 			logger.Error().Msg("Telegram client is not authorized. Please login to Telegram.")
