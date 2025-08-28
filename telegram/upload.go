@@ -265,7 +265,7 @@ func (c *Uploader) uploadAlbum(
 				rest = album[1:]
 			}
 
-			res, err := message.
+			_, err = message.
 				NewSender(c.client).
 				WithUploader(c.engine).
 				To(c.peer).
@@ -273,24 +273,6 @@ func (c *Uploader) uploadAlbum(
 				Album(wgctx, album[0], rest...)
 			if nil != err {
 				return fmt.Errorf("failed to send mix: %w", err)
-			}
-			switch v := res.(type) {
-			case *tg.UpdatesTooLong:
-				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesTooLong")
-			case *tg.UpdateShortMessage:
-				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortMessage")
-			case *tg.UpdateShortChatMessage:
-				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortChatMessage")
-			case *tg.UpdateShort:
-				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShort")
-			case *tg.UpdatesCombined:
-				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesCombined")
-			case *tg.Updates:
-				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.Updates")
-			case *tg.UpdateShortSentMessage:
-				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortSentMessage")
-			default:
-				panic(fmt.Sprintf("unknown response type: %T", v))
 			}
 		}
 	}
@@ -395,7 +377,7 @@ func (c *Uploader) uploadMix(
 			rest = album[1:]
 		}
 
-		res, err := message.
+		_, err = message.
 			NewSender(c.client).
 			WithUploader(c.engine).
 			To(c.peer).
@@ -403,24 +385,6 @@ func (c *Uploader) uploadMix(
 			Album(ctx, album[0], rest...)
 		if nil != err {
 			return fmt.Errorf("failed to send mix: %w", err)
-		}
-		switch v := res.(type) {
-		case *tg.UpdatesTooLong:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesTooLong")
-		case *tg.UpdateShortMessage:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortMessage")
-		case *tg.UpdateShortChatMessage:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortChatMessage")
-		case *tg.UpdateShort:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShort")
-		case *tg.UpdatesCombined:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesCombined")
-		case *tg.Updates:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.Updates")
-		case *tg.UpdateShortSentMessage:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortSentMessage")
-		default:
-			panic(fmt.Sprintf("unknown response type: %T", v))
 		}
 	}
 
@@ -524,7 +488,7 @@ func (c *Uploader) uploadPlaylist(
 			rest = album[1:]
 		}
 
-		res, err := message.
+		_, err = message.
 			NewSender(c.client).
 			WithUploader(c.engine).
 			To(c.peer).
@@ -532,24 +496,6 @@ func (c *Uploader) uploadPlaylist(
 			Album(ctx, album[0], rest...)
 		if nil != err {
 			return fmt.Errorf("failed to send playlist: %w", err)
-		}
-		switch v := res.(type) {
-		case *tg.UpdatesTooLong:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesTooLong")
-		case *tg.UpdateShortMessage:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortMessage")
-		case *tg.UpdateShortChatMessage:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortChatMessage")
-		case *tg.UpdateShort:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShort")
-		case *tg.UpdatesCombined:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesCombined")
-		case *tg.Updates:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.Updates")
-		case *tg.UpdateShortSentMessage:
-			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortSentMessage")
-		default:
-			panic(fmt.Sprintf("unknown response type: %T", v))
 		}
 	}
 
@@ -603,31 +549,13 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		Performer(types.JoinArtists(trackInfo.Artists)).
 		Title(trackInfo.Title)
 
-	res, err := message.
+	_, err = message.
 		NewSender(c.client).
 		WithUploader(c.engine).
 		To(c.peer).
 		Media(ctx, doc)
 	if nil != err {
 		return fmt.Errorf("failed to send message: %w", err)
-	}
-	switch v := res.(type) {
-	case *tg.UpdatesTooLong:
-		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesTooLong")
-	case *tg.UpdateShortMessage:
-		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortMessage")
-	case *tg.UpdateShortChatMessage:
-		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortChatMessage")
-	case *tg.UpdateShort:
-		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShort")
-	case *tg.UpdatesCombined:
-		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesCombined")
-	case *tg.Updates:
-		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.Updates")
-	case *tg.UpdateShortSentMessage:
-		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortSentMessage")
-	default:
-		panic(fmt.Sprintf("unknown response type: %T", v))
 	}
 
 	time.Sleep(c.conf.Upload.PauseDuration.Duration)
