@@ -10,6 +10,7 @@ import (
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/semaphore"
 
 	"github.com/xeptore/tidalgram/config"
 	"github.com/xeptore/tidalgram/telegram"
@@ -52,8 +53,11 @@ func NewTidalURLHandler(
 	conf config.Bot,
 	up *telegram.Uploader,
 ) handlers.Response {
+	sem := semaphore.NewWeighted(1)
+
 	return func(b *gotgbot.Bot, u *ext.Context) error {
-		logger = logger.With().
+		logger = logger.
+			With().
 			Int64("chat_id", u.EffectiveMessage.Chat.Id).
 			Int64("message_id", u.EffectiveMessage.MessageId).
 			Int64("sender_id", u.EffectiveSender.Id()).
@@ -67,6 +71,16 @@ func NewTidalURLHandler(
 			},
 		}
 		chatID := u.EffectiveMessage.Chat.Id
+
+		if !sem.TryAcquire(1) {
+			msg := "⏳ Another download is in progress. Try again later."
+			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+				return fmt.Errorf("failed to send message: %w", err)
+			}
+
+			return nil
+		}
+		defer sem.Release(1)
 
 		link := tidal.ParseLink(getMessageURL(u.EffectiveMessage))
 		logger.Debug().Str("link_id", link.ID).Str("link_kind", link.Kind.String()).Msg("Parsed link")
@@ -82,15 +96,6 @@ func NewTidalURLHandler(
 
 			if errors.Is(err, context.Canceled) {
 				msg := "🛑 Bot is shutting down. Download was not completed. Try again after bot restart."
-				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
-				}
-
-				return nil
-			}
-
-			if errors.Is(err, tidal.ErrDownloadInProgress) {
-				msg := "⏳ Another download is in progress. Try again later."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 					return fmt.Errorf("failed to send message: %w", err)
 				}
@@ -221,8 +226,11 @@ func NewCancelCommandHandler(ctx context.Context, td *tidal.Client) handlers.Res
 }
 
 func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td *tidal.Client) handlers.Response {
+	sem := semaphore.NewWeighted(1)
+
 	return func(b *gotgbot.Bot, u *ext.Context) error {
-		logger = logger.With().
+		logger = logger.
+			With().
 			Int64("chat_id", u.EffectiveMessage.Chat.Id).
 			Int64("message_id", u.EffectiveMessage.MessageId).
 			Int64("sender_id", u.EffectiveSender.Id()).
@@ -235,6 +243,16 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 			},
 		}
 		chatID := u.EffectiveMessage.Chat.Id
+
+		if !sem.TryAcquire(1) {
+			msg := "⏳ Another login flow is in progress. Try again later."
+			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+				return fmt.Errorf("failed to send message: %w", err)
+			}
+
+			return nil
+		}
+		defer sem.Release(1)
 
 		link, wait, err := td.TryInitiateLoginFlow(ctx, logger)
 		if nil != err {
@@ -249,15 +267,6 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 
 			if errors.Is(err, context.Canceled) {
 				msg := "🛑 Bot is shutting down. Login flow is not completed."
-				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
-				}
-
-				return nil
-			}
-
-			if errors.Is(err, tidal.ErrLoginInProgress) {
-				msg := "🔄 Tidal login flow is already in progress. You might need to wait for it to complete."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 					return fmt.Errorf("failed to send message: %w", err)
 				}

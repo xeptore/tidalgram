@@ -122,7 +122,8 @@ func (a *Auth) refreshToken(ctx context.Context, logger zerolog.Logger) (creds *
 			return nil, ErrUnauthorized
 		}
 
-		logger.Error().
+		logger.
+			Error().
 			Int("status", respBody.Status).
 			Str("error", respBody.Error).
 			Int("sub_status", respBody.SubStatus).

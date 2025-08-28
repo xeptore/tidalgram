@@ -176,16 +176,34 @@ func (c *Uploader) uploadAlbum(
 				rest = album[1:]
 			}
 
-			_, err := message.
+			res, err := message.
 				NewSender(c.client).
 				WithUploader(c.engine).
 				To(c.conf.Upload.ToChatID.InputPeerClass).
 				Clear().
-				Album(ctx, album[0], rest...)
+				Album(wgctx, album[0], rest...)
 			if nil != err {
 				return fmt.Errorf("failed to send mix: %w", err)
 			}
 			// TODO: Cache uploaded documents to avoid re-uploading them
+			switch v := res.(type) {
+			case *tg.UpdatesTooLong:
+				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesTooLong")
+			case *tg.UpdateShortMessage:
+				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortMessage")
+			case *tg.UpdateShortChatMessage:
+				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortChatMessage")
+			case *tg.UpdateShort:
+				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShort")
+			case *tg.UpdatesCombined:
+				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesCombined")
+			case *tg.Updates:
+				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.Updates")
+			case *tg.UpdateShortSentMessage:
+				logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortSentMessage")
+			default:
+				panic(fmt.Sprintf("unknown response type: %T", v))
+			}
 		}
 	}
 
@@ -290,7 +308,7 @@ func (c *Uploader) uploadMix(
 			rest = album[1:]
 		}
 
-		_, err := message.
+		res, err := message.
 			NewSender(c.client).
 			WithUploader(c.engine).
 			To(c.conf.Upload.ToChatID.InputPeerClass).
@@ -300,6 +318,24 @@ func (c *Uploader) uploadMix(
 			return fmt.Errorf("failed to send mix: %w", err)
 		}
 		// TODO: Cache uploaded documents to avoid re-uploading them
+		switch v := res.(type) {
+		case *tg.UpdatesTooLong:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesTooLong")
+		case *tg.UpdateShortMessage:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortMessage")
+		case *tg.UpdateShortChatMessage:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortChatMessage")
+		case *tg.UpdateShort:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShort")
+		case *tg.UpdatesCombined:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesCombined")
+		case *tg.Updates:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.Updates")
+		case *tg.UpdateShortSentMessage:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortSentMessage")
+		default:
+			panic(fmt.Sprintf("unknown response type: %T", v))
+		}
 	}
 
 	return nil
@@ -403,7 +439,7 @@ func (c *Uploader) uploadPlaylist(
 			rest = album[1:]
 		}
 
-		_, err = message.
+		res, err := message.
 			NewSender(c.client).
 			WithUploader(c.engine).
 			To(c.conf.Upload.ToChatID.InputPeerClass).
@@ -413,6 +449,24 @@ func (c *Uploader) uploadPlaylist(
 			return fmt.Errorf("failed to send playlist: %w", err)
 		}
 		// TODO: Cache uploaded documents to avoid re-uploading them
+		switch v := res.(type) {
+		case *tg.UpdatesTooLong:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesTooLong")
+		case *tg.UpdateShortMessage:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortMessage")
+		case *tg.UpdateShortChatMessage:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortChatMessage")
+		case *tg.UpdateShort:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShort")
+		case *tg.UpdatesCombined:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesCombined")
+		case *tg.Updates:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.Updates")
+		case *tg.UpdateShortSentMessage:
+			logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortSentMessage")
+		default:
+			panic(fmt.Sprintf("unknown response type: %T", v))
+		}
 	}
 
 	return nil
@@ -466,7 +520,7 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		Thumb(coverInputFile).
 		Audio()
 
-	_, err = message.
+	res, err := message.
 		NewSender(c.client).
 		WithUploader(c.engine).
 		To(c.conf.Upload.ToChatID.InputPeerClass).
@@ -475,6 +529,24 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		return fmt.Errorf("failed to send message: %w", err)
 	}
 	// TODO: Cache uploaded document to avoid re-uploading it
+	switch v := res.(type) {
+	case *tg.UpdatesTooLong:
+		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesTooLong")
+	case *tg.UpdateShortMessage:
+		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortMessage")
+	case *tg.UpdateShortChatMessage:
+		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortChatMessage")
+	case *tg.UpdateShort:
+		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShort")
+	case *tg.UpdatesCombined:
+		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdatesCombined")
+	case *tg.Updates:
+		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.Updates")
+	case *tg.UpdateShortSentMessage:
+		logger.Info().Str("debug", fmt.Sprintf("%#+v", v)).Msg("Received response of type *tg.UpdateShortSentMessage")
+	default:
+		panic(fmt.Sprintf("unknown response type: %T", v))
+	}
 
 	time.Sleep(c.conf.Upload.PauseDuration.Duration)
 

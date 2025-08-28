@@ -30,6 +30,10 @@ tasks:
             -o ./bin/tidalgram \
             .
 
+  clean-cache:
+    cmds:
+      - go clean -r -cache -testcache -modcache
+
   clean:
     cmds:
       - rm -rf ./bin

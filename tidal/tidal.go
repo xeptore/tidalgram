@@ -23,10 +23,8 @@ import (
 
 type Client struct {
 	auth           *auth.Auth
-	loginSem       chan struct{}
 	DownloadsDirFs fs.DownloadsDir
 	dl             *downloader.Downloader
-	downloadSem    chan struct{}
 }
 
 func NewClient(logger zerolog.Logger, credsDir, dlDir string, conf config.Tidal) (*Client, error) {
@@ -44,8 +42,6 @@ func NewClient(logger zerolog.Logger, credsDir, dlDir string, conf config.Tidal)
 	return &Client{
 		auth:           a,
 		dl:             dl,
-		loginSem:       make(chan struct{}, 1),
-		downloadSem:    make(chan struct{}, 1),
 		DownloadsDirFs: dlDirFs,
 	}, nil
 }
@@ -55,92 +51,74 @@ var (
 	ErrTokenRefreshed            = errors.New("auth token refreshed")
 	ErrLoginRequired             = errors.New("login required")
 	ErrUnauthorized              = auth.ErrUnauthorized
-	ErrDownloadInProgress        = errors.New("download in progress")
-	ErrLoginInProgress           = auth.ErrLoginInProgress
 	ErrLoginLinkExpired          = auth.ErrLoginLinkExpired
 	ErrUnsupportedArtistLinkKind = downloader.ErrUnsupportedArtistLinkKind
 	ErrUnsupportedVideoLinkKind  = downloader.ErrUnsupportedVideoLinkKind
 )
 
 func (c *Client) TryDownloadLink(ctx context.Context, logger zerolog.Logger, link types.Link) error {
-	select {
-	case c.downloadSem <- struct{}{}:
-		logger.Debug().Msg("Downloading link")
-		defer func() { <-c.downloadSem }()
-		err := retry.Do(
-			ctx,
-			retry.WithMaxRetries(7, retry.NewFibonacci(1*time.Second)),
-			func(ctx context.Context) error {
-				if err := c.downloadLink(ctx, logger, link); nil != err {
-					if errors.Is(err, context.DeadlineExceeded) {
-						return retry.RetryableError(context.DeadlineExceeded)
-					}
-
-					if errors.Is(err, ErrTokenRefreshRequired) {
-						if err := c.auth.RefreshToken(ctx, logger); nil != err {
-							if errors.Is(err, context.DeadlineExceeded) {
-								return retry.RetryableError(context.DeadlineExceeded)
-							}
-
-							if errors.Is(err, auth.ErrUnauthorized) {
-								return ErrLoginRequired
-							}
-
-							return fmt.Errorf("failed to refresh token: %w", err)
-						}
-
-						return retry.RetryableError(ErrTokenRefreshed)
-					}
-
-					if errors.Is(err, downloader.ErrUnsupportedArtistLinkKind) {
-						return ErrUnsupportedArtistLinkKind
-					}
-
-					if errors.Is(err, downloader.ErrUnsupportedVideoLinkKind) {
-						return ErrUnsupportedVideoLinkKind
-					}
-
-					return fmt.Errorf("failed to download link: %w", err)
+	err := retry.Do(
+		ctx,
+		retry.WithMaxRetries(7, retry.NewFibonacci(1*time.Second)),
+		func(ctx context.Context) error {
+			if err := c.downloadLink(ctx, logger, link); nil != err {
+				if errors.Is(err, context.DeadlineExceeded) {
+					return retry.RetryableError(context.DeadlineExceeded)
 				}
 
-				return nil
-			},
-		)
-		if nil != err {
-			if errors.Is(err, ErrTokenRefreshed) {
-				// Give it another chance to download the link even when max retries are reached.
-				return c.downloadLink(ctx, logger, link)
+				if errors.Is(err, ErrTokenRefreshRequired) {
+					if err := c.auth.RefreshToken(ctx, logger); nil != err {
+						if errors.Is(err, context.DeadlineExceeded) {
+							return retry.RetryableError(context.DeadlineExceeded)
+						}
+
+						if errors.Is(err, auth.ErrUnauthorized) {
+							return ErrLoginRequired
+						}
+
+						return fmt.Errorf("failed to refresh token: %w", err)
+					}
+
+					return retry.RetryableError(ErrTokenRefreshed)
+				}
+
+				if errors.Is(err, downloader.ErrUnsupportedArtistLinkKind) {
+					return ErrUnsupportedArtistLinkKind
+				}
+
+				if errors.Is(err, downloader.ErrUnsupportedVideoLinkKind) {
+					return ErrUnsupportedVideoLinkKind
+				}
+
+				return fmt.Errorf("failed to download link: %w", err)
 			}
 
-			// Make all error kinds handled in the retry loop above available to the caller as we want to handle them.
-			return fmt.Errorf("failed to download link after retries: %w", err)
+			return nil
+		},
+	)
+	if nil != err {
+		if errors.Is(err, ErrTokenRefreshed) {
+			// Give it another chance to download the link even when max retries are reached.
+			return c.downloadLink(ctx, logger, link)
 		}
 
-		return nil
-	default:
-		logger.Debug().Msg("Another download in progress")
-		return ErrDownloadInProgress
+		// Make all error kinds handled in the retry loop above available to the caller as we want to handle them.
+		return fmt.Errorf("failed to download link after retries: %w", err)
 	}
+
+	return nil
 }
 
 func (c *Client) TryInitiateLoginFlow(
 	ctx context.Context,
 	logger zerolog.Logger,
 ) (*auth.LoginLink, <-chan error, error) {
-	select {
-	case c.loginSem <- struct{}{}:
-		logger.Debug().Msg("Initiating login flow")
-		defer func() { <-c.loginSem }()
-		link, wait, err := c.auth.InitiateLoginFlow(ctx, logger)
-		if nil != err {
-			return nil, nil, fmt.Errorf("failed to initiate login flow: %w", err)
-		}
-
-		return link, wait, nil
-	default:
-		logger.Debug().Msg("Another login in progress")
-		return nil, nil, ErrLoginInProgress
+	link, wait, err := c.auth.InitiateLoginFlow(ctx, logger)
+	if nil != err {
+		return nil, nil, fmt.Errorf("failed to initiate login flow: %w", err)
 	}
+
+	return link, wait, nil
 }
 
 func ParseLink(l string) types.Link {
