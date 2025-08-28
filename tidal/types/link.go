@@ -5,17 +5,17 @@ type LinkKind int
 func (k LinkKind) String() string {
 	switch k {
 	case LinkKindPlaylist:
-		return "playlist"
+		return "Playlist"
 	case LinkKindMix:
-		return "mix"
+		return "Mix"
 	case LinkKindAlbum:
-		return "album"
+		return "Album"
 	case LinkKindTrack:
-		return "track"
+		return "Track"
 	case LinkKindArtist:
-		return "artist"
+		return "Artist"
 	case LinkKindVideo:
-		return "video"
+		return "Video"
 	}
 
 	return "unknown"

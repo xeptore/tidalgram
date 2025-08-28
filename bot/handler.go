@@ -83,6 +83,12 @@ func NewTidalURLHandler(
 		defer sem.Release(1)
 
 		link := tidal.ParseLink(getMessageURL(u.EffectiveMessage))
+
+		msg := "🚦 Downloading " + link.Kind.String() + " link..."
+		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+			return fmt.Errorf("failed to send message: %w", err)
+		}
+
 		logger.Debug().Str("link_id", link.ID).Str("link_kind", link.Kind.String()).Msg("Parsed link")
 		if err := td.TryDownloadLink(ctx, logger, link); nil != err {
 			if errors.Is(err, context.DeadlineExceeded) {
@@ -149,7 +155,7 @@ func NewTidalURLHandler(
 			return nil
 		}
 
-		msg := "📤 Tidal link downloaded. Uploading to Telegram."
+		msg = "📤 Tidal link downloaded. Uploading to Telegram."
 		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 			return fmt.Errorf("failed to send message: %w", err)
 		}
