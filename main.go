@@ -242,7 +242,9 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 	}()
 	logger.Debug().Msg("Telegram uploader created")
 
-	b.RegisterHandlers(ctx, logger, conf.Bot, td, up)
+	worker := bot.NewWorker(1)
+
+	b.RegisterHandlers(ctx, logger, conf.Bot, td, up, worker)
 
 	logger.Debug().Msg("Starting TidalGram bot")
 	if err := b.Start(); nil != err {

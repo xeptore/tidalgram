@@ -228,6 +228,7 @@ func (b *Bot) RegisterHandlers(
 	conf config.Bot,
 	td *tidal.Client,
 	up *telegram.Uploader,
+	worker *Worker,
 ) {
 	b.dispatcher.AddHandler(
 		handlers.
@@ -235,7 +236,7 @@ func (b *Bot) RegisterHandlers(
 				tidalURLFilter,
 				NewChainHandler(
 					NewPapaOnlyGuard(conf.PapaID),
-					NewTidalURLHandler(ctx, logger, td, conf, up),
+					NewTidalURLHandler(ctx, logger, td, conf, up, worker),
 				),
 			).
 			SetAllowChannel(false).
@@ -260,7 +261,7 @@ func (b *Bot) RegisterHandlers(
 				"cancel",
 				NewChainHandler(
 					NewPapaOnlyGuard(conf.PapaID),
-					// NewCancelCommandHandler(ctx, tidal),
+					NewCancelCommandHandler(ctx, worker),
 				),
 			).
 			SetAllowChannel(false).

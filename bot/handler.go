@@ -52,9 +52,8 @@ func NewTidalURLHandler(
 	td *tidal.Client,
 	conf config.Bot,
 	up *telegram.Uploader,
+	worker *Worker,
 ) handlers.Response {
-	sem := semaphore.NewWeighted(1)
-
 	return func(b *gotgbot.Bot, u *ext.Context) error {
 		logger = logger.
 			With().
@@ -72,7 +71,8 @@ func NewTidalURLHandler(
 		}
 		chatID := u.EffectiveMessage.Chat.Id
 
-		if !sem.TryAcquire(1) {
+		ctx, ok := worker.TryAcquireJob(ctx)
+		if !ok {
 			msg := "⏳ Another download is in progress. Try again later."
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 				return fmt.Errorf("failed to send message: %w", err)
@@ -80,7 +80,7 @@ func NewTidalURLHandler(
 
 			return nil
 		}
-		defer sem.Release(1)
+		defer worker.CancelJob()
 
 		link := tidal.ParseLink(getMessageURL(u.EffectiveMessage))
 
@@ -101,6 +101,15 @@ func NewTidalURLHandler(
 			}
 
 			if errors.Is(err, context.Canceled) {
+				if cause := context.Cause(ctx); errors.Is(cause, ErrJobCanceled) {
+					msg := "⏹️ Download was canceled."
+					if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+						return fmt.Errorf("failed to send message: %w", err)
+					}
+
+					return nil
+				}
+
 				msg := "🛑 Bot is shutting down. Download was not completed. Try again after bot restart."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 					return fmt.Errorf("failed to send message: %w", err)
@@ -225,9 +234,11 @@ func NewStartCommandHandler(ctx context.Context, adminID int64) handlers.Respons
 	}
 }
 
-func NewCancelCommandHandler(ctx context.Context, td *tidal.Client) handlers.Response {
+func NewCancelCommandHandler(ctx context.Context, worker *Worker) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
-		panic("not implemented")
+		worker.CancelJob()
+
+		return nil
 	}
 }
 
