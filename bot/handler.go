@@ -207,7 +207,7 @@ func NewTidalURLHandler(
 	}
 }
 
-func NewStartCommandHandler(ctx context.Context, adminID int64) handlers.Response {
+func NewHelloCommandHandler(ctx context.Context, adminID int64) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
 		sendOpt := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
 			ParseMode: gotgbot.ParseModeMarkdown,

@@ -119,7 +119,7 @@ func fillAccount(b *gotgbot.Bot) Account {
 	}
 }
 
-func (b *Bot) Start() error {
+func (b *Bot) Start(ctx context.Context) error {
 	pollOpts := ext.PollingOpts{
 		DropPendingUpdates: true,
 		GetUpdatesOpts: &gotgbot.GetUpdatesOpts{ //nolint:exhaustruct
@@ -148,6 +148,34 @@ func (b *Bot) Start() error {
 	}, "\n")
 	if _, err := b.bot.SendMessage(b.papaChatID, msg, sendOpts); nil != err {
 		return fmt.Errorf("failed to send message: %w", err)
+	}
+
+	if _, err := b.bot.DeleteMyCommandsWithContext(ctx, nil); nil != err {
+		b.logger.Error().Err(err).Msg("Failed to delete bot commands")
+		return fmt.Errorf("failed to delete bot commands: %w", err)
+	}
+
+	commands := []gotgbot.BotCommand{
+		{
+			Command:     "/hello",
+			Description: "Says hello to the bot.",
+		},
+		{
+			Command:     "/cancel",
+			Description: "Cancels the running download job if any.",
+		},
+		{
+			Command:     "/tidal_login",
+			Description: "Starts Tidal authorization flow.",
+		},
+		{
+			Command:     "/tidal_auth_status",
+			Description: "Pings Tidal and reports authentication state.",
+		},
+	}
+	if _, err := b.bot.SetMyCommandsWithContext(ctx, commands, nil); nil != err {
+		b.logger.Error().Err(err).Msg("Failed to set bot commands")
+		return fmt.Errorf("failed to set bot commands: %w", err)
 	}
 
 	return nil
@@ -246,9 +274,9 @@ func (b *Bot) RegisterHandlers(
 	b.dispatcher.AddHandler(
 		handlers.
 			NewCommand(
-				"start",
+				"hello",
 				NewChainHandler(
-					NewStartCommandHandler(ctx, conf.PapaID),
+					NewHelloCommandHandler(ctx, conf.PapaID),
 				),
 			).
 			SetAllowChannel(false).

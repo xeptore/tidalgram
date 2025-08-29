@@ -247,7 +247,7 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 	b.RegisterHandlers(ctx, logger, conf.Bot, td, up, worker)
 
 	logger.Debug().Msg("Starting TidalGram bot")
-	if err := b.Start(); nil != err {
+	if err := b.Start(ctx); nil != err {
 		return fmt.Errorf("failed to start tidalgram bot: %w", err)
 	}
 	logger.Info().Msg("TidalGram bot started and listening for updates")
