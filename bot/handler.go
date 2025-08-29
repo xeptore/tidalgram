@@ -80,7 +80,7 @@ func NewTidalURLHandler(
 
 			return nil
 		}
-		defer worker.CancelJob()
+		defer worker.ReleaseJob()
 
 		link := tidal.ParseLink(getMessageURL(u.EffectiveMessage))
 
