@@ -138,9 +138,10 @@ func telegramLogin(ctx context.Context, cmd *cli.Command) error {
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
-	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
 	logger = log.FromConfig(conf.Log)
+
+	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
 	if err := telegram.Login(ctx, logger, conf.Telegram); nil != err {
 		if errors.Is(err, syscall.ENOTTY) {
@@ -173,9 +174,10 @@ func telegramLogout(ctx context.Context, cmd *cli.Command) error {
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
-	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
 	logger = log.FromConfig(conf.Log)
+
+	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
 	if err := telegram.Logout(ctx, logger, conf.Telegram); nil != err {
 		if errors.Is(err, syscall.ENOTTY) {
@@ -210,9 +212,10 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
-	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
 	logger = log.FromConfig(conf.Log)
+
+	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
 	td, err := tidal.NewClient(logger, conf.Bot.CredsDir, conf.Bot.DownloadsDir, conf.Tidal)
 	if nil != err {
@@ -226,7 +229,7 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 	}
 	logger.Info().Dict("account", b.Account.ToDict()).Msg("Bot instance created")
 
-	up, err := telegram.NewUploader(ctx, logger, conf.Telegram, conf.Bot.PapaID)
+	up, err := telegram.NewUploader(ctx, logger, conf.Telegram)
 	if nil != err {
 		if errors.Is(err, telegram.ErrUnauthorized) {
 			logger.Error().Msg("Telegram client is not authorized. Please login to Telegram.")
@@ -282,9 +285,10 @@ func botLogout(ctx context.Context, cmd *cli.Command) error {
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
-	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
 	logger = log.FromConfig(conf.Log)
+
+	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
 	b, err := bot.NewAPI(ctx, logger, conf.Bot)
 	if nil != err {
@@ -319,9 +323,10 @@ func botClose(ctx context.Context, cmd *cli.Command) error {
 	if nil != err {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
-	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
 	logger = log.FromConfig(conf.Log)
+
+	logger.Debug().Dict("config", conf.ToDict()).Msg("Config loaded")
 
 	b, err := bot.NewAPI(ctx, logger, conf.Bot)
 	if nil != err {

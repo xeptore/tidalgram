@@ -101,8 +101,8 @@ telegram:
     # Default: 4
     limit: 4
     # OPTIONAL
-    # Default: 5m
-    pause_duration: 5m
+    # Default: 1s
+    pause_duration: 1s
     # OPTIONAL
     # Signature to be added to the end of the caption in Telegram-flavored HTML format.
     # See:
@@ -112,6 +112,16 @@ telegram:
 
 
       <i>@itsxeptore</i>
+    # REQUIRED
+    # Telegram peer to upload to
+    peer:
+      # REQUIRED
+      # Telegram peer ID
+      id: 1234567890
+      # REQUIRED
+      # Telegram peer kind
+      # One of: user, chat
+      kind: user
 
   # OPTIONAL
   # Socks5 proxy

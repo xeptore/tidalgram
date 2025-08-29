@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/gotd/td/tg"
 	"github.com/rs/zerolog"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
@@ -201,9 +202,9 @@ func (c *Log) setDefaults() {
 }
 
 func (c *Log) validate() error {
-	if !slices.Contains([]string{"debug", "info", "warn", "error", "fatal", "panic"}, c.Level) {
+	if !slices.Contains([]string{"trace", "debug", "info", "warn", "error", "fatal", "panic"}, c.Level) {
 		return fmt.Errorf(
-			"level must be one of: debug, info, warn, error, fatal, panic, got: %s",
+			"level must be one of: trace, debug, info, warn, error, fatal, panic, got: %s",
 			c.Level,
 		)
 	}
@@ -501,12 +502,12 @@ type Duration struct {
 
 func (d *Duration) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
-	if err := unmarshal(&s); err != nil {
+	if err := unmarshal(&s); nil != err {
 		return fmt.Errorf("failed to parse duration: %v", err)
 	}
 
 	parsed, err := time.ParseDuration(s)
-	if err != nil {
+	if nil != err {
 		return fmt.Errorf("failed to parse duration: %v", err)
 	}
 
@@ -516,11 +517,12 @@ func (d *Duration) UnmarshalYAML(unmarshal func(any) error) error {
 }
 
 type TelegramUpload struct {
-	Threads       int      `yaml:"threads"`
-	PoolSize      int      `yaml:"pool_size"`
-	Limit         int      `yaml:"limit"`
-	Signature     string   `yaml:"signature"`
-	PauseDuration Duration `yaml:"pause_duration"`
+	Threads       int                `yaml:"threads"`
+	PoolSize      int                `yaml:"pool_size"`
+	Limit         int                `yaml:"limit"`
+	Signature     string             `yaml:"signature"`
+	PauseDuration Duration           `yaml:"pause_duration"`
+	Peer          TelegramUploadPeer `yaml:"peer"`
 }
 
 func (c *TelegramUpload) ToDict() *zerolog.Event {
@@ -530,7 +532,8 @@ func (c *TelegramUpload) ToDict() *zerolog.Event {
 		Int("pool_size", c.PoolSize).
 		Int("limit", c.Limit).
 		Str("signature", c.Signature).
-		Str("pause_duration", c.PauseDuration.String())
+		Str("pause_duration", c.PauseDuration.String()).
+		Dict("peer", c.Peer.ToDict())
 }
 
 func (c *TelegramUpload) setDefaults() {
@@ -547,8 +550,10 @@ func (c *TelegramUpload) setDefaults() {
 	}
 
 	if c.PauseDuration.Duration == 0 {
-		c.PauseDuration.Duration = 5 * time.Minute
+		c.PauseDuration.Duration = 1 * time.Second
 	}
+
+	c.Peer.setDefaults()
 }
 
 func (c *TelegramUpload) validate() error {
@@ -566,6 +571,73 @@ func (c *TelegramUpload) validate() error {
 
 	if c.PauseDuration.Duration < 0 {
 		return errors.New("pause_duration must be greater than 0")
+	}
+
+	if err := c.Peer.validate(); nil != err {
+		return fmt.Errorf("peer config validation failed: %v", err)
+	}
+
+	return nil
+}
+
+type TelegramUploadPeer struct {
+	tg.InputPeerClass
+
+	id   int64
+	kind string
+}
+
+func (c *TelegramUploadPeer) ToDict() *zerolog.Event {
+	return zerolog.
+		Dict().
+		Int64("id", c.id).
+		Str("kind", c.kind)
+}
+
+func (c *TelegramUploadPeer) UnmarshalYAML(unmarshal func(any) error) error {
+	var v struct {
+		ID   int64  `yaml:"id"`
+		Kind string `yaml:"kind"`
+	}
+	if err := unmarshal(&v); nil != err {
+		return fmt.Errorf("failed to parse peer: %v", err)
+	}
+
+	if v.ID == 0 {
+		return errors.New("id is required")
+	}
+
+	switch v.Kind {
+	case "":
+		return errors.New("kind is required")
+	case "user":
+		c.InputPeerClass = &tg.InputPeerUser{
+			UserID:     v.ID,
+			AccessHash: 0,
+		}
+	case "chat":
+		c.InputPeerClass = &tg.InputPeerChat{
+			ChatID: v.ID,
+		}
+	default:
+		return fmt.Errorf("unknown peer kind: %s", v.Kind)
+	}
+
+	c.id = v.ID
+	c.kind = v.Kind
+
+	return nil
+}
+
+func (c *TelegramUploadPeer) setDefaults() {}
+
+func (c *TelegramUploadPeer) validate() error {
+	if c.id == 0 {
+		return errors.New("id is required")
+	}
+
+	if c.kind == "" {
+		return errors.New("kind is required")
 	}
 
 	return nil

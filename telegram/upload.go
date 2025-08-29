@@ -40,12 +40,7 @@ type Uploader struct {
 	logger zerolog.Logger
 }
 
-func NewUploader(
-	ctx context.Context,
-	logger zerolog.Logger,
-	conf config.Telegram,
-	peerUserID int64,
-) (*Uploader, error) {
+func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (*Uploader, error) {
 	storage, err := NewStorage(conf.Storage.Path)
 	if nil != err {
 		return nil, fmt.Errorf("failed to create storage: %v", err)
@@ -95,7 +90,7 @@ func NewUploader(
 
 	_, err = message.
 		NewSender(tgClient).
-		To(&tg.InputPeerUser{UserID: peerUserID}). //nolint:exhaustruct
+		To(conf.Upload.Peer.InputPeerClass).
 		Clear().
 		Background().
 		Silent().
@@ -109,7 +104,7 @@ func NewUploader(
 		stop:   stop,
 		conf:   conf,
 		engine: engine,
-		peer:   &tg.InputPeerUser{UserID: peerUserID}, //nolint:exhaustruct
+		peer:   conf.Upload.Peer.InputPeerClass,
 		logger: logger,
 	}, nil
 }
