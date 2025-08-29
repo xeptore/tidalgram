@@ -258,6 +258,8 @@ func (c *Uploader) uploadAlbum(
 		}
 	}
 
+	time.Sleep(c.conf.Upload.PauseDuration.Duration)
+
 	return nil
 }
 
@@ -374,6 +376,8 @@ func (c *Uploader) uploadMix(
 		}
 	}
 
+	time.Sleep(c.conf.Upload.PauseDuration.Duration)
+
 	return nil
 }
 
@@ -489,6 +493,8 @@ func (c *Uploader) uploadPlaylist(
 			return fmt.Errorf("failed to send playlist: %w", err)
 		}
 	}
+
+	time.Sleep(c.conf.Upload.PauseDuration.Duration)
 
 	return nil
 }
