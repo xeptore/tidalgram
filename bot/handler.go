@@ -73,7 +73,7 @@ func NewTidalURLHandler(
 
 		ctx, ok := worker.TryAcquireJob(ctx)
 		if !ok {
-			msg := "⏳ Another download is in progress. Try again later."
+			msg := "🈵 Another download is in progress. Try again later."
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 				return fmt.Errorf("failed to send message: %w", err)
 			}
@@ -84,7 +84,7 @@ func NewTidalURLHandler(
 
 		link := tidal.ParseLink(getMessageURL(u.EffectiveMessage))
 
-		msg := "🚦 Downloading " + link.Kind.String() + " link..."
+		msg := "🚧 Downloading " + link.Kind.String() + " link..."
 		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 			return fmt.Errorf("failed to send message: %w", err)
 		}
@@ -110,7 +110,7 @@ func NewTidalURLHandler(
 					return nil
 				}
 
-				msg := "🛑 Bot is shutting down. Download was not completed. Try again after bot restart."
+				msg := "♿️ Bot is shutting down. Download was not completed. Try again after bot restart."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 					return fmt.Errorf("failed to send message: %w", err)
 				}
@@ -128,7 +128,7 @@ func NewTidalURLHandler(
 			}
 
 			if errors.Is(err, tidal.ErrTokenRefreshed) {
-				msg := "🔄 Tidal login token just got refreshed. Retry now."
+				msg := "🔄 Tidal login token just got refreshed. Retry in a few seconds."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 					return fmt.Errorf("failed to send message: %w", err)
 				}
@@ -137,7 +137,7 @@ func NewTidalURLHandler(
 			}
 
 			if errors.Is(err, tidal.ErrUnsupportedArtistLinkKind) {
-				msg := "🚫 Artist links are not supported yet."
+				msg := "🈲 Artist links are not supported yet."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 					return fmt.Errorf("failed to send message: %w", err)
 				}
@@ -146,7 +146,7 @@ func NewTidalURLHandler(
 			}
 
 			if errors.Is(err, tidal.ErrUnsupportedVideoLinkKind) {
-				msg := "🚫 Video links are not supported yet."
+				msg := "🈲 Video links are not supported yet."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 					return fmt.Errorf("failed to send message: %w", err)
 				}
@@ -180,7 +180,7 @@ func NewTidalURLHandler(
 			}
 
 			if errors.Is(err, context.Canceled) {
-				msg := "🛑 Bot is shutting down. Upload was not completed. Try again after bot restart."
+				msg := "♿️ Bot is shutting down. Upload was not completed. Try again after bot restart."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 					return fmt.Errorf("failed to send message: %w", err)
 				}
@@ -262,7 +262,7 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 		chatID := u.EffectiveMessage.Chat.Id
 
 		if !sem.TryAcquire(1) {
-			msg := "⏳ Another login flow is in progress. Try again later."
+			msg := "🈵 Another login flow is in progress. Try again later."
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 				return fmt.Errorf("failed to send message: %w", err)
 			}
@@ -283,7 +283,7 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 			}
 
 			if errors.Is(err, context.Canceled) {
-				msg := "🛑 Bot is shutting down. Login flow is not completed."
+				msg := "♿️ Bot is shutting down. Login flow is not completed."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 					return fmt.Errorf("failed to send message: %w", err)
 				}
@@ -326,7 +326,7 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 			}
 
 			if errors.Is(err, context.Canceled) {
-				msg := "🛑 Bot is shutting down. Login flow is not completed."
+				msg := "♿️ Bot is shutting down. Login flow is not completed."
 				if _, err = b.SendMessage(chatID, msg, sendOpt); nil != err {
 					return fmt.Errorf("failed to send message: %w", err)
 				}
