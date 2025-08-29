@@ -24,7 +24,8 @@ type TrackCredits struct {
 }
 
 func (t TrackCredits) ToDict() *zerolog.Event {
-	return zerolog.Dict().
+	return zerolog.
+		Dict().
 		Strs("producers", t.Producers).
 		Strs("composers", t.Composers).
 		Strs("lyricists", t.Lyricists).

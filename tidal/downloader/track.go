@@ -636,7 +636,8 @@ type TrackEmbeddedAttrs struct {
 }
 
 func (t TrackEmbeddedAttrs) toDict() *zerolog.Event {
-	return zerolog.Dict().
+	return zerolog.
+		Dict().
 		Str("lead_artist", t.LeadArtist).
 		Str("album", t.Album).
 		Str("album_artist", t.AlbumArtist).

@@ -16,10 +16,12 @@ func (h *stackHook) Run(e *zerolog.Event, level zerolog.Level, message string) {
 	st := traces(5)
 	arr := zerolog.Arr()
 	for _, s := range st {
-		arr.Dict(zerolog.Dict().
-			Int("line", s.Line).
-			Str("file", s.File).
-			Str("function", s.Function),
+		arr.Dict(
+			zerolog.
+				Dict().
+				Int("line", s.Line).
+				Str("file", s.File).
+				Str("function", s.Function),
 		)
 	}
 	e.Array("stack", arr)

@@ -24,7 +24,8 @@ type Config struct {
 }
 
 func (c *Config) ToDict() *zerolog.Event {
-	return zerolog.Dict().
+	return zerolog.
+		Dict().
 		Dict("bot", c.Bot.ToDict()).
 		Dict("log", c.Log.ToDict()).
 		Dict("tidal", c.Tidal.ToDict()).
@@ -186,7 +187,8 @@ type Log struct {
 }
 
 func (c *Log) ToDict() *zerolog.Event {
-	return zerolog.Dict().
+	return zerolog.
+		Dict().
 		Str("level", c.Level).
 		Str("format", c.Format)
 }
@@ -243,7 +245,8 @@ type TidalDownloader struct {
 }
 
 func (c *TidalDownloader) ToDict() *zerolog.Event {
-	return zerolog.Dict().
+	return zerolog.
+		Dict().
 		Dict("timeouts", c.Timeouts.ToDict())
 }
 
@@ -274,7 +277,8 @@ type TidalDownloadTimeouts struct {
 }
 
 func (c *TidalDownloadTimeouts) ToDict() *zerolog.Event {
-	return zerolog.Dict().
+	return zerolog.
+		Dict().
 		Int("get_track_credits", c.GetTrackCredits).
 		Int("get_track_lyrics", c.GetTrackLyrics).
 		Int("download_cover", c.DownloadCover).
