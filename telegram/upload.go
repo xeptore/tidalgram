@@ -99,7 +99,7 @@ func NewUploader(
 		Clear().
 		Background().
 		Silent().
-		Text(ctx, "Hey! I'm TidalGram uploader!")
+		Text(ctx, "Hey! I'm here to upload your Tidal links.")
 	if nil != err {
 		return nil, fmt.Errorf("failed to send message to peer: %w", err)
 	}
