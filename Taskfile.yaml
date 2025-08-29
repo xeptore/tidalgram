@@ -26,7 +26,7 @@ tasks:
           go build \
             -buildvcs=true \
             -trimpath \
-            -ldflags="-compressdwarf=true -extldflags=-static -s -w -buildid='' -X '{{.MODPATH}}/constants.CompileTime={{.COMPILE_TIME}}' -X '{{.MODPATH}}/constants.Version={{.VERSION}}'" \
+            -ldflags="-compressdwarf=true -extldflags=-static -s -w -buildid='' -X '{{.MODPATH}}/constant.CompileTime={{.COMPILE_TIME}}' -X '{{.MODPATH}}/constant.Version={{.VERSION}}'" \
             -o ./bin/tidalgram \
             .
 
