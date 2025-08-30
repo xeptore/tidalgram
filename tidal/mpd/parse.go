@@ -90,12 +90,12 @@ func ParseStreamInfo(r io.Reader) (*StreamInfo, error) {
 	dec := xml.NewDecoder(r)
 	dec.Strict = true
 	if err := dec.Decode(&mpd); nil != err {
-		return nil, fmt.Errorf("failed to parse MPD: %v", err)
+		return nil, fmt.Errorf("parse MPD: %v", err)
 	}
 
 	parts, err := mpd.parts()
 	if nil != err {
-		return nil, fmt.Errorf("failed to get parts: %v", err)
+		return nil, fmt.Errorf("get parts: %v", err)
 	}
 
 	return &StreamInfo{

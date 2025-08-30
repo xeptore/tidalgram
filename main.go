@@ -127,7 +127,7 @@ func telegramLogin(ctx context.Context, cmd *cli.Command) error {
 
 	if err := godotenv.Load(); nil != err {
 		if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("failed to load .env file: %v", err)
+			return fmt.Errorf("load .env file: %v", err)
 		}
 		logger.Info().Msg(".env file was not found")
 	} else {
@@ -136,7 +136,7 @@ func telegramLogin(ctx context.Context, cmd *cli.Command) error {
 
 	conf, err := config.Load(cmd.String("config"))
 	if nil != err {
-		return fmt.Errorf("failed to load config: %v", err)
+		return fmt.Errorf("load config: %v", err)
 	}
 
 	logger = log.FromConfig(conf.Log)
@@ -149,7 +149,7 @@ func telegramLogin(ctx context.Context, cmd *cli.Command) error {
 			return exitCodeError(1)
 		}
 
-		return fmt.Errorf("failed to login to telegram: %v", err)
+		return fmt.Errorf("login to telegram: %w", err)
 	}
 
 	return nil
@@ -163,7 +163,7 @@ func telegramLogout(ctx context.Context, cmd *cli.Command) error {
 
 	if err := godotenv.Load(); nil != err {
 		if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("failed to load .env file: %v", err)
+			return fmt.Errorf("load .env file: %v", err)
 		}
 		logger.Info().Msg(".env file was not found")
 	} else {
@@ -172,7 +172,7 @@ func telegramLogout(ctx context.Context, cmd *cli.Command) error {
 
 	conf, err := config.Load(cmd.String("config"))
 	if nil != err {
-		return fmt.Errorf("failed to load config: %v", err)
+		return fmt.Errorf("load config: %v", err)
 	}
 
 	logger = log.FromConfig(conf.Log)
@@ -185,7 +185,7 @@ func telegramLogout(ctx context.Context, cmd *cli.Command) error {
 			return exitCodeError(1)
 		}
 
-		return fmt.Errorf("failed to login to telegram: %v", err)
+		return fmt.Errorf("logout from telegram: %w", err)
 	}
 
 	logger.Info().Msg("Telegram client logged out successfully")
@@ -201,7 +201,7 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 
 	if err := godotenv.Load(); nil != err {
 		if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("failed to load .env file: %v", err)
+			return fmt.Errorf("load .env file: %v", err)
 		}
 		logger.Info().Msg(".env file was not found")
 	} else {
@@ -210,7 +210,7 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 
 	conf, err := config.Load(cmd.String("config"))
 	if nil != err {
-		return fmt.Errorf("failed to load config: %v", err)
+		return fmt.Errorf("load config: %v", err)
 	}
 
 	logger = log.FromConfig(conf.Log)
@@ -219,13 +219,13 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 
 	td, err := tidal.NewClient(logger, conf.Bot.CredsDir, conf.Bot.DownloadsDir, conf.Tidal)
 	if nil != err {
-		return fmt.Errorf("failed to create tidal client: %v", err)
+		return fmt.Errorf("create tidal client: %v", err)
 	}
 	logger.Debug().Msg("Tidal client created")
 
 	b, err := bot.New(ctx, logger, conf.Bot)
 	if nil != err {
-		return fmt.Errorf("failed to create tidalgram bot: %w", err)
+		return fmt.Errorf("create tidalgram bot: %w", err)
 	}
 	logger.Info().Dict("account", b.Account.ToDict()).Msg("Bot instance created")
 
@@ -236,11 +236,11 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 			return exitCodeError(2)
 		}
 
-		return fmt.Errorf("failed to create telegram uploader: %w", err)
+		return fmt.Errorf("create telegram uploader: %w", err)
 	}
 	defer func() {
 		if err := up.Close(); nil != err {
-			logger.Error().Err(err).Msg("Failed to close telegram uploader")
+			logger.Error().Err(err).Msg("close telegram uploader")
 		}
 	}()
 	logger.Debug().Msg("Telegram uploader created")
@@ -251,7 +251,7 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 
 	logger.Debug().Msg("Starting TidalGram bot")
 	if err := b.Start(ctx); nil != err {
-		return fmt.Errorf("failed to start tidalgram bot: %w", err)
+		return fmt.Errorf("start tidalgram bot: %w", err)
 	}
 	logger.Info().Msg("TidalGram bot started and listening for updates")
 
@@ -259,7 +259,7 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 	logger.Info().Msg("Stopping TidalGram application")
 
 	if err := b.Stop(); nil != err {
-		return fmt.Errorf("failed to stop tidalgram bot: %w", err)
+		return fmt.Errorf("stop tidalgram bot: %w", err)
 	}
 	logger.Info().Msg("TidalGram bot stopped successfully")
 
@@ -274,7 +274,7 @@ func botLogout(ctx context.Context, cmd *cli.Command) error {
 
 	if err := godotenv.Load(); nil != err {
 		if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("failed to load .env file: %v", err)
+			return fmt.Errorf("load .env file: %v", err)
 		}
 		logger.Info().Msg(".env file was not found")
 	} else {
@@ -283,7 +283,7 @@ func botLogout(ctx context.Context, cmd *cli.Command) error {
 
 	conf, err := config.Load(cmd.String("config"))
 	if nil != err {
-		return fmt.Errorf("failed to load config: %v", err)
+		return fmt.Errorf("load config: %v", err)
 	}
 
 	logger = log.FromConfig(conf.Log)
@@ -292,12 +292,12 @@ func botLogout(ctx context.Context, cmd *cli.Command) error {
 
 	b, err := bot.NewAPI(ctx, logger, conf.Bot)
 	if nil != err {
-		return fmt.Errorf("failed to create tidalgram API bot: %v", err)
+		return fmt.Errorf("create tidalgram API bot: %w", err)
 	}
 	logger.Info().Dict("account", b.Account.ToDict()).Msg("Bot instance created")
 
 	if err := b.Logout(ctx); nil != err {
-		return fmt.Errorf("failed to logout tidalgram API bot: %w", err)
+		return fmt.Errorf("logout tidalgram API bot: %w", err)
 	}
 	logger.Info().Msg("Bot instance logged out successfully. You can now run the bot locally.")
 
@@ -312,7 +312,7 @@ func botClose(ctx context.Context, cmd *cli.Command) error {
 
 	if err := godotenv.Load(); nil != err {
 		if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("failed to load .env file: %v", err)
+			return fmt.Errorf("load .env file: %v", err)
 		}
 		logger.Info().Msg(".env file was not found")
 	} else {
@@ -321,7 +321,7 @@ func botClose(ctx context.Context, cmd *cli.Command) error {
 
 	conf, err := config.Load(cmd.String("config"))
 	if nil != err {
-		return fmt.Errorf("failed to load config: %v", err)
+		return fmt.Errorf("load config: %v", err)
 	}
 
 	logger = log.FromConfig(conf.Log)
@@ -330,12 +330,12 @@ func botClose(ctx context.Context, cmd *cli.Command) error {
 
 	b, err := bot.NewAPI(ctx, logger, conf.Bot)
 	if nil != err {
-		return fmt.Errorf("failed to create tidalgram API bot: %v", err)
+		return fmt.Errorf("create tidalgram API bot: %w", err)
 	}
 	logger.Info().Dict("account", b.Account.ToDict()).Msg("Bot instance created")
 
 	if err := b.Close(ctx); nil != err {
-		return fmt.Errorf("failed to close tidalgram API bot: %w", err)
+		return fmt.Errorf("close tidalgram API bot: %w", err)
 	}
 	logger.
 		Info().

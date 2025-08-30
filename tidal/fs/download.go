@@ -53,7 +53,7 @@ func (t AlbumTrack) Exists() (bool, error) {
 
 func (t AlbumTrack) Remove() error {
 	if err := os.Remove(t.Path); nil != err && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to remove album track: %v", err)
+		return fmt.Errorf("remove album track: %v", err)
 	}
 
 	return nil
@@ -135,7 +135,7 @@ func fileExists(path string) (bool, error) {
 			return false, nil
 		}
 
-		return false, fmt.Errorf("failed to stat file: %v", err)
+		return false, fmt.Errorf("stat file: %v", err)
 	}
 
 	return true, nil
@@ -144,26 +144,26 @@ func fileExists(path string) (bool, error) {
 func (c Cover) Write(b []byte) (err error) {
 	f, err := os.OpenFile(c.Path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC|os.O_SYNC, 0o600)
 	if nil != err {
-		return fmt.Errorf("failed to open cover file for write: %v", err)
+		return fmt.Errorf("open cover file for write: %v", err)
 	}
 	defer func() {
 		if nil != err {
 			if removeErr := os.Remove(c.Path); nil != removeErr {
 				if !errors.Is(removeErr, os.ErrNotExist) {
-					err = errors.Join(err, fmt.Errorf("failed to remove cover file: %v", removeErr))
+					err = errors.Join(err, fmt.Errorf("remove cover file: %v", removeErr))
 				}
 			}
 		} else if closeErr := f.Close(); nil != closeErr {
-			err = fmt.Errorf("failed to close cover file: %v", closeErr)
+			err = fmt.Errorf("close cover file: %v", closeErr)
 		}
 	}()
 
 	if _, err := f.Write(b); nil != err {
-		return fmt.Errorf("failed to write cover file: %v", err)
+		return fmt.Errorf("write cover file: %v", err)
 	}
 
 	if err := f.Sync(); nil != err {
-		return fmt.Errorf("failed to sync cover file: %v", err)
+		return fmt.Errorf("sync cover file: %v", err)
 	}
 
 	return nil
@@ -172,7 +172,7 @@ func (c Cover) Write(b []byte) (err error) {
 func (c Cover) Read() ([]byte, error) {
 	b, err := os.ReadFile(c.Path)
 	if nil != err {
-		return nil, fmt.Errorf("failed to read cover file: %v", err)
+		return nil, fmt.Errorf("read cover file: %v", err)
 	}
 
 	return b, nil
@@ -190,7 +190,7 @@ func (t Track) Exists() (bool, error) {
 
 func (t Track) Remove() error {
 	if err := os.Remove(t.Path); nil != err && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to remove single track: %v", err)
+		return fmt.Errorf("remove single track: %v", err)
 	}
 
 	return nil
@@ -209,17 +209,17 @@ func readInfoFile[T any](file InfoFile[T]) (t *T, err error) {
 
 	f, err := os.OpenFile(filePath, os.O_RDONLY, 0o0600)
 	if nil != err {
-		return nil, fmt.Errorf("failed to open info file for read: %v", err)
+		return nil, fmt.Errorf("open info file for read: %v", err)
 	}
 	defer func() {
 		if closeErr := f.Close(); nil != closeErr {
-			err = errors.Join(err, fmt.Errorf("failed to close info file: %v", closeErr))
+			err = errors.Join(err, fmt.Errorf("close info file: %v", closeErr))
 		}
 	}()
 
 	var out T
 	if err := json.NewDecoder(f).Decode(&out); nil != err {
-		return nil, fmt.Errorf("failed to decode info file contents: %v", err)
+		return nil, fmt.Errorf("decode info file contents: %v", err)
 	}
 
 	return &out, nil
@@ -234,26 +234,26 @@ func writeInfoFile[T any](file InfoFile[T], obj any) (err error) {
 
 	f, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o0600)
 	if nil != err {
-		return fmt.Errorf("failed to open info file for write: %v", err)
+		return fmt.Errorf("open info file for write: %v", err)
 	}
 	defer func() {
 		if nil != err {
 			if removeErr := os.Remove(filePath); nil != removeErr {
 				if !errors.Is(removeErr, os.ErrNotExist) {
-					err = errors.Join(err, fmt.Errorf("failed to remove info file: %v", removeErr))
+					err = errors.Join(err, fmt.Errorf("remove info file: %v", removeErr))
 				}
 			}
 		} else if closeErr := f.Close(); nil != closeErr {
-			err = fmt.Errorf("failed to close info file: %v", closeErr)
+			err = fmt.Errorf("close info file: %v", closeErr)
 		}
 	}()
 
 	if err := json.NewEncoder(f).Encode(obj); nil != err {
-		return fmt.Errorf("failed to write info content: %v", err)
+		return fmt.Errorf("write info content: %v", err)
 	}
 
 	if err := f.Sync(); nil != err {
-		return fmt.Errorf("failed to sync info file: %v", err)
+		return fmt.Errorf("sync info file: %v", err)
 	}
 
 	return nil

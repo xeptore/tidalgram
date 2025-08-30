@@ -27,12 +27,12 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 	accessToken := d.auth.Credentials().Token
 	mix, err := d.getMixMeta(ctx, logger, accessToken, id)
 	if nil != err {
-		return fmt.Errorf("failed to get mix meta: %w", err)
+		return fmt.Errorf("get mix meta: %w", err)
 	}
 
 	tracks, err := d.getMixTracks(ctx, logger, accessToken, id)
 	if nil != err {
-		return fmt.Errorf("failed to get mix tracks: %w", err)
+		return fmt.Errorf("get mix tracks: %w", err)
 	}
 
 	var (
@@ -48,21 +48,22 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 			trackFs := mixFs.Track(track.ID)
 			if exists, err := trackFs.Cover.Exists(); nil != err {
 				logger.Error().Err(err).Msg("Failed to check if track cover exists")
-				return fmt.Errorf("failed to check if track cover exists: %v", err)
+				return fmt.Errorf("check if track cover exists: %v", err)
 			} else if !exists {
 				coverBytes, err := d.getCover(wgctx, logger, accessToken, track.CoverID)
 				if nil != err {
-					return fmt.Errorf("failed to get track cover: %w", err)
+					return fmt.Errorf("get track cover: %w", err)
 				}
+
 				if err := trackFs.Cover.Write(coverBytes); nil != err {
 					logger.Error().Err(err).Msg("Failed to write track cover")
-					return fmt.Errorf("failed to write track cover: %v", err)
+					return fmt.Errorf("write track cover: %v", err)
 				}
 			}
 
 			if exists, err := trackFs.Exists(); nil != err {
 				logger.Error().Err(err).Msg("Failed to check if track exists")
-				return fmt.Errorf("failed to check if track exists: %v", err)
+				return fmt.Errorf("check if track exists: %v", err)
 			} else if exists {
 				return nil
 			}
@@ -71,7 +72,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 					if removeErr := trackFs.Remove(); nil != removeErr {
 						if !errors.Is(err, os.ErrNotExist) {
 							logger.Error().Err(removeErr).Msg("Failed to remove mix track file")
-							err = errors.Join(err, fmt.Errorf("failed to remove mix track file: %v", removeErr))
+							err = errors.Join(err, fmt.Errorf("remove mix track file: %v", removeErr))
 						}
 					}
 				}
@@ -79,22 +80,22 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 
 			trackCredits, err := d.getTrackCredits(wgctx, logger, accessToken, track.ID)
 			if nil != err {
-				return fmt.Errorf("failed to get track credits: %w", err)
+				return fmt.Errorf("get track credits: %w", err)
 			}
 
 			trackLyrics, err := d.downloadTrackLyrics(wgctx, logger, accessToken, track.ID)
 			if nil != err {
-				return fmt.Errorf("failed to download track lyrics: %w", err)
+				return fmt.Errorf("download track lyrics: %w", err)
 			}
 
 			ext, err := d.downloadTrack(wgctx, logger, accessToken, track.ID, trackFs.Path)
 			if nil != err {
-				return fmt.Errorf("failed to download track: %w", err)
+				return fmt.Errorf("download track: %w", err)
 			}
 
 			album, err := d.getAlbumMeta(wgctx, logger, accessToken, track.AlbumID)
 			if nil != err {
-				return fmt.Errorf("failed to get album meta: %w", err)
+				return fmt.Errorf("get album meta: %w", err)
 			}
 
 			attrs := TrackEmbeddedAttrs{
@@ -117,7 +118,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 				Ext:          ext,
 			}
 			if err := embedTrackAttributes(wgctx, logger, trackFs.Path, attrs); nil != err {
-				return fmt.Errorf("failed to embed track attributes: %v", err)
+				return fmt.Errorf("embed track attributes: %v", err)
 			}
 
 			info := types.StoredTrack{
@@ -133,7 +134,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 			}
 			if err := trackFs.InfoFile.Write(info); nil != err {
 				logger.Error().Err(err).Msg("Failed to write track info")
-				return fmt.Errorf("failed to write track info: %v", err)
+				return fmt.Errorf("write track info: %v", err)
 			}
 
 			return nil
@@ -141,7 +142,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 	}
 
 	if err := wg.Wait(); nil != err {
-		return fmt.Errorf("failed to wait for track download workers: %w", err)
+		return fmt.Errorf("wait for track download workers: %w", err)
 	}
 
 	info := types.StoredMix{
@@ -150,7 +151,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 	}
 	if err := mixFs.InfoFile.Write(info); nil != err {
 		logger.Error().Err(err).Msg("Failed to write mix info")
-		return fmt.Errorf("failed to write mix info: %v", err)
+		return fmt.Errorf("write mix info: %v", err)
 	}
 
 	return nil
@@ -166,7 +167,7 @@ func (d *Downloader) getMixMeta(
 	reqURL, err := url.Parse(mixInfoURL)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to parse mix info URL")
-		return nil, fmt.Errorf("failed to parse mix info URL: %v", err)
+		return nil, fmt.Errorf("parse mix info URL: %v", err)
 	}
 
 	reqParams := make(url.Values, 4)
@@ -179,7 +180,7 @@ func (d *Downloader) getMixMeta(
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create get mix info request")
-		return nil, fmt.Errorf("failed to create get mix info request: %w", err)
+		return nil, fmt.Errorf("create get mix info request: %w", err)
 	}
 
 	req.Header.Add("Authorization", "Bearer "+accessToken)
@@ -195,12 +196,12 @@ func (d *Downloader) getMixMeta(
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send get mix info request")
-		return nil, fmt.Errorf("failed to send get mix info request: %w", err)
+		return nil, fmt.Errorf("send get mix info request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
 			logger.Error().Err(closeErr).Msg("Failed to close get mix info response body")
-			err = errors.Join(err, fmt.Errorf("failed to close get mix info response body: %v", closeErr))
+			err = errors.Join(err, fmt.Errorf("close get mix info response body: %v", closeErr))
 		}
 	}()
 
@@ -210,19 +211,19 @@ func (d *Downloader) getMixMeta(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 401 response body")
-			return nil, fmt.Errorf("failed to read 401 response body: %w", err)
+			return nil, fmt.Errorf("read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token expired")
-			return nil, fmt.Errorf("failed to check if 401 response is token expired: %v", err)
+			return nil, fmt.Errorf("check if 401 response is token expired: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
 
 		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token invalid")
-			return nil, fmt.Errorf("failed to check if 401 response is token invalid: %v", err)
+			return nil, fmt.Errorf("check if 401 response is token invalid: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
@@ -236,11 +237,11 @@ func (d *Downloader) getMixMeta(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 403 response body")
-			return nil, fmt.Errorf("failed to read 403 response body: %w", err)
+			return nil, fmt.Errorf("read 403 response body: %w", err)
 		}
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 403 response is too many requests")
-			return nil, fmt.Errorf("failed to check if 403 response is too many requests: %v", err)
+			return nil, fmt.Errorf("check if 403 response is too many requests: %v", err)
 		} else if ok {
 			return nil, ErrTooManyRequests
 		}
@@ -252,7 +253,7 @@ func (d *Downloader) getMixMeta(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Int("status_code", code).Msg("Failed to read response body")
-			return nil, fmt.Errorf("failed to read response body: %w", err)
+			return nil, fmt.Errorf("read response body: %w", err)
 		}
 
 		logger.Error().Int("status_code", code).Bytes("response_body", respBytes).Msg("Unexpected response status code")
@@ -263,7 +264,7 @@ func (d *Downloader) getMixMeta(
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to read 200 response body")
-		return nil, fmt.Errorf("failed to read 200 response body: %w", err)
+		return nil, fmt.Errorf("read 200 response body: %w", err)
 	}
 
 	if !gjson.ValidBytes(respBytes) {
@@ -298,7 +299,7 @@ func (d *Downloader) getMixTracks(
 	for i := 0; ; i++ {
 		pageTracks, rem, err := d.mixTracksPage(ctx, logger, accessToken, id, i)
 		if nil != err {
-			return nil, fmt.Errorf("failed to get mix tracks page: %w", err)
+			return nil, fmt.Errorf("get mix tracks page: %w", err)
 		}
 
 		tracks = append(tracks, pageTracks...)
@@ -321,12 +322,12 @@ func (d *Downloader) mixTracksPage(
 	mixURL, err := url.JoinPath(fmt.Sprintf(mixItemsAPIFormat, id))
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to join mix URL with id")
-		return nil, 0, fmt.Errorf("failed to create mix URL: %v", err)
+		return nil, 0, fmt.Errorf("create mix URL: %v", err)
 	}
 
 	respBytes, err := d.getListPagedItems(ctx, logger, accessToken, mixURL, page)
 	if nil != err {
-		return nil, 0, fmt.Errorf("failed to get mix tracks page: %w", err)
+		return nil, 0, fmt.Errorf("get mix tracks page: %w", err)
 	}
 
 	var respBody struct {
@@ -360,7 +361,7 @@ func (d *Downloader) mixTracksPage(
 	}
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
 		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode mix response")
-		return nil, 0, fmt.Errorf("failed to decode mix response: %v", err)
+		return nil, 0, fmt.Errorf("decode mix response: %v", err)
 	}
 
 	thisPageItemsCount := len(respBody.Items)

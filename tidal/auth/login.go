@@ -26,7 +26,7 @@ type LoginLink struct {
 func (a *Auth) InitiateLoginFlow(ctx context.Context, logger zerolog.Logger) (*LoginLink, <-chan error, error) {
 	res, err := issueAuthorizationRequest(ctx, logger)
 	if nil != err {
-		return nil, nil, fmt.Errorf("failed to issue authorization request: %w", err)
+		return nil, nil, fmt.Errorf("issue authorization request: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(res.ExpiresIn)*time.Second)
@@ -71,7 +71,7 @@ func (a *Auth) InitiateLoginFlow(ctx context.Context, logger zerolog.Logger) (*L
 						return
 					}
 
-					done <- fmt.Errorf("unexpected error from authorization request poll: %v", err)
+					done <- fmt.Errorf("unexpected error from authorization request poll: %w", err)
 
 					return
 				}
@@ -88,7 +88,7 @@ func (a *Auth) InitiateLoginFlow(ctx context.Context, logger zerolog.Logger) (*L
 				}
 				if err := fs.AuthFileFrom(a.credsDir, tokenFileName).Write(content); nil != err {
 					logger.Error().Err(err).Msg("Failed to write credentials to file")
-					done <- fmt.Errorf("failed to write credentials to file: %v", err)
+					done <- fmt.Errorf("write credentials to file: %v", err)
 
 					return
 				}
@@ -124,7 +124,7 @@ func issueAuthorizationRequest(ctx context.Context, logger zerolog.Logger) (out 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBufferString(reqParamsStr))
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create device authorization request")
-		return nil, fmt.Errorf("failed to create device authorization request %s: %w", reqURL, err)
+		return nil, fmt.Errorf("create device authorization request %s: %w", reqURL, err)
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -134,11 +134,11 @@ func issueAuthorizationRequest(ctx context.Context, logger zerolog.Logger) (out 
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to issue device authorization request")
-		return nil, fmt.Errorf("failed to issue device authorization request: %w", err)
+		return nil, fmt.Errorf("issue device authorization request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
-			err = errors.Join(err, fmt.Errorf("failed to close response body: %v", closeErr))
+			err = errors.Join(err, fmt.Errorf("close response body: %v", closeErr))
 		}
 	}()
 
@@ -146,7 +146,7 @@ func issueAuthorizationRequest(ctx context.Context, logger zerolog.Logger) (out 
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Int("status_code", resp.StatusCode).Msg("Failed to read response body")
-			return nil, fmt.Errorf("failed to read response body: %w", err)
+			return nil, fmt.Errorf("read response body: %w", err)
 		}
 
 		logger.
@@ -161,7 +161,7 @@ func issueAuthorizationRequest(ctx context.Context, logger zerolog.Logger) (out 
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
 		logger.Error().Err(err).Int("status_code", resp.StatusCode).Msg("Failed to read response body")
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("read response body: %w", err)
 	}
 
 	var respBody struct {
@@ -173,7 +173,7 @@ func issueAuthorizationRequest(ctx context.Context, logger zerolog.Logger) (out 
 	}
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
 		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode 200 response body")
-		return nil, fmt.Errorf("failed to decode 200 response body: %w", err)
+		return nil, fmt.Errorf("decode 200 response body: %w", err)
 	}
 
 	//nolint:exhaustruct
@@ -196,7 +196,7 @@ func (r *authorizationResponse) poll(ctx context.Context, logger zerolog.Logger)
 	reqURL, err := url.JoinPath(baseURL, "/token")
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to join token URL")
-		return nil, fmt.Errorf("failed to join token URL: %v", err)
+		return nil, fmt.Errorf("join token URL: %v", err)
 	}
 
 	reqParams := make(url.Values, 4)
@@ -209,7 +209,7 @@ func (r *authorizationResponse) poll(ctx context.Context, logger zerolog.Logger)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBufferString(reqParamsStr))
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create token request")
-		return nil, fmt.Errorf("failed to create token request %s: %w", reqURL, err)
+		return nil, fmt.Errorf("create token request %s: %w", reqURL, err)
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -223,12 +223,12 @@ func (r *authorizationResponse) poll(ctx context.Context, logger zerolog.Logger)
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to issue token request")
-		return nil, fmt.Errorf("failed to issue token request: %w", err)
+		return nil, fmt.Errorf("issue token request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
 			logger.Error().Err(closeErr).Msg("Failed to close response body")
-			err = errors.Join(err, fmt.Errorf("failed to close response body: %v", closeErr))
+			err = errors.Join(err, fmt.Errorf("close response body: %v", closeErr))
 		}
 	}()
 
@@ -238,7 +238,7 @@ func (r *authorizationResponse) poll(ctx context.Context, logger zerolog.Logger)
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 400 response body")
-			return nil, fmt.Errorf("failed to read 400 response body: %w", err)
+			return nil, fmt.Errorf("read 400 response body: %w", err)
 		}
 
 		var respBody struct {
@@ -248,8 +248,8 @@ func (r *authorizationResponse) poll(ctx context.Context, logger zerolog.Logger)
 			ErrorDescription string `json:"error_description"`
 		}
 		if err := json.Unmarshal(respBytes, &respBody); nil != err {
-			logger.Error().Err(err).Msg("Failed to decode 400 response body")
-			return nil, fmt.Errorf("failed to decode 400 response body: %v", err)
+			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode 400 response body")
+			return nil, fmt.Errorf("decode 400 response body: %w", err)
 		}
 
 		if respBody.Status == 400 &&
@@ -273,7 +273,7 @@ func (r *authorizationResponse) poll(ctx context.Context, logger zerolog.Logger)
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Int("status_code", code).Msg("Failed to read response body")
-			return nil, fmt.Errorf("failed to read response body: %w", err)
+			return nil, fmt.Errorf("read response body: %w", err)
 		}
 
 		logger.Error().Int("status_code", code).Bytes("response_body", respBytes).Msg("Unexpected response status code")
@@ -284,7 +284,7 @@ func (r *authorizationResponse) poll(ctx context.Context, logger zerolog.Logger)
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to read response body")
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("read response body: %w", err)
 	}
 
 	var respBody struct {
@@ -293,12 +293,12 @@ func (r *authorizationResponse) poll(ctx context.Context, logger zerolog.Logger)
 	}
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
 		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode 200 response body")
-		return nil, fmt.Errorf("failed to decode 200 response body: %w", err)
+		return nil, fmt.Errorf("decode 200 response body: %w", err)
 	}
 
 	expiresAt, err := extractExpiresAt(respBody.AccessToken)
 	if nil != err {
-		return nil, fmt.Errorf("failed to extract expires at from access token: %w", err)
+		return nil, fmt.Errorf("extract expires at from access token: %w", err)
 	}
 
 	return &Credentials{

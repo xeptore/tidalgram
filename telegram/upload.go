@@ -43,13 +43,13 @@ type Uploader struct {
 func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (*Uploader, error) {
 	storage, err := NewStorage(conf.Storage.Path)
 	if nil != err {
-		return nil, fmt.Errorf("failed to create storage: %v", err)
+		return nil, fmt.Errorf("create storage: %v", err)
 	}
 
 	const maxRecoveryElapsedTime = 5 * time.Minute
 	opts, err := newClientOptions(ctx, logger, storage, conf)
 	if nil != err {
-		return nil, fmt.Errorf("failed to get client options: %v", err)
+		return nil, fmt.Errorf("get client options: %w", err)
 	}
 
 	waiter := newWaiterMiddleware(logger)
@@ -62,18 +62,18 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 
 	stop, err := connect(ctx, logger, client, waiter)
 	if nil != err {
-		return nil, fmt.Errorf("failed to connect to telegram: %w", err)
+		return nil, fmt.Errorf("connect to telegram: %w", err)
 	}
 
 	if status, err := client.Auth().Status(ctx); nil != err {
-		return nil, fmt.Errorf("failed to get auth status: %w", err)
+		return nil, fmt.Errorf("get auth status: %w", err)
 	} else if !status.Authorized {
 		return nil, ErrUnauthorized
 	}
 
 	user, err := client.Self(ctx)
 	if nil != err {
-		return nil, fmt.Errorf("failed to get self: %w", err)
+		return nil, fmt.Errorf("get self: %w", err)
 	}
 	logger.Info().Int64("id", user.ID).Msg("Got self")
 
@@ -96,7 +96,7 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 		Silent().
 		Text(ctx, "Hey! I'm here to upload your Tidal links.")
 	if nil != err {
-		return nil, fmt.Errorf("failed to send message to peer: %w", err)
+		return nil, fmt.Errorf("send message to peer: %w", err)
 	}
 
 	return &Uploader{
@@ -112,7 +112,7 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 func (c *Uploader) Close() error {
 	c.logger.Debug().Msg("Closing telegram uploader")
 	if err := c.stop(); nil != err {
-		return fmt.Errorf("failed to stop background client: %v", err)
+		return fmt.Errorf("stop background client: %v", err)
 	}
 	c.logger.Debug().Msg("Telegram uploader closed")
 
@@ -147,12 +147,12 @@ func (c *Uploader) uploadAlbum(
 	albumFs := dir.Album(id)
 	info, err := albumFs.InfoFile.Read()
 	if nil != err {
-		return fmt.Errorf("failed to read playlist info file: %v", err)
+		return fmt.Errorf("read playlist info file: %v", err)
 	}
 
 	coverInputFile, err := c.engine.FromPath(ctx, albumFs.Cover.Path)
 	if nil != err {
-		return fmt.Errorf("failed to upload album track cover file: %w", err)
+		return fmt.Errorf("upload album track cover file: %w", err)
 	}
 
 	for volIdx, trackIDs := range info.VolumeTrackIDs {
@@ -186,20 +186,20 @@ func (c *Uploader) uploadAlbum(
 					track := albumFs.Track(volNum, trackID)
 					trackInfo, err := track.InfoFile.Read()
 					if nil != err {
-						logger.Error().Err(err).Msg("Failed to read album track info file")
-						return fmt.Errorf("failed to read album track info file: %v", err)
+						logger.Error().Err(err).Msg("read album track info file")
+						return fmt.Errorf("read album track info file: %v", err)
 					}
 
 					trackInputFile, err := c.engine.FromPath(wgctx, track.Path)
 					if nil != err {
-						logger.Error().Err(err).Msg("Failed to upload album track file")
-						return fmt.Errorf("failed to upload album track file: %w", err)
+						logger.Error().Err(err).Msg("upload album track file")
+						return fmt.Errorf("upload album track file: %w", err)
 					}
 
 					mime, err := mimetype.DetectFile(track.Path)
 					if nil != err {
-						logger.Error().Err(err).Msg("Failed to detect album track mime")
-						return fmt.Errorf("failed to detect album track mime: %v", err)
+						logger.Error().Err(err).Msg("detect album track mime")
+						return fmt.Errorf("detect album track mime: %v", err)
 					}
 
 					var caption []message.StyledTextOption
@@ -238,7 +238,7 @@ func (c *Uploader) uploadAlbum(
 			}
 
 			if err := wg.Wait(); nil != err {
-				return fmt.Errorf("failed to upload album: %w", err)
+				return fmt.Errorf("upload album: %w", err)
 			}
 
 			var rest []message.MultiMediaOption
@@ -251,9 +251,11 @@ func (c *Uploader) uploadAlbum(
 				WithUploader(c.engine).
 				To(c.peer).
 				Clear().
+				Reply(replyToID).
+				Background().
 				Album(ctx, album[0], rest...)
 			if nil != err {
-				return fmt.Errorf("failed to send mix: %w", err)
+				return fmt.Errorf("send mix: %w", err)
 			}
 		}
 	}
@@ -272,7 +274,7 @@ func (c *Uploader) uploadMix(
 	mixFs := dir.Mix(id)
 	info, err := mixFs.InfoFile.Read()
 	if nil != err {
-		return fmt.Errorf("failed to read playlist info file: %v", err)
+		return fmt.Errorf("read playlist info file: %v", err)
 	}
 
 	var (
@@ -302,23 +304,23 @@ func (c *Uploader) uploadMix(
 				track := mixFs.Track(trackID)
 				trackInfo, err := track.InfoFile.Read()
 				if nil != err {
-					logger.Error().Err(err).Msg("failed to read mix track info file")
-					return fmt.Errorf("failed to read mix track info file: %v", err)
+					logger.Error().Err(err).Msg("read mix track info file")
+					return fmt.Errorf("read mix track info file: %v", err)
 				}
 
 				trackInputFile, err := c.engine.FromPath(wgctx, track.Path)
 				if nil != err {
-					return fmt.Errorf("failed to upload mix track file: %w", err)
+					return fmt.Errorf("upload mix track file: %w", err)
 				}
 
 				coverInputFile, err := c.engine.FromPath(wgctx, track.Cover.Path)
 				if nil != err {
-					return fmt.Errorf("failed to upload mix track cover file: %w", err)
+					return fmt.Errorf("upload mix track cover file: %w", err)
 				}
 
 				mime, err := mimetype.DetectFile(track.Path)
 				if nil != err {
-					return fmt.Errorf("failed to detect mix mime: %v", err)
+					return fmt.Errorf("detect mix mime: %v", err)
 				}
 
 				var caption []message.StyledTextOption
@@ -357,7 +359,7 @@ func (c *Uploader) uploadMix(
 		}
 
 		if err := wg.Wait(); nil != err {
-			return fmt.Errorf("failed to upload mix: %w", err)
+			return fmt.Errorf("upload mix: %w", err)
 		}
 
 		var rest []message.MultiMediaOption
@@ -372,7 +374,7 @@ func (c *Uploader) uploadMix(
 			Clear().
 			Album(ctx, album[0], rest...)
 		if nil != err {
-			return fmt.Errorf("failed to send mix: %w", err)
+			return fmt.Errorf("send mix: %w", err)
 		}
 	}
 
@@ -390,7 +392,7 @@ func (c *Uploader) uploadPlaylist(
 	playlistFs := dir.Playlist(id)
 	info, err := playlistFs.InfoFile.Read()
 	if nil != err {
-		return fmt.Errorf("failed to read playlist info file: %v", err)
+		return fmt.Errorf("read playlist info file: %v", err)
 	}
 
 	var (
@@ -420,23 +422,23 @@ func (c *Uploader) uploadPlaylist(
 				track := playlistFs.Track(trackID)
 				trackInfo, err := track.InfoFile.Read()
 				if nil != err {
-					logger.Error().Err(err).Msg("failed to read playlist track info file")
-					return fmt.Errorf("failed to read track info file: %v", err)
+					logger.Error().Err(err).Msg("read playlist track info file")
+					return fmt.Errorf("read track info file: %v", err)
 				}
 
 				trackInputFile, err := c.engine.FromPath(wgctx, track.Path)
 				if nil != err {
-					return fmt.Errorf("failed to upload playlist track file: %w", err)
+					return fmt.Errorf("upload playlist track file: %w", err)
 				}
 
 				coverInputFile, err := c.engine.FromPath(wgctx, track.Cover.Path)
 				if nil != err {
-					return fmt.Errorf("failed to upload playlist track cover file: %w", err)
+					return fmt.Errorf("upload playlist track cover file: %w", err)
 				}
 
 				mime, err := mimetype.DetectFile(track.Path)
 				if nil != err {
-					return fmt.Errorf("failed to detect playlist mime: %v", err)
+					return fmt.Errorf("detect playlist mime: %v", err)
 				}
 
 				var caption []message.StyledTextOption
@@ -475,7 +477,7 @@ func (c *Uploader) uploadPlaylist(
 		}
 
 		if err := wg.Wait(); nil != err {
-			return fmt.Errorf("failed to upload playlist: %w", err)
+			return fmt.Errorf("upload playlist: %w", err)
 		}
 
 		var rest []message.MultiMediaOption
@@ -490,7 +492,7 @@ func (c *Uploader) uploadPlaylist(
 			Clear().
 			Album(ctx, album[0], rest...)
 		if nil != err {
-			return fmt.Errorf("failed to send playlist: %w", err)
+			return fmt.Errorf("send playlist: %w", err)
 		}
 	}
 
@@ -503,23 +505,23 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	track := dir.Track(id)
 	trackInfo, err := track.InfoFile.Read()
 	if nil != err {
-		logger.Error().Err(err).Msg("failed to read track info file")
-		return fmt.Errorf("failed to read track info file: %v", err)
+		logger.Error().Err(err).Msg("read track info file")
+		return fmt.Errorf("read track info file: %v", err)
 	}
 
 	trackInputFile, err := c.engine.FromPath(ctx, track.Path)
 	if nil != err {
-		return fmt.Errorf("failed to upload track file: %w", err)
+		return fmt.Errorf("upload track file: %w", err)
 	}
 
 	coverInputFile, err := c.engine.FromPath(ctx, track.Cover.Path)
 	if nil != err {
-		return fmt.Errorf("failed to upload track cover file: %w", err)
+		return fmt.Errorf("upload track cover file: %w", err)
 	}
 
 	mime, err := mimetype.DetectFile(track.Path)
 	if nil != err {
-		return fmt.Errorf("failed to detect mime: %w", err)
+		return fmt.Errorf("detect mime: %w", err)
 	}
 
 	const notCollapsed = false
@@ -555,7 +557,7 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		To(c.peer).
 		Media(ctx, doc)
 	if nil != err {
-		return fmt.Errorf("failed to send message: %w", err)
+		return fmt.Errorf("send message: %w", err)
 	}
 
 	time.Sleep(c.conf.Upload.PauseDuration.Duration)

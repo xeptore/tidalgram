@@ -43,7 +43,7 @@ func New(logger zerolog.Logger, dir string) (*Auth, error) {
 	content, err := fs.AuthFileFrom(dir, tokenFileName).Read()
 	if nil != err {
 		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("failed to read auth credentials file: %v", err)
+			return nil, fmt.Errorf("read auth credentials file: %v", err)
 		}
 		// can be ignored as it will be filled with defaults
 		logger.Debug().Msg("auth credentials file not found. Using defaults.")
@@ -86,7 +86,7 @@ func extractExpiresAt(accessToken string) (time.Time, error) {
 	payload := strings.NewReader(splits[1])
 	dec := base64.NewDecoder(base64.StdEncoding, payload)
 	if err := json.NewDecoder(dec).Decode(&obj); nil != err {
-		return time.Time{}, fmt.Errorf("failed to decode access token payload: %v", err)
+		return time.Time{}, fmt.Errorf("decode access token payload: %v", err)
 	}
 
 	return time.Unix(obj.ExpiresAt, 0).UTC(), nil

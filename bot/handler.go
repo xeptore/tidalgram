@@ -75,7 +75,7 @@ func NewTidalURLHandler(
 		if !ok {
 			msg := "🈵 Another download is in progress. Try again later."
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-				return fmt.Errorf("failed to send message: %w", err)
+				return fmt.Errorf("send message: %w", err)
 			}
 
 			return nil
@@ -86,7 +86,7 @@ func NewTidalURLHandler(
 
 		msg := "🚧 Downloading " + link.Kind.String() + " link..."
 		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-			return fmt.Errorf("failed to send message: %w", err)
+			return fmt.Errorf("send message: %w", err)
 		}
 
 		logger.Debug().Str("link_id", link.ID).Str("link_kind", link.Kind.String()).Msg("Parsed link")
@@ -94,7 +94,7 @@ func NewTidalURLHandler(
 			if errors.Is(err, context.DeadlineExceeded) {
 				msg := "⌛️ Download request timed out. You might need to increase the timeout."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
+					return fmt.Errorf("send message: %w", err)
 				}
 
 				return nil
@@ -104,7 +104,7 @@ func NewTidalURLHandler(
 				if cause := context.Cause(ctx); errors.Is(cause, ErrJobCanceled) {
 					msg := "⏹️ Download was canceled."
 					if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-						return fmt.Errorf("failed to send message: %w", err)
+						return fmt.Errorf("send message: %w", err)
 					}
 
 					return nil
@@ -112,7 +112,7 @@ func NewTidalURLHandler(
 
 				msg := "♿️ Bot is shutting down. Download was not completed. Try again after bot restart."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
+					return fmt.Errorf("send message: %w", err)
 				}
 
 				return nil
@@ -121,7 +121,7 @@ func NewTidalURLHandler(
 			if errors.Is(err, tidal.ErrLoginRequired) {
 				msg := "🔑 Tidal login required. Use /authorize command to authorize the bot."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
+					return fmt.Errorf("send message: %w", err)
 				}
 
 				return nil
@@ -130,7 +130,7 @@ func NewTidalURLHandler(
 			if errors.Is(err, tidal.ErrTokenRefreshed) {
 				msg := "🔄 Tidal login token just got refreshed. Retry in a few seconds."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
+					return fmt.Errorf("send message: %w", err)
 				}
 
 				return nil
@@ -139,7 +139,7 @@ func NewTidalURLHandler(
 			if errors.Is(err, tidal.ErrUnsupportedArtistLinkKind) {
 				msg := "🈲 Artist links are not supported yet."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
+					return fmt.Errorf("send message: %w", err)
 				}
 
 				return nil
@@ -148,7 +148,7 @@ func NewTidalURLHandler(
 			if errors.Is(err, tidal.ErrUnsupportedVideoLinkKind) {
 				msg := "🈲 Video links are not supported yet."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
+					return fmt.Errorf("send message: %w", err)
 				}
 
 				return nil
@@ -156,7 +156,7 @@ func NewTidalURLHandler(
 
 			msg := "❌ Failed to download link. Insult logs for details."
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-				return fmt.Errorf("failed to send message: %w", err)
+				return fmt.Errorf("send message: %w", err)
 			}
 
 			logger.Error().Err(err).Msg("failed to download link")
@@ -166,14 +166,14 @@ func NewTidalURLHandler(
 
 		msg = "📤 Tidal link downloaded. Uploading to Telegram."
 		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-			return fmt.Errorf("failed to send message: %w", err)
+			return fmt.Errorf("send message: %w", err)
 		}
 
 		if err := up.Upload(ctx, logger, td.DownloadsDirFs, link); nil != err {
 			if errors.Is(err, context.DeadlineExceeded) {
 				msg := "⌛️ Upload request timed out. You might need to increase the timeout."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
+					return fmt.Errorf("send message: %w", err)
 				}
 
 				return nil
@@ -182,7 +182,7 @@ func NewTidalURLHandler(
 			if errors.Is(err, context.Canceled) {
 				msg := "♿️ Bot is shutting down. Upload was not completed. Try again after bot restart."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
+					return fmt.Errorf("send message: %w", err)
 				}
 
 				return nil
@@ -190,7 +190,7 @@ func NewTidalURLHandler(
 
 			msg := "❌ Failed to upload to Telegram. Insult logs for details."
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-				return fmt.Errorf("failed to send message: %w", err)
+				return fmt.Errorf("send message: %w", err)
 			}
 
 			logger.Error().Err(err).Msg("failed to upload to Telegram")
@@ -200,7 +200,7 @@ func NewTidalURLHandler(
 
 		msg = "✅ Tidal link was successfully uploaded."
 		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-			return fmt.Errorf("failed to send message: %w", err)
+			return fmt.Errorf("send message: %w", err)
 		}
 
 		return nil
@@ -220,14 +220,14 @@ func NewHelloCommandHandler(ctx context.Context, adminID int64) handlers.Respons
 
 		if senderID == adminID {
 			if _, err := b.SendMessage(chatID, "Hello, Papa! 👋🏻", sendOpt); nil != err {
-				return fmt.Errorf("failed to send message: %w", err)
+				return fmt.Errorf("send message: %w", err)
 			}
 
 			return nil
 		}
 
 		if _, err := b.SendMessage(chatID, "Hello! 👋🏻", sendOpt); nil != err {
-			return fmt.Errorf("failed to send message: %w", err)
+			return fmt.Errorf("send message: %w", err)
 		}
 
 		return nil
@@ -264,7 +264,7 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 		if !sem.TryAcquire(1) {
 			msg := "🈵 Another login flow is in progress. Try again later."
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-				return fmt.Errorf("failed to send message: %w", err)
+				return fmt.Errorf("send message: %w", err)
 			}
 
 			return nil
@@ -276,7 +276,7 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 			if errors.Is(err, context.DeadlineExceeded) {
 				msg := "⏳ Tidal login request timed out. You might need to increase the timeout."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
+					return fmt.Errorf("send message: %w", err)
 				}
 
 				return nil
@@ -285,7 +285,7 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 			if errors.Is(err, context.Canceled) {
 				msg := "♿️ Bot is shutting down. Login flow is not completed."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
+					return fmt.Errorf("send message: %w", err)
 				}
 
 				return nil
@@ -293,7 +293,7 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 
 			msg := "❌ Failed to initiate login flow. Necessary information is logged."
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-				return fmt.Errorf("failed to send message: %w", err)
+				return fmt.Errorf("send message: %w", err)
 			}
 
 			logger.Error().Err(err).Msg("failed to initiate login flow")
@@ -312,14 +312,14 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 			"\n",
 		)
 		if _, err = b.SendMessage(chatID, msg, sendOpt); nil != err {
-			return fmt.Errorf("failed to send message: %w", err)
+			return fmt.Errorf("send message: %w", err)
 		}
 
 		if err := <-wait; nil != err {
 			if errors.Is(err, tidal.ErrLoginLinkExpired) {
 				msg := "⏳ Login link expired. You might need to start the login flow again."
 				if _, err = b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
+					return fmt.Errorf("send message: %w", err)
 				}
 
 				return nil
@@ -328,7 +328,7 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 			if errors.Is(err, context.Canceled) {
 				msg := "♿️ Bot is shutting down. Login flow is not completed."
 				if _, err = b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("failed to send message: %w", err)
+					return fmt.Errorf("send message: %w", err)
 				}
 
 				return nil
@@ -336,7 +336,7 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 
 			msg := "❌ Login wait failed due to unexpected error. See logs for details."
 			if _, err = b.SendMessage(chatID, msg, sendOpt); nil != err {
-				return fmt.Errorf("failed to send message: %w", err)
+				return fmt.Errorf("send message: %w", err)
 			}
 
 			logger.Error().Err(err).Msg("failed to login wait")
@@ -346,7 +346,7 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 
 		msg = "✅ Login successful. You can now use the bot to download Tidal links."
 		if _, err = b.SendMessage(chatID, msg, sendOpt); nil != err {
-			return fmt.Errorf("failed to send message: %w", err)
+			return fmt.Errorf("send message: %w", err)
 		}
 
 		return nil

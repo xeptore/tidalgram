@@ -30,7 +30,7 @@ type Client struct {
 func NewClient(logger zerolog.Logger, credsDir, dlDir string, conf config.Tidal) (*Client, error) {
 	a, err := auth.New(logger, credsDir)
 	if nil != err {
-		return nil, fmt.Errorf("failed to create auth: %v", err)
+		return nil, fmt.Errorf("create auth: %v", err)
 	}
 
 	var (
@@ -76,7 +76,7 @@ func (c *Client) TryDownloadLink(ctx context.Context, logger zerolog.Logger, lin
 							return ErrLoginRequired
 						}
 
-						return fmt.Errorf("failed to refresh token: %w", err)
+						return fmt.Errorf("refresh token: %w", err)
 					}
 
 					return retry.RetryableError(ErrTokenRefreshed)
@@ -90,7 +90,7 @@ func (c *Client) TryDownloadLink(ctx context.Context, logger zerolog.Logger, lin
 					return ErrUnsupportedVideoLinkKind
 				}
 
-				return fmt.Errorf("failed to download link: %w", err)
+				return fmt.Errorf("download link: %w", err)
 			}
 
 			return nil
@@ -103,7 +103,7 @@ func (c *Client) TryDownloadLink(ctx context.Context, logger zerolog.Logger, lin
 		}
 
 		// Make all error kinds handled in the retry loop above available to the caller as we want to handle them.
-		return fmt.Errorf("failed to download link after retries: %w", err)
+		return fmt.Errorf("download link after retries: %w", err)
 	}
 
 	return nil
@@ -115,7 +115,7 @@ func (c *Client) TryInitiateLoginFlow(
 ) (*auth.LoginLink, <-chan error, error) {
 	link, wait, err := c.auth.InitiateLoginFlow(ctx, logger)
 	if nil != err {
-		return nil, nil, fmt.Errorf("failed to initiate login flow: %w", err)
+		return nil, nil, fmt.Errorf("initiate login flow: %w", err)
 	}
 
 	return link, wait, nil
@@ -185,7 +185,7 @@ func (c *Client) downloadLink(ctx context.Context, logger zerolog.Logger, link t
 	}
 
 	if err := c.dl.Download(ctx, logger, link); nil != err {
-		return fmt.Errorf("failed to download link: %w", err)
+		return fmt.Errorf("download link: %w", err)
 	}
 
 	return nil

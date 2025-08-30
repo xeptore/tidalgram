@@ -41,19 +41,19 @@ func (c *Config) setDefaults() {
 
 func (c *Config) validate() error {
 	if err := c.Bot.validate(); nil != err {
-		return fmt.Errorf("bot config validation failed: %v", err)
+		return fmt.Errorf("bot config validation: %v", err)
 	}
 
 	if err := c.Log.validate(); nil != err {
-		return fmt.Errorf("log config validation failed: %v", err)
+		return fmt.Errorf("log config validation: %v", err)
 	}
 
 	if err := c.Tidal.validate(); nil != err {
-		return fmt.Errorf("tidal config validation failed: %v", err)
+		return fmt.Errorf("tidal config validation: %v", err)
 	}
 
 	if err := c.Telegram.validate(); nil != err {
-		return fmt.Errorf("telegram config validation failed: %v", err)
+		return fmt.Errorf("telegram config validation: %v", err)
 	}
 
 	return nil
@@ -159,7 +159,7 @@ func (c *Bot) validate() error {
 			return errors.New("creds_dir does not exist")
 		}
 
-		return fmt.Errorf("failed to stat creds_dir: %v", err)
+		return fmt.Errorf("stat creds_dir: %v", err)
 	} else if !i.IsDir() {
 		return errors.New("creds_dir must be a directory")
 	}
@@ -169,13 +169,13 @@ func (c *Bot) validate() error {
 			return errors.New("downloads_dir does not exist")
 		}
 
-		return fmt.Errorf("failed to stat downloads_dir: %v", err)
+		return fmt.Errorf("stat downloads_dir: %v", err)
 	} else if !i.IsDir() {
 		return errors.New("downloads_dir must be a directory")
 	}
 
 	if err := c.Proxy.validate(); nil != err {
-		return fmt.Errorf("proxy config validation failed: %v", err)
+		return fmt.Errorf("proxy config validation: %v", err)
 	}
 
 	return nil
@@ -234,7 +234,7 @@ func (c *Tidal) setDefaults() {
 
 func (c *Tidal) validate() error {
 	if err := c.Downloader.validate(); nil != err {
-		return fmt.Errorf("downloader config validation failed: %v", err)
+		return fmt.Errorf("downloader config validation: %v", err)
 	}
 
 	return nil
@@ -256,7 +256,7 @@ func (c *TidalDownloader) setDefaults() {
 
 func (c *TidalDownloader) validate() error {
 	if err := c.Timeouts.validate(); nil != err {
-		return fmt.Errorf("timeouts config validation failed: %v", err)
+		return fmt.Errorf("timeouts config validation: %v", err)
 	}
 
 	return nil
@@ -420,15 +420,15 @@ func (c *Telegram) validate() error {
 	}
 
 	if err := c.Storage.validate(); nil != err {
-		return fmt.Errorf("storage config validation failed: %v", err)
+		return fmt.Errorf("storage config validation: %v", err)
 	}
 
 	if err := c.Proxy.validate(); nil != err {
-		return fmt.Errorf("proxy config validation failed: %v", err)
+		return fmt.Errorf("proxy config validation: %v", err)
 	}
 
 	if err := c.Upload.validate(); nil != err {
-		return fmt.Errorf("upload config validation failed: %v", err)
+		return fmt.Errorf("upload config validation: %v", err)
 	}
 
 	return nil
@@ -507,12 +507,12 @@ type Duration struct {
 func (d *Duration) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	if err := unmarshal(&s); nil != err {
-		return fmt.Errorf("failed to parse duration: %v", err)
+		return fmt.Errorf("parse duration: %v", err)
 	}
 
 	parsed, err := time.ParseDuration(s)
 	if nil != err {
-		return fmt.Errorf("failed to parse duration: %v", err)
+		return fmt.Errorf("parse duration: %v", err)
 	}
 
 	d.Duration = parsed
@@ -578,7 +578,7 @@ func (c *TelegramUpload) validate() error {
 	}
 
 	if err := c.Peer.validate(); nil != err {
-		return fmt.Errorf("peer config validation failed: %v", err)
+		return fmt.Errorf("peer config validation: %v", err)
 	}
 
 	return nil
@@ -604,7 +604,7 @@ func (c *TelegramUploadPeer) UnmarshalYAML(unmarshal func(any) error) error {
 		Kind string `yaml:"kind"`
 	}
 	if err := unmarshal(&v); nil != err {
-		return fmt.Errorf("failed to parse peer: %v", err)
+		return fmt.Errorf("parse peer: %v", err)
 	}
 
 	if v.ID == 0 {
@@ -650,21 +650,21 @@ func (c *TelegramUploadPeer) validate() error {
 func Load(filename string) (*Config, error) {
 	data, err := os.ReadFile(lo.Ternary(len(filename) > 0, filename, "config.yaml"))
 	if nil != err {
-		return nil, fmt.Errorf("failed to read config file %s: %v", filename, err)
+		return nil, fmt.Errorf("read config file %s: %v", filename, err)
 	}
 
 	var conf Config
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&conf); nil != err {
-		return nil, fmt.Errorf("failed to parse config file %s: %v", filename, err)
+		return nil, fmt.Errorf("parse config file %s: %v", filename, err)
 	}
 
 	conf.Bot.Token = os.Getenv("BOT_TOKEN")
 	conf.setDefaults()
 
 	if err := conf.validate(); nil != err {
-		return nil, fmt.Errorf("configuration validation failed: %v", err)
+		return nil, fmt.Errorf("configuration validation: %v", err)
 	}
 
 	return &conf, nil

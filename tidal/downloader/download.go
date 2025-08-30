@@ -126,7 +126,7 @@ func (d *Downloader) getPagedItems(
 	reqURL, err := url.Parse(itemsURL)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to parse page items URL")
-		return nil, fmt.Errorf("failed to parse page items URL: %v", err)
+		return nil, fmt.Errorf("parse page items URL: %v", err)
 	}
 
 	reqURL.RawQuery = reqParams.Encode()
@@ -134,7 +134,7 @@ func (d *Downloader) getPagedItems(
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create get page items request")
-		return nil, fmt.Errorf("failed to create get page items request: %w", err)
+		return nil, fmt.Errorf("create get page items request: %w", err)
 	}
 
 	req.Header.Add("Authorization", "Bearer "+accessToken)
@@ -146,12 +146,12 @@ func (d *Downloader) getPagedItems(
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send get paged tracks request")
-		return nil, fmt.Errorf("failed to send get paged tracks request: %w", err)
+		return nil, fmt.Errorf("send get paged tracks request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
 			logger.Error().Err(closeErr).Msg("Failed to close get page items response body")
-			err = errors.Join(err, fmt.Errorf("failed to close get page items response body: %v", closeErr))
+			err = errors.Join(err, fmt.Errorf("close get page items response body: %v", closeErr))
 		}
 	}()
 
@@ -161,19 +161,19 @@ func (d *Downloader) getPagedItems(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 401 response body")
-			return nil, fmt.Errorf("failed to read 401 response body: %w", err)
+			return nil, fmt.Errorf("read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token expired")
-			return nil, fmt.Errorf("failed to check if 401 response is token expired: %v", err)
+			return nil, fmt.Errorf("check if 401 response is token expired: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
 
 		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token invalid")
-			return nil, fmt.Errorf("failed to check if 401 response is token invalid: %v", err)
+			return nil, fmt.Errorf("check if 401 response is token invalid: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
@@ -187,12 +187,12 @@ func (d *Downloader) getPagedItems(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 403 response body")
-			return nil, fmt.Errorf("failed to read 403 response body: %w", err)
+			return nil, fmt.Errorf("read 403 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 403 response is too many requests")
-			return nil, fmt.Errorf("failed to check if 403 response is too many requests: %v", err)
+			return nil, fmt.Errorf("check if 403 response is too many requests: %v", err)
 		} else if ok {
 			return nil, ErrTooManyRequests
 		}
@@ -204,7 +204,7 @@ func (d *Downloader) getPagedItems(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Int("status_code", code).Msg("Failed to read unexpected response body")
-			return nil, fmt.Errorf("failed to read unexpected response body: %w", err)
+			return nil, fmt.Errorf("read unexpected response body: %w", err)
 		}
 
 		logger.Error().Int("status_code", code).Bytes("response_body", respBytes).Msg("Unexpected response status code")
@@ -215,7 +215,7 @@ func (d *Downloader) getPagedItems(
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to read paged items response body")
-		return nil, fmt.Errorf("failed to read paged items response body: %w", err)
+		return nil, fmt.Errorf("read paged items response body: %w", err)
 	}
 
 	return respBytes, nil

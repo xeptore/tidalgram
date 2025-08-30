@@ -33,17 +33,17 @@ func Login(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (er
 
 	storage, err := NewStorage(conf.Storage.Path)
 	if nil != err {
-		return fmt.Errorf("failed to create storage: %v", err)
+		return fmt.Errorf("create storage: %v", err)
 	}
 	defer func() {
 		if closeErr := storage.Close(); nil != closeErr {
-			err = errors.Join(err, fmt.Errorf("failed to close storage: %v", closeErr))
+			err = errors.Join(err, fmt.Errorf("close storage: %v", closeErr))
 		}
 	}()
 
 	opts, err := newClientOptions(ctx, logger, storage, conf)
 	if nil != err {
-		return fmt.Errorf("failed to get client options: %v", err)
+		return fmt.Errorf("get client options: %w", err)
 	}
 
 	opts.Middlewares = []telegram.Middleware{
@@ -61,7 +61,7 @@ func Login(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (er
 			func(ctx context.Context, token qrlogin.Token) error {
 				qr, err := qrcode.New(token.URL(), qrcode.Highest)
 				if nil != err {
-					return fmt.Errorf("failed to create qr code: %v", err)
+					return fmt.Errorf("create qr code: %v", err)
 				}
 
 				const noInverseColor = false
@@ -87,7 +87,7 @@ func Login(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (er
 		if nil != err {
 			// https://core.telegram.org/api/auth#2fa
 			if !tgerr.Is(err, "SESSION_PASSWORD_NEEDED") {
-				return fmt.Errorf("unknown error from QR code login: %v", err)
+				return fmt.Errorf("unknown error from QR code login: %w", err)
 			}
 
 			var pwd string
@@ -101,17 +101,17 @@ func Login(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (er
 				survey.WithShowCursor(true),
 			}
 			if err = survey.AskOne(prompt, &pwd, askOpts...); nil != err {
-				return fmt.Errorf("failed to ask for 2fa password: %v", err)
+				return fmt.Errorf("ask for 2fa password: %v", err)
 			}
 
 			if _, err = client.Auth().Password(ctx, pwd); nil != err {
-				return fmt.Errorf("failed to finalize login with 2fa password: %v", err)
+				return fmt.Errorf("finalize login with 2fa password: %v", err)
 			}
 		}
 
 		user, err := client.Self(ctx)
 		if nil != err {
-			return fmt.Errorf("failed to get logged in user: %v", err)
+			return fmt.Errorf("get logged in user: %w", err)
 		}
 
 		fmt.Fprint(stdout, text.EraseLine.Sprint())
@@ -129,7 +129,7 @@ func Login(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (er
 		return nil
 	})
 	if nil != err {
-		return fmt.Errorf("failed to login: %v", err)
+		return fmt.Errorf("login: %w", err)
 	}
 
 	return nil
@@ -138,17 +138,17 @@ func Login(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (er
 func Logout(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (err error) {
 	storage, err := NewStorage(conf.Storage.Path)
 	if nil != err {
-		return fmt.Errorf("failed to create storage: %v", err)
+		return fmt.Errorf("create storage: %v", err)
 	}
 	defer func() {
 		if closeErr := storage.Close(); nil != closeErr {
-			err = errors.Join(err, fmt.Errorf("failed to close storage: %v", closeErr))
+			err = errors.Join(err, fmt.Errorf("close storage: %v", closeErr))
 		}
 	}()
 
 	opts, err := newClientOptions(ctx, logger, storage, conf)
 	if nil != err {
-		return fmt.Errorf("failed to get client options: %v", err)
+		return fmt.Errorf("get client options: %w", err)
 	}
 
 	opts.Middlewares = []telegram.Middleware{
@@ -160,24 +160,24 @@ func Logout(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (e
 	err = client.Run(ctx, func(ctx context.Context) error {
 		status, err := client.Auth().Status(ctx)
 		if nil != err {
-			return fmt.Errorf("failed to get auth status: %v", err)
+			return fmt.Errorf("get auth status: %w", err)
 		}
 		if !status.Authorized {
 			return nil
 		}
 
 		if _, err := client.API().AuthLogOut(ctx); nil != err {
-			return fmt.Errorf("failed to logout: %v", err)
+			return fmt.Errorf("logout: %w", err)
 		}
 
 		if err := storage.DeleteSession(ctx); nil != err {
-			return fmt.Errorf("failed to delete session: %v", err)
+			return fmt.Errorf("delete session: %w", err)
 		}
 
 		return nil
 	})
 	if nil != err {
-		return fmt.Errorf("failed to logout: %v", err)
+		return fmt.Errorf("logout: %w", err)
 	}
 
 	return nil

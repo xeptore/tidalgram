@@ -76,7 +76,7 @@ func (c *DownloadedCoversCache) Fetch(
 
 	v, err := c.c.Fetch(k, ttl, fetch)
 	if nil != err {
-		return nil, fmt.Errorf("failed to fetch cover: %w", err)
+		return nil, fmt.Errorf("fetch cover: %w", err)
 	}
 
 	return v, nil
@@ -97,7 +97,7 @@ func (c *AlbumsMetaCache) Fetch(
 
 	v, err := c.c.Fetch(k, ttl, fetch)
 	if nil != err {
-		return nil, fmt.Errorf("failed to fetch album meta: %w", err)
+		return nil, fmt.Errorf("fetch album meta: %w", err)
 	}
 
 	return v, nil
@@ -118,7 +118,7 @@ func (c *TrackCreditsCache) Fetch(
 
 	v, err := c.c.Fetch(k, ttl, fetch)
 	if nil != err {
-		return nil, fmt.Errorf("failed to fetch track credits: %w", err)
+		return nil, fmt.Errorf("fetch track credits: %w", err)
 	}
 
 	return v, nil

@@ -77,7 +77,7 @@ func New(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*Bot, err
 		},
 	})
 	if nil != err {
-		return nil, fmt.Errorf("failed to create bot: %v", err)
+		return nil, fmt.Errorf("create bot: %v", err)
 	}
 
 	dispatcher := ext.NewDispatcher(&ext.DispatcherOpts{ //nolint:exhaustruct
@@ -132,7 +132,7 @@ func (b *Bot) Start(ctx context.Context) error {
 		EnableWebhookDeletion: true,
 	}
 	if err := b.updater.StartPolling(b.bot, &pollOpts); nil != err {
-		return fmt.Errorf("failed to start polling: %v", err)
+		return fmt.Errorf("start polling: %v", err)
 	}
 
 	sendOpts := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
@@ -146,13 +146,13 @@ func (b *Bot) Start(ctx context.Context) error {
 		"> 🏷️ Version: `" + constant.Version + "`",
 		"> 🕒 Compiled At: `" + compiledAt.Format("2006/01/02 15:04:05") + " UTC`",
 	}, "\n")
-	if _, err := b.bot.SendMessage(b.papaChatID, msg, sendOpts); nil != err {
-		return fmt.Errorf("failed to send message: %w", err)
+	if _, err := b.bot.SendMessageWithContext(ctx, b.papaChatID, msg, sendOpts); nil != err {
+		return fmt.Errorf("send message: %w", err)
 	}
 
 	if _, err := b.bot.DeleteMyCommandsWithContext(ctx, nil); nil != err {
-		b.logger.Error().Err(err).Msg("Failed to delete bot commands")
-		return fmt.Errorf("failed to delete bot commands: %w", err)
+		b.logger.Error().Err(err).Msg("delete bot commands")
+		return fmt.Errorf("delete bot commands: %w", err)
 	}
 
 	commands := []gotgbot.BotCommand{
@@ -174,8 +174,8 @@ func (b *Bot) Start(ctx context.Context) error {
 		},
 	}
 	if _, err := b.bot.SetMyCommandsWithContext(ctx, commands, nil); nil != err {
-		b.logger.Error().Err(err).Msg("Failed to set bot commands")
-		return fmt.Errorf("failed to set bot commands: %w", err)
+		b.logger.Error().Err(err).Msg("set bot commands")
+		return fmt.Errorf("set bot commands: %w", err)
 	}
 
 	return nil
@@ -183,14 +183,14 @@ func (b *Bot) Start(ctx context.Context) error {
 
 func (b *Bot) Stop() error {
 	if err := b.updater.Stop(); nil != err {
-		return fmt.Errorf("failed to bot stop updater: %v", err)
+		return fmt.Errorf("bot stop updater: %v", err)
 	}
 
 	sendOpts := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
 		ParseMode: gotgbot.ParseModeMarkdown,
 	}
 	if _, err := b.bot.SendMessage(b.papaChatID, "I'm going offline, Papa 💤", sendOpts); nil != err {
-		return fmt.Errorf("failed to send message: %w", err)
+		return fmt.Errorf("send message: %v", err)
 	}
 
 	return nil
@@ -214,7 +214,7 @@ func NewAPI(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*APIBo
 		},
 	})
 	if nil != err {
-		return nil, fmt.Errorf("failed to create bot: %v", err)
+		return nil, fmt.Errorf("create bot: %v", err)
 	}
 
 	return &APIBot{
@@ -230,7 +230,7 @@ func NewAPI(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*APIBo
 // but will not be able to log in back to the cloud Bot API server for 10 minutes.
 func (b *APIBot) Logout(ctx context.Context) error {
 	if _, err := b.bot.LogOutWithContext(ctx, nil); nil != err {
-		return fmt.Errorf("failed to log out: %w", err)
+		return fmt.Errorf("log out: %w", err)
 	}
 
 	return nil
@@ -240,11 +240,11 @@ func (b *APIBot) Logout(ctx context.Context) error {
 // The method will return error 429 in the first 10 minutes after the bot is launched.
 func (b *APIBot) Close(ctx context.Context) error {
 	if _, err := b.bot.DeleteWebhookWithContext(ctx, nil); nil != err {
-		return fmt.Errorf("failed to delete webhook: %w", err)
+		return fmt.Errorf("delete webhook: %w", err)
 	}
 
 	if _, err := b.bot.CloseWithContext(ctx, nil); nil != err {
-		return fmt.Errorf("failed to close bot: %w", err)
+		return fmt.Errorf("close bot: %w", err)
 	}
 
 	return nil

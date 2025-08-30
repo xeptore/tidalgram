@@ -27,11 +27,11 @@ func NewStorage(path string) (*Storage, error) {
 	}
 	db, err := bbolt.Open(path, 0o600, opts)
 	if nil != err {
-		return nil, fmt.Errorf("failed to open database: %v", err)
+		return nil, fmt.Errorf("open database: %v", err)
 	}
 
 	if err := createBuckets(db); nil != err {
-		return nil, fmt.Errorf("failed to create buckets: %v", err)
+		return nil, fmt.Errorf("create buckets: %v", err)
 	}
 
 	return &Storage{db: db}, nil
@@ -41,13 +41,13 @@ func createBuckets(db *bbolt.DB) error {
 	err := db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(sessionBucketName)
 		if nil != err {
-			return fmt.Errorf("failed to create session bucket: %v", err)
+			return fmt.Errorf("create session bucket: %v", err)
 		}
 
 		return nil
 	})
 	if nil != err {
-		return fmt.Errorf("failed to create buckets: %v", err)
+		return fmt.Errorf("create buckets: %v", err)
 	}
 
 	return nil
@@ -55,7 +55,7 @@ func createBuckets(db *bbolt.DB) error {
 
 func (s *Storage) Close() error {
 	if err := s.db.Close(); nil != err {
-		return fmt.Errorf("failed to close database: %v", err)
+		return fmt.Errorf("close database: %v", err)
 	}
 
 	return nil
@@ -68,7 +68,7 @@ func (s *Storage) LoadSession(_ context.Context) ([]byte, error) {
 		return nil
 	})
 	if nil != err {
-		return nil, fmt.Errorf("failed to load session: %v", err)
+		return nil, fmt.Errorf("load session: %v", err)
 	}
 
 	return session, nil
@@ -77,13 +77,13 @@ func (s *Storage) LoadSession(_ context.Context) ([]byte, error) {
 func (s *Storage) StoreSession(_ context.Context, session []byte) error {
 	err := s.db.Update(func(tx *bbolt.Tx) error {
 		if err := tx.Bucket(sessionBucketName).Put(sessionKeyName, session); nil != err {
-			return fmt.Errorf("failed to store session: %v", err)
+			return fmt.Errorf("store session: %v", err)
 		}
 
 		return nil
 	})
 	if nil != err {
-		return fmt.Errorf("failed to store session: %v", err)
+		return fmt.Errorf("store session: %v", err)
 	}
 
 	return nil
@@ -92,13 +92,13 @@ func (s *Storage) StoreSession(_ context.Context, session []byte) error {
 func (s *Storage) DeleteSession(_ context.Context) error {
 	err := s.db.Update(func(tx *bbolt.Tx) error {
 		if err := tx.Bucket(sessionBucketName).Delete(sessionKeyName); nil != err {
-			return fmt.Errorf("failed to delete session: %v", err)
+			return fmt.Errorf("delete session: %v", err)
 		}
 
 		return nil
 	})
 	if nil != err {
-		return fmt.Errorf("failed to delete session: %v", err)
+		return fmt.Errorf("delete session: %v", err)
 	}
 
 	return nil

@@ -16,7 +16,7 @@ func IsTokenExpiredResponse(b []byte) (bool, error) {
 		UserMessage string `json:"userMessage"`
 	}
 	if err := json.Unmarshal(b, &body); nil != err {
-		return false, fmt.Errorf("failed to decode response body: %v", err)
+		return false, fmt.Errorf("decode response body: %v", err)
 	}
 
 	return body.Status == 401 &&
@@ -31,7 +31,7 @@ func IsTokenInvalidResponse(b []byte) (bool, error) {
 		UserMessage string `json:"userMessage"`
 	}
 	if err := json.Unmarshal(b, &body); nil != err {
-		return false, fmt.Errorf("failed to decode response body: %v", err)
+		return false, fmt.Errorf("decode response body: %v", err)
 	}
 
 	return body.Status == 401 &&
@@ -55,7 +55,7 @@ func IsTooManyErrorResponse(resp *http.Response, respBody []byte) (bool, error) 
 		HostID    string   `xml:"HostId"`
 	}
 	if err := xml.Unmarshal(respBody, &responseBody); nil != err {
-		return false, fmt.Errorf("failed to unmarshal response body: %v", err)
+		return false, fmt.Errorf("unmarshal response body: %v", err)
 	}
 
 	return responseBody.Code == "AccessDenied" && responseBody.Message == "Access Denied", nil

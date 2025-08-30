@@ -29,7 +29,7 @@ func (d *Downloader) getCover(
 		func() ([]byte, error) { return d.downloadCover(ctx, logger, accessToken, coverID) },
 	)
 	if nil != err {
-		return nil, fmt.Errorf("failed to download cover: %w", err)
+		return nil, fmt.Errorf("download cover: %w", err)
 	}
 
 	return cachedCover.Value(), nil
@@ -46,13 +46,13 @@ func (d *Downloader) downloadCover(
 	)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to join cover base URL with cover filepath")
-		return nil, fmt.Errorf("failed to join cover base URL with cover filepath: %v", err)
+		return nil, fmt.Errorf("join cover base URL with cover filepath: %v", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, coverURL, nil)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create get cover request")
-		return nil, fmt.Errorf("failed to create get cover request: %w", err)
+		return nil, fmt.Errorf("create get cover request: %w", err)
 	}
 
 	req.Header.Add("Authorization", "Bearer "+accessToken)
@@ -63,12 +63,12 @@ func (d *Downloader) downloadCover(
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send download cover request")
-		return nil, fmt.Errorf("failed to send download cover request: %w", err)
+		return nil, fmt.Errorf("send download cover request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
 			logger.Error().Err(closeErr).Msg("Failed to close get track cover response body")
-			err = errors.Join(err, fmt.Errorf("failed to close get track cover response body: %v", closeErr))
+			err = errors.Join(err, fmt.Errorf("close get track cover response body: %v", closeErr))
 		}
 	}()
 
@@ -78,19 +78,19 @@ func (d *Downloader) downloadCover(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 401 response body")
-			return nil, fmt.Errorf("failed to read 401 response body: %w", err)
+			return nil, fmt.Errorf("read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token expired")
-			return nil, fmt.Errorf("failed to check if 401 response is token expired: %v", err)
+			return nil, fmt.Errorf("check if 401 response is token expired: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
 
 		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token invalid")
-			return nil, fmt.Errorf("failed to check if 401 response is token invalid: %v", err)
+			return nil, fmt.Errorf("check if 401 response is token invalid: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
@@ -104,12 +104,12 @@ func (d *Downloader) downloadCover(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 403 response body")
-			return nil, fmt.Errorf("failed to read 403 response body: %w", err)
+			return nil, fmt.Errorf("read 403 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 403 response is too many requests")
-			return nil, fmt.Errorf("failed to check if 403 response is too many requests: %v", err)
+			return nil, fmt.Errorf("check if 403 response is too many requests: %v", err)
 		} else if ok {
 			return nil, ErrTooManyRequests
 		}
@@ -121,7 +121,7 @@ func (d *Downloader) downloadCover(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Int("status_code", code).Msg("Failed to read response body")
-			return nil, fmt.Errorf("failed to read response body: %w", err)
+			return nil, fmt.Errorf("read response body: %w", err)
 		}
 
 		logger.Error().Int("status_code", code).Bytes("response_body", respBytes).Msg("Unexpected response status code")
@@ -132,7 +132,7 @@ func (d *Downloader) downloadCover(
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to read response body")
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("read response body: %w", err)
 	}
 
 	return respBytes, nil

@@ -46,27 +46,27 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 	accessToken := d.auth.Credentials().Token
 	track, err := getTrackMeta(ctx, logger, accessToken, id)
 	if nil != err {
-		return fmt.Errorf("failed to get track meta: %w", err)
+		return fmt.Errorf("get track meta: %w", err)
 	}
 
 	trackFs := d.dir.Track(id)
 	if exists, err := trackFs.Cover.Exists(); nil != err {
 		logger.Error().Err(err).Msg("Failed to check if track cover exists")
-		return fmt.Errorf("failed to check if track cover exists: %v", err)
+		return fmt.Errorf("check if track cover exists: %v", err)
 	} else if !exists {
 		coverBytes, err := d.getCover(ctx, logger, accessToken, track.CoverID)
 		if nil != err {
-			return fmt.Errorf("failed to get track cover: %w", err)
+			return fmt.Errorf("get track cover: %w", err)
 		}
 		if err := trackFs.Cover.Write(coverBytes); nil != err {
 			logger.Error().Err(err).Msg("Failed to write track cover")
-			return fmt.Errorf("failed to write track cover: %v", err)
+			return fmt.Errorf("write track cover: %v", err)
 		}
 	}
 
 	if exists, err := trackFs.Exists(); nil != err {
 		logger.Error().Err(err).Msg("Failed to check if track exists")
-		return fmt.Errorf("failed to check if track exists: %v", err)
+		return fmt.Errorf("check if track exists: %v", err)
 	} else if exists {
 		return nil
 	}
@@ -75,7 +75,7 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 			if removeErr := trackFs.Remove(); nil != removeErr {
 				if !errors.Is(removeErr, os.ErrNotExist) {
 					logger.Error().Err(removeErr).Msg("Failed to remove track file")
-					err = errors.Join(err, fmt.Errorf("failed to remove track file: %v", removeErr))
+					err = errors.Join(err, fmt.Errorf("remove track file: %v", removeErr))
 				}
 			}
 		}
@@ -83,22 +83,22 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 
 	ext, err := d.downloadTrack(ctx, logger, accessToken, id, trackFs.Path)
 	if nil != err {
-		return fmt.Errorf("failed to download track: %w", err)
+		return fmt.Errorf("download track: %w", err)
 	}
 
 	trackCredits, err := d.getTrackCredits(ctx, logger, accessToken, id)
 	if nil != err {
-		return fmt.Errorf("failed to get track credits: %w", err)
+		return fmt.Errorf("get track credits: %w", err)
 	}
 
 	trackLyrics, err := d.downloadTrackLyrics(ctx, logger, accessToken, id)
 	if nil != err {
-		return fmt.Errorf("failed to download track lyrics: %w", err)
+		return fmt.Errorf("download track lyrics: %w", err)
 	}
 
 	album, err := d.getAlbumMeta(ctx, logger, accessToken, track.AlbumID)
 	if nil != err {
-		return fmt.Errorf("failed to get album meta: %w", err)
+		return fmt.Errorf("get album meta: %w", err)
 	}
 
 	attrs := TrackEmbeddedAttrs{
@@ -121,7 +121,7 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 		Ext:          ext,
 	}
 	if err := embedTrackAttributes(ctx, logger, trackFs.Path, attrs); nil != err {
-		return fmt.Errorf("failed to embed track attributes: %v", err)
+		return fmt.Errorf("embed track attributes: %v", err)
 	}
 
 	info := types.StoredTrack{
@@ -137,7 +137,7 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 	}
 	if err := trackFs.InfoFile.Write(info); nil != err {
 		logger.Error().Err(err).Msg("Failed to write track info file")
-		return fmt.Errorf("failed to write track info: %v", err)
+		return fmt.Errorf("write track info: %v", err)
 	}
 
 	return nil
@@ -155,7 +155,7 @@ func getTrackMeta(ctx context.Context, logger zerolog.Logger, accessToken, id st
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create get track info request")
-		return nil, fmt.Errorf("failed to create get track info request: %w", err)
+		return nil, fmt.Errorf("create get track info request: %w", err)
 	}
 
 	req.Header.Add("Accept", "application/json")
@@ -165,12 +165,12 @@ func getTrackMeta(ctx context.Context, logger zerolog.Logger, accessToken, id st
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send get track info request")
-		return nil, fmt.Errorf("failed to send get track info request: %w", err)
+		return nil, fmt.Errorf("send get track info request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
 			logger.Error().Err(closeErr).Msg("Failed to close get track info response body")
-			err = fmt.Errorf("failed to close get track info response body: %v", closeErr)
+			err = fmt.Errorf("close get track info response body: %v", closeErr)
 		}
 	}()
 
@@ -180,19 +180,19 @@ func getTrackMeta(ctx context.Context, logger zerolog.Logger, accessToken, id st
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 401 response body")
-			return nil, fmt.Errorf("failed to read 401 response body: %w", err)
+			return nil, fmt.Errorf("read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token expired")
-			return nil, fmt.Errorf("failed to check if 401 response is token expired: %v", err)
+			return nil, fmt.Errorf("check if 401 response is token expired: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
 
 		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token invalid")
-			return nil, fmt.Errorf("failed to check if 401 response is token invalid: %v", err)
+			return nil, fmt.Errorf("check if 401 response is token invalid: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
@@ -206,12 +206,12 @@ func getTrackMeta(ctx context.Context, logger zerolog.Logger, accessToken, id st
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 403 response body")
-			return nil, fmt.Errorf("failed to read 403 response body: %w", err)
+			return nil, fmt.Errorf("read 403 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 403 response is too many requests")
-			return nil, fmt.Errorf("failed to check if 403 response is too many requests: %v", err)
+			return nil, fmt.Errorf("check if 403 response is too many requests: %v", err)
 		} else if ok {
 			return nil, ErrTooManyRequests
 		}
@@ -223,7 +223,7 @@ func getTrackMeta(ctx context.Context, logger zerolog.Logger, accessToken, id st
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Int("status_code", code).Msg("Failed to read response body")
-			return nil, fmt.Errorf("failed to read response body: %w", err)
+			return nil, fmt.Errorf("read response body: %w", err)
 		}
 
 		logger.Error().Int("status_code", code).Bytes("response_body", respBytes).Msg("Unexpected response status code")
@@ -234,7 +234,7 @@ func getTrackMeta(ctx context.Context, logger zerolog.Logger, accessToken, id st
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to read 200 response body")
-		return nil, fmt.Errorf("failed to read 200 response body: %w", err)
+		return nil, fmt.Errorf("read 200 response body: %w", err)
 	}
 
 	var respBody struct {
@@ -260,7 +260,7 @@ func getTrackMeta(ctx context.Context, logger zerolog.Logger, accessToken, id st
 	}
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
 		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode track info 200 response body")
-		return nil, fmt.Errorf("failed to decode track info 200 response body: %w", err)
+		return nil, fmt.Errorf("decode track info 200 response body: %w", err)
 	}
 
 	artists := make([]types.TrackArtist, len(respBody.Artists))
@@ -308,13 +308,13 @@ func (d *Downloader) downloadTrack(
 
 	stream, ext, err := d.getStream(ctx, logger, accessToken, id)
 	if nil != err {
-		return "", fmt.Errorf("failed to get track stream: %w", err)
+		return "", fmt.Errorf("get track stream: %w", err)
 	}
 
 	time.Sleep(ratelimit.TrackDownloadSleepMS())
 
 	if err := stream.saveTo(ctx, logger, accessToken, fileName); nil != err {
-		return "", fmt.Errorf("failed to download track: %w", err)
+		return "", fmt.Errorf("download track: %w", err)
 	}
 
 	return ext, nil
@@ -336,7 +336,7 @@ func (d *Downloader) getTrackCredits(
 		func() (*types.TrackCredits, error) { return d.downloadTrackCredits(ctx, logger, accessToken, id) },
 	)
 	if nil != err {
-		return nil, fmt.Errorf("failed to get track credits: %w", err)
+		return nil, fmt.Errorf("get track credits: %w", err)
 	}
 
 	return cachedTrackCredits.Value(), nil
@@ -352,7 +352,7 @@ func (d *Downloader) downloadTrackCredits(
 	reqURL, err := url.Parse(trackCreditsURL)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to parse track credits URL")
-		return nil, fmt.Errorf("failed to parse track credits URL %s: %v", trackCreditsURL, err)
+		return nil, fmt.Errorf("parse track credits URL %s: %v", trackCreditsURL, err)
 	}
 
 	reqParams := make(url.Values, 2)
@@ -363,7 +363,7 @@ func (d *Downloader) downloadTrackCredits(
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create get track credits request")
-		return nil, fmt.Errorf("failed to create get track credits request %s: %w", reqURL.String(), err)
+		return nil, fmt.Errorf("create get track credits request %s: %w", reqURL.String(), err)
 	}
 
 	req.Header.Add("Accept", "application/json")
@@ -375,12 +375,12 @@ func (d *Downloader) downloadTrackCredits(
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send get track credits request")
-		return nil, fmt.Errorf("failed to send get track credits request: %w", err)
+		return nil, fmt.Errorf("send get track credits request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
 			logger.Error().Err(closeErr).Msg("Failed to close get track credits response body")
-			err = errors.Join(err, fmt.Errorf("failed to close get track credits response body: %v", closeErr))
+			err = errors.Join(err, fmt.Errorf("close get track credits response body: %v", closeErr))
 		}
 	}()
 
@@ -390,19 +390,19 @@ func (d *Downloader) downloadTrackCredits(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 401 response body")
-			return nil, fmt.Errorf("failed to read 401 response body: %w", err)
+			return nil, fmt.Errorf("read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token expired")
-			return nil, fmt.Errorf("failed to check if 401 response is token expired: %v", err)
+			return nil, fmt.Errorf("check if 401 response is token expired: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
 
 		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token invalid")
-			return nil, fmt.Errorf("failed to check if 401 response is token invalid: %v", err)
+			return nil, fmt.Errorf("check if 401 response is token invalid: %v", err)
 		} else if ok {
 			return nil, auth.ErrUnauthorized
 		}
@@ -416,12 +416,12 @@ func (d *Downloader) downloadTrackCredits(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 403 response body")
-			return nil, fmt.Errorf("failed to read 403 response body: %w", err)
+			return nil, fmt.Errorf("read 403 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 403 response is too many requests")
-			return nil, fmt.Errorf("failed to check if 403 response is too many requests: %v", err)
+			return nil, fmt.Errorf("check if 403 response is too many requests: %v", err)
 		} else if ok {
 			return nil, ErrTooManyRequests
 		}
@@ -433,7 +433,7 @@ func (d *Downloader) downloadTrackCredits(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Int("status_code", code).Msg("Failed to read response body")
-			return nil, fmt.Errorf("failed to read response body: %w", err)
+			return nil, fmt.Errorf("read response body: %w", err)
 		}
 
 		logger.Error().Int("status_code", code).Bytes("response_body", respBytes).Msg("Unexpected response status code")
@@ -444,13 +444,13 @@ func (d *Downloader) downloadTrackCredits(
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to read 200 response body")
-		return nil, fmt.Errorf("failed to read 200 response body: %w", err)
+		return nil, fmt.Errorf("read 200 response body: %w", err)
 	}
 
 	var respBody TrackCreditsResponse
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
 		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode track credits 200 response body")
-		return nil, fmt.Errorf("failed to decode track credits 200 response body: %w", err)
+		return nil, fmt.Errorf("decode track credits 200 response body: %w", err)
 	}
 
 	return ptr.Of(respBody.toTrackCredits()), nil
@@ -466,7 +466,7 @@ func (d *Downloader) downloadTrackLyrics(
 	reqURL, err := url.Parse(trackLyricsURL)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to parse track lyrics URL")
-		return "", fmt.Errorf("failed to parse track lyrics URL %s: %v", trackLyricsURL, err)
+		return "", fmt.Errorf("parse track lyrics URL %s: %v", trackLyricsURL, err)
 	}
 
 	reqParams := make(url.Values, 2)
@@ -477,7 +477,7 @@ func (d *Downloader) downloadTrackLyrics(
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create get track lyrics request")
-		return "", fmt.Errorf("failed to create get track lyrics request %s: %w", reqURL.String(), err)
+		return "", fmt.Errorf("create get track lyrics request %s: %w", reqURL.String(), err)
 	}
 
 	req.Header.Add("Accept", "application/json")
@@ -489,12 +489,12 @@ func (d *Downloader) downloadTrackLyrics(
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send get track lyrics request")
-		return "", fmt.Errorf("failed to send get track lyrics request: %w", err)
+		return "", fmt.Errorf("send get track lyrics request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
 			logger.Error().Err(closeErr).Msg("Failed to close get track lyrics response body")
-			err = errors.Join(err, fmt.Errorf("failed to close get track lyrics response body: %v", closeErr))
+			err = errors.Join(err, fmt.Errorf("close get track lyrics response body: %v", closeErr))
 		}
 	}()
 
@@ -506,19 +506,19 @@ func (d *Downloader) downloadTrackLyrics(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 401 response body")
-			return "", fmt.Errorf("failed to read 401 response body: %w", err)
+			return "", fmt.Errorf("read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token expired")
-			return "", fmt.Errorf("failed to check if 401 response is token expired: %v", err)
+			return "", fmt.Errorf("check if 401 response is token expired: %v", err)
 		} else if ok {
 			return "", auth.ErrUnauthorized
 		}
 
 		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token invalid")
-			return "", fmt.Errorf("failed to check if 401 response is token invalid: %v", err)
+			return "", fmt.Errorf("check if 401 response is token invalid: %v", err)
 		} else if ok {
 			return "", auth.ErrUnauthorized
 		}
@@ -532,12 +532,12 @@ func (d *Downloader) downloadTrackLyrics(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 403 response body")
-			return "", fmt.Errorf("failed to read 403 response body: %w", err)
+			return "", fmt.Errorf("read 403 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 403 response is too many requests")
-			return "", fmt.Errorf("failed to check if 403 response is too many requests: %v", err)
+			return "", fmt.Errorf("check if 403 response is too many requests: %v", err)
 		} else if ok {
 			return "", ErrTooManyRequests
 		}
@@ -549,7 +549,7 @@ func (d *Downloader) downloadTrackLyrics(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Int("status_code", code).Msg("Failed to read response body")
-			return "", fmt.Errorf("failed to read response body: %w", err)
+			return "", fmt.Errorf("read response body: %w", err)
 		}
 
 		logger.Error().Int("status_code", code).Bytes("response_body", respBytes).Msg("Unexpected response status code")
@@ -560,7 +560,7 @@ func (d *Downloader) downloadTrackLyrics(
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to read 200 response body")
-		return "", fmt.Errorf("failed to read 200 response body: %w", err)
+		return "", fmt.Errorf("read 200 response body: %w", err)
 	}
 
 	if !gjson.ValidBytes(respBytes) {
@@ -746,12 +746,12 @@ func embedTrackAttributes(
 
 		logger.Error().Err(err).Str("stderr", stdErr.String()).Msg("ffmpeg failed")
 
-		return fmt.Errorf("failed to write track attributes using ffmpeg (%w): %s", err, stdErr.String())
+		return fmt.Errorf("write track attributes using ffmpeg (%w): %s", err, stdErr.String())
 	}
 
 	if err := os.Rename(trackFilenameExt, trackFilePath); nil != err {
 		logger.Error().Err(err).Msg("Failed to rename track file")
-		return fmt.Errorf("failed to rename track file: %v", err)
+		return fmt.Errorf("rename track file: %v", err)
 	}
 
 	return nil

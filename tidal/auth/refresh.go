@@ -20,7 +20,7 @@ import (
 func (a *Auth) RefreshToken(ctx context.Context, logger zerolog.Logger) error {
 	newCreds, err := a.refreshToken(ctx, logger)
 	if nil != err {
-		return fmt.Errorf("failed to refresh token: %w", err)
+		return fmt.Errorf("refresh token: %w", err)
 	}
 	a.credentials.Store(&Credentials{
 		Token:        newCreds.Token,
@@ -35,7 +35,7 @@ func (a *Auth) refreshToken(ctx context.Context, logger zerolog.Logger) (creds *
 	reqURL, err := url.JoinPath(baseURL, "/token")
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to join base URL and token path")
-		return nil, fmt.Errorf("failed to join base URL and token path: %v", err)
+		return nil, fmt.Errorf("join base URL and token path: %v", err)
 	}
 
 	reqParams := make(url.Values, 4)
@@ -49,7 +49,7 @@ func (a *Auth) refreshToken(ctx context.Context, logger zerolog.Logger) (creds *
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBufferString(reqParamsStr))
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create refresh token request")
-		return nil, fmt.Errorf("failed to create refresh token request: %w", err)
+		return nil, fmt.Errorf("create refresh token request: %w", err)
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -63,12 +63,12 @@ func (a *Auth) refreshToken(ctx context.Context, logger zerolog.Logger) (creds *
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to issue refresh token request")
-		return nil, fmt.Errorf("failed to issue refresh token request: %w", err)
+		return nil, fmt.Errorf("issue refresh token request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
 			logger.Error().Err(closeErr).Msg("Failed to close response body")
-			err = errors.Join(err, fmt.Errorf("failed to close response body: %v", closeErr))
+			err = errors.Join(err, fmt.Errorf("close response body: %v", closeErr))
 		}
 	}()
 
@@ -78,19 +78,19 @@ func (a *Auth) refreshToken(ctx context.Context, logger zerolog.Logger) (creds *
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 401 response body")
-			return nil, fmt.Errorf("failed to read 401 response body: %w", err)
+			return nil, fmt.Errorf("read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token expired")
-			return nil, fmt.Errorf("failed to check if 401 response is token expired: %v", err)
+			return nil, fmt.Errorf("check if 401 response is token expired: %v", err)
 		} else if ok {
 			return nil, ErrUnauthorized
 		}
 
 		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token invalid")
-			return nil, fmt.Errorf("failed to check if 401 response is token invalid: %w", err)
+			return nil, fmt.Errorf("check if 401 response is token invalid: %w", err)
 		} else if ok {
 			return nil, ErrUnauthorized
 		}
@@ -102,7 +102,7 @@ func (a *Auth) refreshToken(ctx context.Context, logger zerolog.Logger) (creds *
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 400 response body")
-			return nil, fmt.Errorf("failed to read 400 response body: %w", err)
+			return nil, fmt.Errorf("read 400 response body: %w", err)
 		}
 
 		var respBody struct {
@@ -113,7 +113,7 @@ func (a *Auth) refreshToken(ctx context.Context, logger zerolog.Logger) (creds *
 		}
 		if err := json.Unmarshal(respBytes, &respBody); nil != err {
 			logger.Error().Err(err).Msg("Failed to decode 400 response body")
-			return nil, fmt.Errorf("failed to decode 400 response body: %v", err)
+			return nil, fmt.Errorf("decode 400 response body: %v", err)
 		}
 
 		if respBody.Status == 400 && respBody.SubStatus == 11101 &&
@@ -136,7 +136,7 @@ func (a *Auth) refreshToken(ctx context.Context, logger zerolog.Logger) (creds *
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Int("status_code", code).Msg("Failed to read response body")
-			return nil, fmt.Errorf("failed to read response body: %w", err)
+			return nil, fmt.Errorf("read response body: %w", err)
 		}
 
 		logger.Error().Int("status_code", code).Bytes("response_body", respBytes).Msg("Unexpected response status code")
@@ -147,7 +147,7 @@ func (a *Auth) refreshToken(ctx context.Context, logger zerolog.Logger) (creds *
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to read 200 response body")
-		return nil, fmt.Errorf("failed to read 200 response body: %w", err)
+		return nil, fmt.Errorf("read 200 response body: %w", err)
 	}
 
 	var respBody struct {
@@ -155,12 +155,12 @@ func (a *Auth) refreshToken(ctx context.Context, logger zerolog.Logger) (creds *
 	}
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
 		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode 200 response body")
-		return nil, fmt.Errorf("failed to decode 200 response body: %v", err)
+		return nil, fmt.Errorf("decode 200 response body: %v", err)
 	}
 
 	expiresAt, err := extractExpiresAt(respBody.AccessToken)
 	if nil != err {
-		return nil, fmt.Errorf("failed to extract expires at from 200 response body access token: %v", err)
+		return nil, fmt.Errorf("extract expires at from 200 response body access token: %v", err)
 	}
 
 	return &Credentials{
