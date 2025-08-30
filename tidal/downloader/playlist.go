@@ -118,6 +118,7 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				Lyrics:       trackLyrics,
 				Ext:          ext,
 			}
+
 			trackInfoFiles[i] = types.StoredTrack{
 				Track: types.Track{
 					Artists:  track.Artists,
