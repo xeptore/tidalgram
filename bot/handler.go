@@ -84,7 +84,15 @@ func NewTidalURLHandler(
 
 		link := tidal.ParseLink(getMessageURL(u.EffectiveMessage))
 
-		msg := "🚧 Downloading " + link.Kind.String() + " link..."
+		msg := strings.Join(
+			[]string{
+				"🚧 Downloading",
+				link.Kind.String(),
+				"`" + link.ID + "`",
+				"...",
+			},
+			" ",
+		)
 		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 			return fmt.Errorf("send message: %w", err)
 		}
@@ -173,7 +181,16 @@ func NewTidalURLHandler(
 			return nil
 		}
 
-		msg = "📤 Tidal link downloaded. Uploading to Telegram."
+		msg = strings.Join(
+			[]string{
+				"📤 Tidal",
+				link.Kind.String(),
+				"`" + link.ID + "`",
+				"downloaded.",
+				"Uploading to Telegram...",
+			},
+			" ",
+		)
 		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 			return fmt.Errorf("send message: %w", err)
 		}
@@ -216,7 +233,14 @@ func NewTidalURLHandler(
 			return nil
 		}
 
-		msg = "✅ Tidal link was successfully uploaded."
+		msg = strings.Join(
+			[]string{
+				"✅ Tidal",
+				link.Kind.String(),
+				"was successfully uploaded.",
+			},
+			" ",
+		)
 		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 			return fmt.Errorf("send message: %w", err)
 		}
