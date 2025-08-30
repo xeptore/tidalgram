@@ -255,19 +255,19 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 
 	b.RegisterHandlers(ctx, logger, conf.Bot, td, up, worker)
 
-	logger.Debug().Msg("Starting TidalGram bot")
+	logger.Debug().Msg("Starting Tidalgram bot")
 	if err := b.Start(ctx); nil != err {
 		return fmt.Errorf("start tidalgram bot: %w", err)
 	}
-	logger.Info().Msg("TidalGram bot started and listening for updates")
+	logger.Info().Msg("Tidalgram bot started and listening for updates")
 
 	<-ctx.Done()
-	logger.Info().Msg("Stopping TidalGram application")
+	logger.Warn().Msg("Stopping Tidalgram application")
 
 	if err := b.Stop(); nil != err {
 		return fmt.Errorf("stop tidalgram bot: %v", err)
 	}
-	logger.Info().Msg("TidalGram bot stopped successfully")
+	logger.Info().Msg("Tidalgram bot stopped successfully")
 
 	return nil
 }
