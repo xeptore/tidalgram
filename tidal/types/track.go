@@ -80,7 +80,7 @@ func InferTrackExt(mimeType, codec string) (string, error) {
 		case codec:
 			return extFLAC, nil
 		default:
-			return "", fmt.Errorf("unsupported codec %q for audio/mp4 mime type", codec)
+			return "", fmt.Errorf("unsupported codec %q for audio/flac mime type", codec)
 		}
 	default:
 		return "", fmt.Errorf("unsupported mime type %q", mimeType)
