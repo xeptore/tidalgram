@@ -68,7 +68,7 @@ func InferTrackExt(mimeType, codec string) (string, error) {
 	switch mimeType {
 	case "audio/mp4":
 		switch strings.ToLower(codec) {
-		case "eac3", "aac", "alac", "mp4a.40.2":
+		case "eac3", "aac", "alac", "mp4a.40.2", "mp4a.40.5":
 			return "m4a", nil
 		case codecFLAC:
 			return extFLAC, nil
