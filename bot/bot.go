@@ -139,13 +139,15 @@ func (b *Bot) Start(ctx context.Context) error {
 		ParseMode: gotgbot.ParseModeMarkdownV2,
 	}
 	compiledAt, _ := time.Parse(time.RFC3339, constant.CompileTime)
-	msg := strings.Join([]string{
-		"I'm online, Papa 🙂",
-		"",
-		"",
-		"> 🏷️ Version: `" + constant.Version + "`",
-		"> 🕒 Compiled At: `" + compiledAt.Format("2006/01/02 15:04:05") + " UTC`",
-	}, "\n")
+	msg := strings.Join(
+		[]string{
+			"I'm online, Papa 🙂",
+			"",
+			"> 🏷️ Version: `" + constant.Version + "`",
+			"> 🕒 Compiled At: `" + compiledAt.Format("2006/01/02 15:04:05") + " UTC`",
+		},
+		"\n",
+	)
 	if _, err := b.bot.SendMessageWithContext(ctx, b.papaChatID, msg, sendOpts); nil != err {
 		return fmt.Errorf("send message: %w", err)
 	}

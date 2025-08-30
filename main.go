@@ -75,21 +75,27 @@ func main() {
 					{
 						Name:  "logout",
 						Usage: "Logout the bot",
-						Description: strings.Join([]string{
-							"Execute before you want to move the bot from the cloud Bot API server.",
-							"Otherwise there is no guarantee that the bot will receive updates.",
-							"After a successful call, you can immediately log in on a local server,",
-							"but will not be able to log in back to the cloud Bot API server for 10 minutes.",
-						}, "\n"),
+						Description: strings.Join(
+							[]string{
+								"Execute before you want to move the bot from the cloud Bot API server.",
+								"Otherwise there is no guarantee that the bot will receive updates.",
+								"After a successful call, you can immediately log in on a local server,",
+								"but will not be able to log in back to the cloud Bot API server for 10 minutes.",
+							},
+							"\n",
+						),
 						Action: botLogout,
 					},
 					{
 						Name:  "close",
 						Usage: "Closes the bot",
-						Description: strings.Join([]string{
-							"Execute before you want to move the bot from one local server to another.",
-							"Errors if execute in the first 10 minutes of the bot being launched.",
-						}, "\n"),
+						Description: strings.Join(
+							[]string{
+								"Execute before you want to move the bot from one local server to another.",
+								"Errors if execute in the first 10 minutes of the bot being launched.",
+							},
+							"\n",
+						),
 						Action: botClose,
 					},
 				},
