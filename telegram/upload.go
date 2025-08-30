@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/gotd/td/telegram/message"
 	"github.com/gotd/td/telegram/message/html"
 	"github.com/gotd/td/telegram/message/styling"
+	"github.com/gotd/td/telegram/query"
+	"github.com/gotd/td/telegram/query/dialogs"
 	"github.com/gotd/td/telegram/uploader"
 	"github.com/gotd/td/tg"
 	"github.com/iyear/tdl/core/dcpool"
@@ -29,7 +32,10 @@ import (
 // MaxPartSize refer to https://core.telegram.org/api/files#uploading-files
 const MaxPartSize = 512 * 1024
 
-var ErrUnauthorized = errors.New("unauthorized")
+var (
+	ErrUnauthorized = errors.New("unauthorized")
+	ErrPeerNotFound = errors.New("peer not found")
+)
 
 type Uploader struct {
 	client *tg.Client
@@ -88,9 +94,52 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 		WithPartSize(MaxPartSize).
 		WithThreads(conf.Upload.Threads)
 
+	var (
+		peer      tg.InputPeerClass
+		dialogKey dialogs.DialogKey
+	)
+
+	err = query.
+		GetDialogs(tgClient).
+		ForEach(ctx, func(ctx context.Context, elem dialogs.Elem) error {
+			if err := dialogKey.FromInputPeer(elem.Peer); nil != err {
+				return fmt.Errorf("get dialog key: %v", err)
+			}
+
+			switch dialogKey.Kind {
+			case dialogs.User:
+				if dialogKey.ID == conf.Upload.Peer.ID && conf.Upload.Peer.Kind == "user" {
+					peer = elem.Peer
+					return os.ErrExist
+				}
+			case dialogs.Chat:
+				if dialogKey.ID == conf.Upload.Peer.ID && conf.Upload.Peer.Kind == "chat" {
+					peer = elem.Peer
+					return os.ErrExist
+				}
+			case dialogs.Channel:
+				if dialogKey.ID == conf.Upload.Peer.ID && conf.Upload.Peer.Kind == "channel" {
+					peer = elem.Peer
+					return os.ErrExist
+				}
+			default:
+				panic(fmt.Sprintf("invalid peer kind: %d", dialogKey.Kind))
+			}
+
+			return nil
+		})
+	if nil != err {
+		if !errors.Is(err, os.ErrExist) {
+			return nil, fmt.Errorf("get dialogs: %w", err)
+		}
+	}
+	if peer == nil {
+		return nil, ErrPeerNotFound
+	}
+
 	_, err = message.
 		NewSender(tgClient).
-		To(conf.Upload.Peer.InputPeerClass).
+		To(peer).
 		Clear().
 		Background().
 		Silent().
@@ -104,7 +153,7 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 		stop:   stop,
 		conf:   conf,
 		engine: engine,
-		peer:   conf.Upload.Peer.InputPeerClass,
+		peer:   peer,
 		logger: logger,
 	}, nil
 }

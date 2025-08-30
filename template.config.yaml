@@ -142,7 +142,7 @@ telegram:
       id: 1234567890
       # REQUIRED
       # Telegram peer kind
-      # One of: user, chat
+      # One of: user, chat, channel
       kind: user
 
   # OPTIONAL

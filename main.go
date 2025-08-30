@@ -242,6 +242,34 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 			return exitCodeError(2)
 		}
 
+		if errors.Is(err, telegram.ErrPeerNotFound) {
+			switch kind := conf.Telegram.Upload.Peer.Kind; kind {
+			case "channel":
+				logger.
+					Error().
+					Int64("channel_id", conf.Telegram.Upload.Peer.ID).
+					Msg("Telegram channel not found. Please make sure you are an admin of the channel.")
+
+				return exitCodeError(3)
+			case "chat":
+				logger.
+					Error().
+					Int64("chat_id", conf.Telegram.Upload.Peer.ID).
+					Msg("Telegram chat (legacy group) not found. Please make sure you are a member of the chat.")
+
+				return exitCodeError(3)
+			case "user":
+				logger.
+					Error().
+					Int64("user_id", conf.Telegram.Upload.Peer.ID).
+					Msg("Telegram user not found. Please make sure you have already have a private chat with the user.")
+
+				return exitCodeError(3)
+			default:
+				panic("invalid peer kind: %s" + kind)
+			}
+		}
+
 		return fmt.Errorf("create telegram uploader: %w", err)
 	}
 	defer func() {

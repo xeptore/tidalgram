@@ -8,7 +8,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/gotd/td/tg"
 	"github.com/rs/zerolog"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
@@ -646,63 +645,28 @@ func (c *TelegramUpload) validate() error {
 }
 
 type TelegramUploadPeer struct {
-	tg.InputPeerClass
-
-	id   int64
-	kind string
+	ID   int64  `yaml:"id"`
+	Kind string `yaml:"kind"`
 }
 
 func (c *TelegramUploadPeer) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Int64("id", c.id).
-		Str("kind", c.kind)
-}
-
-func (c *TelegramUploadPeer) UnmarshalYAML(unmarshal func(any) error) error {
-	var v struct {
-		ID   int64  `yaml:"id"`
-		Kind string `yaml:"kind"`
-	}
-	if err := unmarshal(&v); nil != err {
-		return fmt.Errorf("parse peer: %v", err)
-	}
-
-	if v.ID == 0 {
-		return errors.New("id is required")
-	}
-
-	switch v.Kind {
-	case "":
-		return errors.New("kind is required")
-	case "user":
-		c.InputPeerClass = &tg.InputPeerUser{
-			UserID:     v.ID,
-			AccessHash: 0,
-		}
-	case "chat":
-		c.InputPeerClass = &tg.InputPeerChat{
-			ChatID: v.ID,
-		}
-	default:
-		return fmt.Errorf("unknown peer kind: %s", v.Kind)
-	}
-
-	c.id = v.ID
-	c.kind = v.Kind
-
-	return nil
+		Int64("id", c.ID).
+		Str("kind", c.Kind)
 }
 
 func (c *TelegramUploadPeer) setDefaults() {}
 
 func (c *TelegramUploadPeer) validate() error {
-	if c.id == 0 {
+	if c.ID == 0 {
 		return errors.New("id is required")
 	}
 
-	if c.kind == "" {
+	if c.Kind == "" {
 		return errors.New("kind is required")
+	} else if !slices.Contains([]string{"user", "chat", "channel"}, c.Kind) {
+		return fmt.Errorf("invalid peer kind: %s. must be one of: user, chat, channel", c.Kind)
 	}
 
 	return nil
