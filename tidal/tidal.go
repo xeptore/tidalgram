@@ -59,7 +59,7 @@ var (
 func (c *Client) TryDownloadLink(ctx context.Context, logger zerolog.Logger, link types.Link) error {
 	err := retry.Do(
 		ctx,
-		retry.WithMaxRetries(7, retry.NewFibonacci(1*time.Second)),
+		retry.WithMaxRetries(3, retry.NewFibonacci(1*time.Second)),
 		func(ctx context.Context) error {
 			if err := c.downloadLink(ctx, logger, link); nil != err {
 				if errors.Is(err, context.DeadlineExceeded) {
