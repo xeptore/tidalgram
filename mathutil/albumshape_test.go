@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
+
 	"github.com/xeptore/tidalgram/mathutil"
 )
 
@@ -19,25 +20,32 @@ func firstPtr[T any](s []T) uintptr {
 	if len(s) == 0 {
 		return 0
 	}
+
 	return uintptr(unsafe.Pointer(&s[0]))
 }
 
 // --- tests ---
 
 func TestMakeAlbumShape_NilInput(t *testing.T) {
+	t.Parallel()
+
 	var src [][]int
 	dst := mathutil.MakeAlbumShape[int, int](src)
 	assert.Nil(t, dst)
 }
 
 func TestMakeAlbumShape_EmptyOuter(t *testing.T) {
+	t.Parallel()
+
 	src := [][]int{}
 	dst := mathutil.MakeAlbumShape[int, int](src)
 	assert.NotNil(t, dst)
-	assert.Equal(t, 0, len(dst))
+	assert.Empty(t, dst)
 }
 
 func TestMakeAlbumShape_PreservesShape(t *testing.T) {
+	t.Parallel()
+
 	src := [][]int{
 		{1, 2, 3},
 		{4},
@@ -46,15 +54,17 @@ func TestMakeAlbumShape_PreservesShape(t *testing.T) {
 	}
 	dst := mathutil.MakeAlbumShape[int, string](src)
 
-	assert.Equal(t, len(src), len(dst))
+	assert.Len(t, dst, len(src))
 
 	wantLens := []int{3, 1, 0, 2}
 	for i := range src {
-		assert.Equal(t, wantLens[i], len(dst[i]), "row %d length", i)
+		assert.Len(t, dst[i], wantLens[i], "row %d length", i)
 	}
 }
 
 func TestMakeAlbumShape_ZeroValues_Int(t *testing.T) {
+	t.Parallel()
+
 	src := [][]string{{"a"}, {"b", "c"}}
 	dst := mathutil.MakeAlbumShape[string, int](src)
 
@@ -66,37 +76,45 @@ func TestMakeAlbumShape_ZeroValues_Int(t *testing.T) {
 }
 
 func TestMakeAlbumShape_ZeroValues_String(t *testing.T) {
+	t.Parallel()
+
 	src := [][]int{{1, 2}, {}, {3}}
 	dst := mathutil.MakeAlbumShape[int, string](src)
 
 	for i := range dst {
 		for j := range dst[i] {
-			assert.Equal(t, "", dst[i][j], "dst[%d][%d]", i, j)
+			assert.Empty(t, dst[i][j], "dst[%d][%d]", i, j)
 		}
 	}
 }
 
 func TestMakeAlbumShape_CapEqualsLen(t *testing.T) {
+	t.Parallel()
+
 	src := [][]byte{{1}, {2, 3}, {}, {4, 5, 6}}
 	dst := mathutil.MakeAlbumShape[byte, byte](src)
 
 	for i := range dst {
-		assert.Equal(t, len(dst[i]), cap(dst[i]), "row %d", i)
+		assert.Len(t, dst[i], cap(dst[i]), "row %d", i)
 	}
 }
 
 func TestMakeAlbumShape_RowsAreDisjoint(t *testing.T) {
+	t.Parallel()
+
 	src := [][]int{{0, 0}, {0}, {0, 0, 0}}
 	dst := mathutil.MakeAlbumShape[int, int](src)
 
 	dst[0][1] = 42
-	assert.Equal(t, 0, dst[1][0], "row separation broken")
+	assert.Empty(t, dst[1][0], "row separation broken")
 
 	dst[2][2] = 7
-	assert.Equal(t, 42, dst[0][1], "row 0 changed after writing row 2")
+	assert.NotEmpty(t, dst[0][1], "row 0 changed after writing row 2")
 }
 
 func TestMakeAlbumShape_ContiguousUnsafeCheck(t *testing.T) {
+	t.Parallel()
+
 	type T struct{ A, B int }
 	src := [][]byte{
 		{1, 2, 3},
@@ -127,6 +145,8 @@ func TestMakeAlbumShape_ContiguousUnsafeCheck(t *testing.T) {
 }
 
 func TestMakeAlbumShape_AppendReallocatesPerRow(t *testing.T) {
+	t.Parallel()
+
 	src := [][]int{{0, 0}, {0, 0, 0}}
 	dst := mathutil.MakeAlbumShape[int, int](src)
 
@@ -140,11 +160,13 @@ func TestMakeAlbumShape_AppendReallocatesPerRow(t *testing.T) {
 	row1ptr := firstPtr(dst[1])
 	assert.NotZero(t, row1ptr, "row 1 unexpectedly empty")
 	for _, v := range dst[1] {
-		assert.Equal(t, 0, v)
+		assert.Exactly(t, 0, v)
 	}
 }
 
 func TestMakeAlbumShape_DifferentTypes_WithEmptyRows(t *testing.T) {
+	t.Parallel()
+
 	type K = complex64
 	type T = *struct{ X int }
 
@@ -155,10 +177,10 @@ func TestMakeAlbumShape_DifferentTypes_WithEmptyRows(t *testing.T) {
 	}
 	dst := mathutil.MakeAlbumShape[K, T](src)
 
-	assert.Equal(t, 3, len(dst))
-	assert.Equal(t, 2, len(dst[0]))
-	assert.Equal(t, 0, len(dst[1]))
-	assert.Equal(t, 1, len(dst[2]))
+	assert.Len(t, dst, 3)
+	assert.Len(t, dst[0], 2)
+	assert.Empty(t, dst[1])
+	assert.Len(t, dst[2], 1)
 
 	// zero value for *struct{...} is nil
 	assert.Nil(t, dst[0][0])
@@ -169,6 +191,8 @@ func TestMakeAlbumShape_DifferentTypes_WithEmptyRows(t *testing.T) {
 }
 
 func TestMakeAlbumShape_NoAliasingWithSource(t *testing.T) {
+	t.Parallel()
+
 	src := [][]int{
 		{1, 2},
 		{3},
@@ -177,5 +201,5 @@ func TestMakeAlbumShape_NoAliasingWithSource(t *testing.T) {
 
 	// Mutate src; dst should be unaffected (we didn't copy data, only shape)
 	src[0][0] = 99
-	assert.Equal(t, 0, dst[0][0], "dst should hold zero values independent of src data")
+	assert.Empty(t, dst[0][0], "dst should hold zero values independent of src data")
 }
