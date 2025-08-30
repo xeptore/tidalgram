@@ -241,22 +241,75 @@ func (c *Tidal) validate() error {
 }
 
 type TidalDownloader struct {
-	Timeouts TidalDownloadTimeouts `yaml:"timeouts"`
+	Timeouts    TidalDownloadTimeouts    `yaml:"timeouts"`
+	Concurrency TidalDownloadConcurrency `yaml:"concurrency"`
 }
 
 func (c *TidalDownloader) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Dict("timeouts", c.Timeouts.ToDict())
+		Dict("timeouts", c.Timeouts.ToDict()).
+		Dict("concurrency", c.Concurrency.ToDict())
 }
 
 func (c *TidalDownloader) setDefaults() {
 	c.Timeouts.setDefaults()
+	c.Concurrency.setDefaults()
 }
 
 func (c *TidalDownloader) validate() error {
 	if err := c.Timeouts.validate(); nil != err {
 		return fmt.Errorf("timeouts config validation: %v", err)
+	}
+
+	if err := c.Concurrency.validate(); nil != err {
+		return fmt.Errorf("concurrency config validation: %v", err)
+	}
+
+	return nil
+}
+
+type TidalDownloadConcurrency struct {
+	AlbumTracks    int `yaml:"album_tracks"`
+	PlaylistTracks int `yaml:"playlist_tracks"`
+	MixTracks      int `yaml:"mix_tracks"`
+	VNDTrackParts  int `yaml:"vnd_track_parts"`
+}
+
+func (c *TidalDownloadConcurrency) ToDict() *zerolog.Event {
+	return zerolog.
+		Dict().
+		Int("album_tracks", c.AlbumTracks).
+		Int("playlist_tracks", c.PlaylistTracks).
+		Int("mix_tracks", c.MixTracks).
+		Int("vnd_track_parts", c.VNDTrackParts)
+}
+
+func (c *TidalDownloadConcurrency) setDefaults() {
+	if c.AlbumTracks == 0 {
+		c.AlbumTracks = 5
+	}
+
+	if c.PlaylistTracks == 0 {
+		c.PlaylistTracks = 5
+	}
+
+	if c.VNDTrackParts == 0 {
+		c.VNDTrackParts = 5
+	}
+}
+
+func (c *TidalDownloadConcurrency) validate() error {
+	if c.AlbumTracks < 0 {
+		return errors.New("album_tracks must be greater than 0")
+	}
+
+	if c.PlaylistTracks < 0 {
+		return errors.New("playlist_tracks must be greater than 0")
+	}
+
+	if c.MixTracks < 0 {
+		return errors.New("mix_tracks must be greater than 0")
 	}
 
 	return nil

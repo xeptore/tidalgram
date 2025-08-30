@@ -17,7 +17,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/xeptore/tidalgram/httputil"
-	"github.com/xeptore/tidalgram/ratelimit"
 	"github.com/xeptore/tidalgram/tidal/auth"
 	"github.com/xeptore/tidalgram/tidal/types"
 )
@@ -39,7 +38,8 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 		wg, wgctx  = errgroup.WithContext(ctx)
 	)
 
-	wg.SetLimit(ratelimit.PlaylistDownloadConcurrency)
+	wg.SetLimit(d.conf.Concurrency.PlaylistTracks)
+
 	for i, track := range tracks {
 		logger = logger.With().Int("track_index", i).Logger()
 

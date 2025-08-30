@@ -77,6 +77,24 @@ tidal:
       # Default: 60
       download_vnd_segment: 60
 
+    concurrency:
+      # OPTIONAL
+      # Number of album tracks to download concurrently
+      # Default: 5
+      album_tracks: 5
+      # OPTIONAL
+      # Number of playlist tracks to download concurrently
+      # Default: 5
+      playlist_tracks: 5
+      # OPTIONAL
+      # Number of mix tracks to download concurrently
+      # Default: 5
+      mix_tracks: 5
+      # OPTIONAL
+      # Number of VND track parts to download concurrently
+      # Default: 5
+      vnd_track_parts: 5
+
 telegram:
   # REQUIRED
   # Telegram app ID (see https://my.telegram.org/apps)

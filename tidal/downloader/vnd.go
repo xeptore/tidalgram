@@ -15,14 +15,14 @@ import (
 
 	"github.com/xeptore/tidalgram/httputil"
 	"github.com/xeptore/tidalgram/mathutil"
-	"github.com/xeptore/tidalgram/ratelimit"
 	"github.com/xeptore/tidalgram/tidal/auth"
 )
 
 type VndTrackStream struct {
-	URL                     string
-	DownloadTimeout         time.Duration
-	GetTrackFileSizeTimeout time.Duration
+	URL                      string
+	DownloadTimeout          time.Duration
+	GetTrackFileSizeTimeout  time.Duration
+	VNDTrackPartsConcurrency int
 }
 
 func (d *VndTrackStream) saveTo(
@@ -37,7 +37,7 @@ func (d *VndTrackStream) saveTo(
 	}
 
 	wg, wgctx := errgroup.WithContext(ctx)
-	wg.SetLimit(ratelimit.MultipartTrackDownloadConcurrency)
+	wg.SetLimit(d.VNDTrackPartsConcurrency)
 
 	numChunks := mathutil.DivCeil(fileSize, singlePartChunkSize)
 	for i := range numChunks {

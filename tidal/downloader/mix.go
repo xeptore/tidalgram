@@ -18,7 +18,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/xeptore/tidalgram/httputil"
-	"github.com/xeptore/tidalgram/ratelimit"
 	"github.com/xeptore/tidalgram/tidal/auth"
 	"github.com/xeptore/tidalgram/tidal/types"
 )
@@ -40,7 +39,8 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 		wg, wgctx = errgroup.WithContext(ctx)
 	)
 
-	wg.SetLimit(ratelimit.MixDownloadConcurrency)
+	wg.SetLimit(d.conf.Concurrency.MixTracks)
+
 	for i, track := range tracks {
 		logger = logger.With().Int("track_index", i).Logger()
 

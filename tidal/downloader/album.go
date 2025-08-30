@@ -18,7 +18,6 @@ import (
 
 	"github.com/xeptore/tidalgram/cache"
 	"github.com/xeptore/tidalgram/httputil"
-	"github.com/xeptore/tidalgram/ratelimit"
 	"github.com/xeptore/tidalgram/tidal/auth"
 	"github.com/xeptore/tidalgram/tidal/types"
 )
@@ -77,7 +76,8 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 		albumVolumeTrackIDs = make([][]string, len(volumes))
 	)
 
-	wg.SetLimit(ratelimit.AlbumDownloadConcurrency)
+	wg.SetLimit(d.conf.Concurrency.AlbumTracks)
+
 	for i, tracks := range volumes {
 		albumVolumeTrackIDs[i] = lo.Map(tracks, func(t AlbumTrackMeta, _ int) string { return t.ID })
 

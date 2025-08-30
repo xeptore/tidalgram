@@ -201,9 +201,10 @@ func (d *Downloader) getStream(
 		}
 
 		return &VndTrackStream{
-			URL:                     manifest.URLs[0],
-			DownloadTimeout:         time.Duration(d.conf.Timeouts.DownloadVNDSegment) * time.Second,
-			GetTrackFileSizeTimeout: time.Duration(d.conf.Timeouts.GetVNDTrackFileSize) * time.Second,
+			URL:                      manifest.URLs[0],
+			DownloadTimeout:          time.Duration(d.conf.Timeouts.DownloadVNDSegment) * time.Second,
+			GetTrackFileSizeTimeout:  time.Duration(d.conf.Timeouts.GetVNDTrackFileSize) * time.Second,
+			VNDTrackPartsConcurrency: d.conf.Concurrency.VNDTrackParts,
 		}, ext, nil
 	default:
 		return nil, "", fmt.Errorf("unexpected manifest mime type: %s", mimeType)
