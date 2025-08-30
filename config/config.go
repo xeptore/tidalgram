@@ -287,11 +287,15 @@ func (c *TidalDownloadConcurrency) ToDict() *zerolog.Event {
 
 func (c *TidalDownloadConcurrency) setDefaults() {
 	if c.AlbumTracks == 0 {
-		c.AlbumTracks = 5
+		c.AlbumTracks = 20
 	}
 
 	if c.PlaylistTracks == 0 {
-		c.PlaylistTracks = 5
+		c.PlaylistTracks = 20
+	}
+
+	if c.MixTracks == 0 {
+		c.MixTracks = 20
 	}
 
 	if c.VNDTrackParts == 0 {
@@ -310,6 +314,10 @@ func (c *TidalDownloadConcurrency) validate() error {
 
 	if c.MixTracks < 0 {
 		return errors.New("mix_tracks must be greater than 0")
+	}
+
+	if c.VNDTrackParts < 0 {
+		return errors.New("vnd_track_parts must be greater than 0")
 	}
 
 	return nil
