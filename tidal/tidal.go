@@ -90,7 +90,7 @@ func (c *Client) TryDownloadLink(ctx context.Context, logger zerolog.Logger, lin
 					return ErrUnsupportedVideoLinkKind
 				}
 
-				return fmt.Errorf("download link: %w", err)
+				return err
 			}
 
 			return nil
