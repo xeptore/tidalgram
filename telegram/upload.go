@@ -252,6 +252,7 @@ func (c *Uploader) uploadAlbum(
 				To(c.peer).
 				Clear().
 				Background().
+				Silent().
 				Album(ctx, album[0], rest...)
 			if nil != err {
 				return fmt.Errorf("send mix: %w", err)
@@ -371,6 +372,8 @@ func (c *Uploader) uploadMix(
 			WithUploader(c.engine).
 			To(c.peer).
 			Clear().
+			Background().
+			Silent().
 			Album(ctx, album[0], rest...)
 		if nil != err {
 			return fmt.Errorf("send mix: %w", err)
@@ -489,6 +492,8 @@ func (c *Uploader) uploadPlaylist(
 			WithUploader(c.engine).
 			To(c.peer).
 			Clear().
+			Background().
+			Silent().
 			Album(ctx, album[0], rest...)
 		if nil != err {
 			return fmt.Errorf("send playlist: %w", err)
@@ -554,6 +559,9 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		NewSender(c.client).
 		WithUploader(c.engine).
 		To(c.peer).
+		Clear().
+		Background().
+		Silent().
 		Media(ctx, doc)
 	if nil != err {
 		return fmt.Errorf("send message: %w", err)
