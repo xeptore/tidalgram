@@ -154,7 +154,16 @@ func NewTidalURLHandler(
 				return nil
 			}
 
-			msg := "❌ Failed to download link. Insult logs for details."
+			msg := strings.Join(
+				[]string{
+					"❌ Failed to download link. Insult logs for details.",
+					"",
+					"```txt",
+					err.Error(),
+					"```",
+				},
+				"\n",
+			)
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 				return fmt.Errorf("send message: %w", err)
 			}
@@ -188,7 +197,16 @@ func NewTidalURLHandler(
 				return nil
 			}
 
-			msg := "❌ Failed to upload to Telegram. Insult logs for details."
+			msg := strings.Join(
+				[]string{
+					"❌ Failed to upload to Telegram. Insult logs for details.",
+					"",
+					"```txt",
+					err.Error(),
+					"```",
+				},
+				"\n",
+			)
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 				return fmt.Errorf("send message: %w", err)
 			}
@@ -236,7 +254,19 @@ func NewHelloCommandHandler(ctx context.Context, adminID int64) handlers.Respons
 
 func NewCancelCommandHandler(ctx context.Context, worker *Worker) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
+		sendOpt := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
+			ParseMode: gotgbot.ParseModeMarkdown,
+			ReplyParameters: &gotgbot.ReplyParameters{ //nolint:exhaustruct
+				MessageId: u.EffectiveMessage.MessageId,
+			},
+		}
+		chatID := u.EffectiveMessage.Chat.Id
+
 		worker.CancelJob()
+
+		if _, err := b.SendMessage(chatID, "Cancel request sent.", sendOpt); nil != err {
+			return fmt.Errorf("send message: %w", err)
+		}
 
 		return nil
 	}
@@ -291,7 +321,16 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 				return nil
 			}
 
-			msg := "❌ Failed to initiate login flow. Necessary information is logged."
+			msg := strings.Join(
+				[]string{
+					"❌ Failed to initiate login flow. Necessary information is logged.",
+					"",
+					"```txt",
+					err.Error(),
+					"```",
+				},
+				"\n",
+			)
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 				return fmt.Errorf("send message: %w", err)
 			}
@@ -334,7 +373,16 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 				return nil
 			}
 
-			msg := "❌ Login wait failed due to unexpected error. See logs for details."
+			msg := strings.Join(
+				[]string{
+					"❌ Login wait failed due to unexpected error. See logs for details.",
+					"",
+					"```txt",
+					err.Error(),
+					"```",
+				},
+				"\n",
+			)
 			if _, err = b.SendMessage(chatID, msg, sendOpt); nil != err {
 				return fmt.Errorf("send message: %w", err)
 			}
