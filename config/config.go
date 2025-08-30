@@ -274,6 +274,7 @@ type TidalDownloadConcurrency struct {
 	PlaylistTracks int `yaml:"playlist_tracks"`
 	MixTracks      int `yaml:"mix_tracks"`
 	VNDTrackParts  int `yaml:"vnd_track_parts"`
+	PostProcess    int `yaml:"post_process"`
 }
 
 func (c *TidalDownloadConcurrency) ToDict() *zerolog.Event {
@@ -282,7 +283,8 @@ func (c *TidalDownloadConcurrency) ToDict() *zerolog.Event {
 		Int("album_tracks", c.AlbumTracks).
 		Int("playlist_tracks", c.PlaylistTracks).
 		Int("mix_tracks", c.MixTracks).
-		Int("vnd_track_parts", c.VNDTrackParts)
+		Int("vnd_track_parts", c.VNDTrackParts).
+		Int("post_process", c.PostProcess)
 }
 
 func (c *TidalDownloadConcurrency) setDefaults() {
@@ -301,6 +303,10 @@ func (c *TidalDownloadConcurrency) setDefaults() {
 	if c.VNDTrackParts == 0 {
 		c.VNDTrackParts = 5
 	}
+
+	if c.PostProcess == 0 {
+		c.PostProcess = 100
+	}
 }
 
 func (c *TidalDownloadConcurrency) validate() error {
@@ -318,6 +324,10 @@ func (c *TidalDownloadConcurrency) validate() error {
 
 	if c.VNDTrackParts < 0 {
 		return errors.New("vnd_track_parts must be greater than 0")
+	}
+
+	if c.PostProcess < 0 {
+		return errors.New("post_process must be greater than 0")
 	}
 
 	return nil

@@ -35,22 +35,24 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 	}
 
 	var (
-		mixFs     = d.dir.Mix(id)
-		wg, wgctx = errgroup.WithContext(ctx)
+		mixFs                 = d.dir.Mix(id)
+		dlwg, dlwgctx         = errgroup.WithContext(ctx)
+		postdlwg, postdlwgctx = errgroup.WithContext(dlwgctx)
 	)
 
-	wg.SetLimit(d.conf.Concurrency.MixTracks)
+	dlwg.SetLimit(d.conf.Concurrency.MixTracks)
+	postdlwg.SetLimit(d.conf.Concurrency.PostProcess)
 
 	for i, track := range tracks {
 		logger = logger.With().Int("track_index", i).Logger()
 
-		wg.Go(func() (err error) {
+		dlwg.Go(func() (err error) {
 			trackFs := mixFs.Track(track.ID)
-			if exists, err := trackFs.Cover.Exists(); nil != err {
+			if exists, err := trackFs.Cover.AlreadyDownloaded(); nil != err {
 				logger.Error().Err(err).Msg("Failed to check if track cover exists")
 				return fmt.Errorf("check if track cover exists: %v", err)
 			} else if !exists {
-				coverBytes, err := d.getCover(wgctx, logger, accessToken, track.CoverID)
+				coverBytes, err := d.getCover(dlwgctx, logger, accessToken, track.CoverID)
 				if nil != err {
 					return fmt.Errorf("get track cover: %w", err)
 				}
@@ -61,7 +63,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 				}
 			}
 
-			if exists, err := trackFs.Exists(); nil != err {
+			if exists, err := trackFs.AlreadyDownloaded(); nil != err {
 				logger.Error().Err(err).Msg("Failed to check if track exists")
 				return fmt.Errorf("check if track exists: %v", err)
 			} else if exists {
@@ -78,70 +80,78 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 				}
 			}()
 
-			trackCredits, err := d.getTrackCredits(wgctx, logger, accessToken, track.ID)
-			if nil != err {
-				return fmt.Errorf("get track credits: %w", err)
-			}
-
-			trackLyrics, err := d.downloadTrackLyrics(wgctx, logger, accessToken, track.ID)
-			if nil != err {
-				return fmt.Errorf("download track lyrics: %w", err)
-			}
-
-			ext, err := d.downloadTrack(wgctx, logger, accessToken, track.ID, trackFs.Path)
+			ext, err := d.downloadTrack(dlwgctx, logger, accessToken, track.ID, trackFs.Path)
 			if nil != err {
 				return fmt.Errorf("download track: %w", err)
 			}
 
-			album, err := d.getAlbumMeta(wgctx, logger, accessToken, track.AlbumID)
+			trackCredits, err := d.getTrackCredits(dlwgctx, logger, accessToken, track.ID)
+			if nil != err {
+				return fmt.Errorf("get track credits: %w", err)
+			}
+
+			trackLyrics, err := d.downloadTrackLyrics(dlwgctx, logger, accessToken, track.ID)
+			if nil != err {
+				return fmt.Errorf("download track lyrics: %w", err)
+			}
+
+			album, err := d.getAlbumMeta(dlwgctx, logger, accessToken, track.AlbumID)
 			if nil != err {
 				return fmt.Errorf("get album meta: %w", err)
 			}
 
-			attrs := TrackEmbeddedAttrs{
-				LeadArtist:   track.Artist,
-				Album:        track.AlbumTitle,
-				AlbumArtist:  album.Artist,
-				Artists:      track.Artists,
-				Copyright:    track.Copyright,
-				CoverPath:    trackFs.Cover.Path,
-				ISRC:         track.ISRC,
-				ReleaseDate:  album.ReleaseDate,
-				Title:        track.Title,
-				TrackNumber:  track.TrackNumber,
-				TotalTracks:  album.TotalTracks,
-				Version:      track.Version,
-				VolumeNumber: track.VolumeNumber,
-				TotalVolumes: album.TotalVolumes,
-				Credits:      *trackCredits,
-				Lyrics:       trackLyrics,
-				Ext:          ext,
-			}
-			if err := embedTrackAttributes(wgctx, logger, trackFs.Path, attrs); nil != err {
-				return fmt.Errorf("embed track attributes: %v", err)
-			}
+			postdlwg.Go(func() (err error) {
+				attrs := TrackEmbeddedAttrs{
+					LeadArtist:   track.Artist,
+					Album:        track.AlbumTitle,
+					AlbumArtist:  album.Artist,
+					Artists:      track.Artists,
+					Copyright:    track.Copyright,
+					CoverPath:    trackFs.Cover.Path,
+					ISRC:         track.ISRC,
+					ReleaseDate:  album.ReleaseDate,
+					Title:        track.Title,
+					TrackNumber:  track.TrackNumber,
+					TotalTracks:  album.TotalTracks,
+					Version:      track.Version,
+					VolumeNumber: track.VolumeNumber,
+					TotalVolumes: album.TotalVolumes,
+					Credits:      *trackCredits,
+					Lyrics:       trackLyrics,
+					Ext:          ext,
+				}
+				if err := embedTrackAttributes(postdlwgctx, logger, trackFs.Path, attrs); nil != err {
+					return fmt.Errorf("embed track attributes: %v", err)
+				}
 
-			info := types.StoredTrack{
-				Track: types.Track{
-					Artists:  track.Artists,
-					Title:    track.Title,
-					Duration: track.Duration,
-					Version:  track.Version,
-					CoverID:  track.CoverID,
-					Ext:      ext,
-				},
-				Caption: trackCaption(album.Title, album.ReleaseDate),
-			}
-			if err := trackFs.InfoFile.Write(info); nil != err {
-				logger.Error().Err(err).Msg("Failed to write track info")
-				return fmt.Errorf("write track info: %v", err)
-			}
+				info := types.StoredTrack{
+					Track: types.Track{
+						Artists:  track.Artists,
+						Title:    track.Title,
+						Duration: track.Duration,
+						Version:  track.Version,
+						CoverID:  track.CoverID,
+						Ext:      ext,
+					},
+					Caption: trackCaption(album.Title, album.ReleaseDate),
+				}
+				if err := trackFs.InfoFile.Write(info); nil != err {
+					logger.Error().Err(err).Msg("Failed to write track info")
+					return fmt.Errorf("write track info: %v", err)
+				}
+
+				return nil
+			})
 
 			return nil
 		})
 	}
 
-	if err := wg.Wait(); nil != err {
+	if err := postdlwg.Wait(); nil != err {
+		return fmt.Errorf("wait for track post-processing workers: %w", err)
+	}
+
+	if err := dlwg.Wait(); nil != err {
 		return fmt.Errorf("wait for track download workers: %w", err)
 	}
 

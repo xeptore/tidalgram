@@ -79,21 +79,30 @@ tidal:
 
     concurrency:
       # OPTIONAL
-      # Number of album tracks to download concurrently
+      # Number of concurrent album tracks to downloads
+      # Network-intensive operation.
       # Default: 20
       album_tracks: 20
       # OPTIONAL
-      # Number of playlist tracks to download concurrently
+      # Number of concurrent playlist tracks to downloads
+      # Network-intensive operation.
       # Default: 20
       playlist_tracks: 20
       # OPTIONAL
-      # Number of mix tracks to download concurrently
+      # Number of concurrent mix tracks to downloads
+      # Network-intensive operation.
       # Default: 20
       mix_tracks: 20
       # OPTIONAL
-      # Number of VND track parts to download concurrently
+      # Number of concurrent VND track parts to downloads
+      # Network-intensive operation.
       # Default: 5
       vnd_track_parts: 5
+      # OPTIONAL
+      # Number of concurrent track post-processing workers
+      # CPU-intensive operation.
+      # Default: 100
+      post_process: 100
 
 telegram:
   # REQUIRED

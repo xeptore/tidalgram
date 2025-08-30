@@ -47,7 +47,7 @@ type AlbumTrack struct {
 	InfoFile InfoFile[types.StoredAlbumTrack]
 }
 
-func (t AlbumTrack) Exists() (bool, error) {
+func (t AlbumTrack) AlreadyDownloaded() (bool, error) {
 	return fileExists(t.Path)
 }
 
@@ -125,7 +125,7 @@ type Cover struct {
 	Path string
 }
 
-func (c Cover) Exists() (bool, error) {
+func (c Cover) AlreadyDownloaded() (bool, error) {
 	return fileExists(c.Path)
 }
 
@@ -184,7 +184,7 @@ type Track struct {
 	Cover    Cover
 }
 
-func (t Track) Exists() (bool, error) {
+func (t Track) AlreadyDownloaded() (bool, error) {
 	return fileExists(t.Path)
 }
 

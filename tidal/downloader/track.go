@@ -50,7 +50,7 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 	}
 
 	trackFs := d.dir.Track(id)
-	if exists, err := trackFs.Cover.Exists(); nil != err {
+	if exists, err := trackFs.Cover.AlreadyDownloaded(); nil != err {
 		logger.Error().Err(err).Msg("Failed to check if track cover exists")
 		return fmt.Errorf("check if track cover exists: %v", err)
 	} else if !exists {
@@ -64,7 +64,7 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 		}
 	}
 
-	if exists, err := trackFs.Exists(); nil != err {
+	if exists, err := trackFs.AlreadyDownloaded(); nil != err {
 		logger.Error().Err(err).Msg("Failed to check if track exists")
 		return fmt.Errorf("check if track exists: %v", err)
 	} else if exists {
