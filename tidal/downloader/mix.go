@@ -36,24 +36,31 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 
 	var (
 		mixFs           = d.dir.Mix(id)
-		dlwg, dlwgctx   = errgroup.WithContext(ctx)
+		wg, wgctx       = errgroup.WithContext(ctx)
 		embedTrackAttrs = make([]TrackEmbeddedAttrs, len(tracks))
 		trackInfoFiles  = make([]types.StoredTrack, len(tracks))
 	)
 
-	dlwg.SetLimit(d.conf.Concurrency.MixTracks)
+	wg.SetLimit(d.conf.Concurrency.MixTracks)
 
 	for i, track := range tracks {
-		logger = logger.With().Int("track_index", i).Logger()
+		wg.Go(func() (err error) {
+			select {
+			case <-wgctx.Done():
+				return wgctx.Err()
+			default:
+				break
+			}
 
-		dlwg.Go(func() (err error) {
+			logger := logger.With().Int("track_index", i).Str("track_id", track.ID).Logger()
+
 			trackFs := mixFs.Track(track.ID)
 
 			if exists, err := trackFs.Cover.AlreadyDownloaded(); nil != err {
 				logger.Error().Err(err).Msg("Failed to check if track cover exists")
 				return fmt.Errorf("check if track cover exists: %v", err)
 			} else if !exists {
-				coverBytes, err := d.getCover(dlwgctx, logger, accessToken, track.CoverID)
+				coverBytes, err := d.getCover(wgctx, logger, accessToken, track.CoverID)
 				if nil != err {
 					return fmt.Errorf("get track cover: %w", err)
 				}
@@ -81,22 +88,22 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 				}
 			}()
 
-			ext, err := d.downloadTrack(dlwgctx, logger, accessToken, track.ID, trackFs.Path)
+			ext, err := d.downloadTrack(wgctx, logger, accessToken, track.ID, trackFs.Path)
 			if nil != err {
 				return fmt.Errorf("download track: %w", err)
 			}
 
-			trackCredits, err := d.getTrackCredits(dlwgctx, logger, accessToken, track.ID)
+			trackCredits, err := d.getTrackCredits(wgctx, logger, accessToken, track.ID)
 			if nil != err {
 				return fmt.Errorf("get track credits: %w", err)
 			}
 
-			trackLyrics, err := d.downloadTrackLyrics(dlwgctx, logger, accessToken, track.ID)
+			trackLyrics, err := d.downloadTrackLyrics(wgctx, logger, accessToken, track.ID)
 			if nil != err {
 				return fmt.Errorf("download track lyrics: %w", err)
 			}
 
-			album, err := d.getAlbumMeta(dlwgctx, logger, accessToken, track.AlbumID)
+			album, err := d.getAlbumMeta(wgctx, logger, accessToken, track.AlbumID)
 			if nil != err {
 				return fmt.Errorf("get album meta: %w", err)
 			}
@@ -137,20 +144,27 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 		})
 	}
 
-	if err := dlwg.Wait(); nil != err {
+	if err := wg.Wait(); nil != err {
 		return fmt.Errorf("wait for track download workers: %w", err)
 	}
 
-	postdlwg, postdlwgctx := errgroup.WithContext(ctx)
-	postdlwg.SetLimit(d.conf.Concurrency.PostProcess)
+	wg, wgctx = errgroup.WithContext(ctx)
+	wg.SetLimit(d.conf.Concurrency.PostProcess)
 
 	for i, track := range tracks {
-		postdlwg.Go(func() (err error) {
-			logger = logger.With().Int("track_index", i).Logger()
+		wg.Go(func() (err error) {
+			select {
+			case <-wgctx.Done():
+				return wgctx.Err()
+			default:
+				break
+			}
+
+			logger := logger.With().Int("track_index", i).Str("track_id", track.ID).Logger()
 
 			trackFs := mixFs.Track(track.ID)
 
-			if err := embedTrackAttributes(postdlwgctx, logger, trackFs.Path, embedTrackAttrs[i]); nil != err {
+			if err := embedTrackAttributes(wgctx, logger, trackFs.Path, embedTrackAttrs[i]); nil != err {
 				return fmt.Errorf("embed track attributes: %w", err)
 			}
 
@@ -163,7 +177,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 		})
 	}
 
-	if err := postdlwg.Wait(); nil != err {
+	if err := wg.Wait(); nil != err {
 		return fmt.Errorf("wait for track post-processing workers: %w", err)
 	}
 

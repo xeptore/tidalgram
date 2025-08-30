@@ -38,9 +38,16 @@ func (d *DashTrackStream) saveTo(
 
 	wg.SetLimit(numChunks)
 	for i := range numChunks {
-		logger = logger.With().Int("chunk_index", i).Logger()
-
 		wg.Go(func() error {
+			select {
+			case <-wgctx.Done():
+				return wgctx.Err()
+			default:
+				break
+			}
+
+			logger := logger.With().Int("chunk_index", i).Logger()
+
 			if err := d.downloadChunk(wgctx, logger, accessToken, fileName, i); nil != err {
 				return fmt.Errorf("download track chunk: %w", err)
 			}

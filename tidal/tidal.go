@@ -62,12 +62,20 @@ func (c *Client) TryDownloadLink(ctx context.Context, logger zerolog.Logger, lin
 		retry.WithMaxRetries(3, retry.NewFibonacci(1*time.Second)),
 		func(ctx context.Context) error {
 			if err := c.downloadLink(ctx, logger, link); nil != err {
+				if errors.Is(err, context.Canceled) {
+					return context.Canceled
+				}
+
 				if errors.Is(err, context.DeadlineExceeded) {
 					return retry.RetryableError(context.DeadlineExceeded)
 				}
 
 				if errors.Is(err, ErrTokenRefreshRequired) {
 					if err := c.auth.RefreshToken(ctx, logger); nil != err {
+						if errors.Is(err, context.Canceled) {
+							return context.Canceled
+						}
+
 						if errors.Is(err, context.DeadlineExceeded) {
 							return retry.RetryableError(context.DeadlineExceeded)
 						}

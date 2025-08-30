@@ -179,9 +179,16 @@ func (c *Uploader) uploadAlbum(
 
 			album := make([]message.MultiMediaOption, len(trackIDs))
 			for idx, trackID := range trackIDs {
-				logger := logger.With().Int("index", idx).Logger()
-
 				wg.Go(func() error {
+					select {
+					case <-wgctx.Done():
+						return wgctx.Err()
+					default:
+						break
+					}
+
+					logger := logger.With().Int("index", idx).Logger()
+
 					logger = logger.With().Str("track_id", trackID).Logger()
 					track := albumFs.Track(volNum, trackID)
 					trackInfo, err := track.InfoFile.Read()
@@ -297,10 +304,16 @@ func (c *Uploader) uploadMix(
 
 		album := make([]message.MultiMediaOption, len(trackIDs))
 		for idx, trackID := range trackIDs {
-			logger := logger.With().Int("index", idx).Logger()
-
 			wg.Go(func() error {
-				logger = logger.With().Str("track_id", trackID).Logger()
+				select {
+				case <-wgctx.Done():
+					return wgctx.Err()
+				default:
+					break
+				}
+
+				logger := logger.With().Int("index", idx).Str("track_id", trackID).Logger()
+
 				track := mixFs.Track(trackID)
 				trackInfo, err := track.InfoFile.Read()
 				if nil != err {
@@ -417,10 +430,16 @@ func (c *Uploader) uploadPlaylist(
 
 		album := make([]message.MultiMediaOption, len(trackIDs))
 		for idx, trackID := range trackIDs {
-			logger := logger.With().Int("index", idx).Logger()
-
 			wg.Go(func() error {
-				logger = logger.With().Str("track_id", trackID).Logger()
+				select {
+				case <-wgctx.Done():
+					return wgctx.Err()
+				default:
+					break
+				}
+
+				logger := logger.With().Int("index", idx).Str("track_id", trackID).Logger()
+
 				track := playlistFs.Track(trackID)
 				trackInfo, err := track.InfoFile.Read()
 				if nil != err {

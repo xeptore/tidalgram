@@ -41,9 +41,16 @@ func (d *VndTrackStream) saveTo(
 
 	numChunks := mathutil.DivCeil(fileSize, singlePartChunkSize)
 	for i := range numChunks {
-		logger = logger.With().Int("chunk_index", i).Logger()
-
 		wg.Go(func() (err error) {
+			select {
+			case <-wgctx.Done():
+				return wgctx.Err()
+			default:
+				break
+			}
+
+			logger := logger.With().Int("chunk_index", i).Logger()
+
 			start := i * singlePartChunkSize
 			end := min((i+1)*singlePartChunkSize-1, fileSize)
 

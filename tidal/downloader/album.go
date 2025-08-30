@@ -75,18 +75,26 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 		albumVolumeTrackIDs = mathutil.MakeAlbumShape[AlbumTrackMeta, string](volumes)
 		embedTrackAttrs     = mathutil.MakeAlbumShape[AlbumTrackMeta, TrackEmbeddedAttrs](volumes)
 		trackInfoFiles      = mathutil.MakeAlbumShape[AlbumTrackMeta, types.StoredAlbumTrack](volumes)
-		dlwg, dlwgctx       = errgroup.WithContext(ctx)
+		wg, wgctx           = errgroup.WithContext(ctx)
 	)
 
-	dlwg.SetLimit(d.conf.Concurrency.AlbumTracks)
+	wg.SetLimit(d.conf.Concurrency.AlbumTracks)
 
 	for volIdx, tracks := range volumes {
 		volNum := volIdx + 1
 		for trackIdx, track := range tracks {
-			logger = logger.With().Int("volume_index", volIdx).Int("track_index", trackIdx).Str("track_id", track.ID).Logger()
 			albumVolumeTrackIDs[volIdx][trackIdx] = track.ID
 
-			dlwg.Go(func() (err error) {
+			wg.Go(func() (err error) {
+				select {
+				case <-wgctx.Done():
+					return wgctx.Err()
+				default:
+					break
+				}
+
+				logger := logger.With().Int("volume_index", volIdx).Int("track_index", trackIdx).Str("track_id", track.ID).Logger()
+
 				trackFs := albumFs.Track(volNum, track.ID)
 
 				if exists, err := trackFs.AlreadyDownloaded(); nil != err {
@@ -106,12 +114,12 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 					}
 				}()
 
-				trackLyrics, err := d.downloadTrackLyrics(dlwgctx, logger, accessToken, track.ID)
+				trackLyrics, err := d.downloadTrackLyrics(wgctx, logger, accessToken, track.ID)
 				if nil != err {
 					return fmt.Errorf("download track lyrics: %w", err)
 				}
 
-				ext, err := d.downloadTrack(dlwgctx, logger, accessToken, track.ID, trackFs.Path)
+				ext, err := d.downloadTrack(wgctx, logger, accessToken, track.ID, trackFs.Path)
 				if nil != err {
 					return fmt.Errorf("download track: %w", err)
 				}
@@ -153,20 +161,27 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 		}
 	}
 
-	if err := dlwg.Wait(); nil != err {
+	if err := wg.Wait(); nil != err {
 		return fmt.Errorf("wait for track download workers: %w", err)
 	}
 
-	postdlwg, postdlwgctx := errgroup.WithContext(ctx)
-	postdlwg.SetLimit(d.conf.Concurrency.PostProcess)
+	wg, wgctx = errgroup.WithContext(ctx)
+	wg.SetLimit(d.conf.Concurrency.PostProcess)
 
 	for volIdx, tracks := range volumes {
 		volNum := volIdx + 1
 		for trackIdx, track := range tracks {
-			postdlwg.Go(func() (err error) {
+			wg.Go(func() (err error) {
+				select {
+				case <-wgctx.Done():
+					return wgctx.Err()
+				default:
+					break
+				}
+
 				trackFs := albumFs.Track(volNum, track.ID)
 
-				if err := embedTrackAttributes(postdlwgctx, logger, trackFs.Path, embedTrackAttrs[volIdx][trackIdx]); nil != err {
+				if err := embedTrackAttributes(wgctx, logger, trackFs.Path, embedTrackAttrs[volIdx][trackIdx]); nil != err {
 					return fmt.Errorf("embed track attributes: %w", err)
 				}
 
@@ -180,7 +195,7 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 		}
 	}
 
-	if err := postdlwg.Wait(); nil != err {
+	if err := wg.Wait(); nil != err {
 		return fmt.Errorf("wait for track post-processing workers: %w", err)
 	}
 
