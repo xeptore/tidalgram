@@ -150,7 +150,7 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 	wg.SetLimit(d.conf.Concurrency.PostProcess)
 
 	for i, track := range tracks {
-		wg.Go(func() (err error) {
+		wg.Go(func() error {
 			select {
 			case <-wgctx.Done():
 				return wgctx.Err()

@@ -152,7 +152,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 	wg.SetLimit(d.conf.Concurrency.PostProcess)
 
 	for i, track := range tracks {
-		wg.Go(func() (err error) {
+		wg.Go(func() error {
 			select {
 			case <-wgctx.Done():
 				return wgctx.Err()

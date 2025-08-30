@@ -171,7 +171,7 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 	for volIdx, tracks := range volumes {
 		volNum := volIdx + 1
 		for trackIdx, track := range tracks {
-			wg.Go(func() (err error) {
+			wg.Go(func() error {
 				select {
 				case <-wgctx.Done():
 					return wgctx.Err()
