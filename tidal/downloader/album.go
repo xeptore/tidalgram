@@ -168,11 +168,11 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 			trackFs := albumFs.Track(volNum, track.ID)
 
 			postdlwg.Go(func() (err error) {
-				if err := embedTrackAttributes(postdlwgctx, logger, trackFs.Path, embedTrackAttrs[trackIdx][trackIdx]); nil != err {
+				if err := embedTrackAttributes(postdlwgctx, logger, trackFs.Path, embedTrackAttrs[volIdx][trackIdx]); nil != err {
 					return fmt.Errorf("embed track attributes: %w", err)
 				}
 
-				if err := trackFs.InfoFile.Write(trackInfoFiles[trackIdx][trackIdx]); nil != err {
+				if err := trackFs.InfoFile.Write(trackInfoFiles[volIdx][trackIdx]); nil != err {
 					logger.Error().Err(err).Msg("Failed to write track info file")
 					return fmt.Errorf("write track info file: %v", err)
 				}
