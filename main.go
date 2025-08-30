@@ -259,7 +259,7 @@ func botRun(ctx context.Context, cmd *cli.Command) error {
 	logger.Info().Msg("Stopping TidalGram application")
 
 	if err := b.Stop(); nil != err {
-		return fmt.Errorf("stop tidalgram bot: %w", err)
+		return fmt.Errorf("stop tidalgram bot: %v", err)
 	}
 	logger.Info().Msg("TidalGram bot stopped successfully")
 

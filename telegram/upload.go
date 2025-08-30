@@ -251,7 +251,6 @@ func (c *Uploader) uploadAlbum(
 				WithUploader(c.engine).
 				To(c.peer).
 				Clear().
-				Reply(replyToID).
 				Background().
 				Album(ctx, album[0], rest...)
 			if nil != err {
@@ -521,7 +520,7 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 
 	mime, err := mimetype.DetectFile(track.Path)
 	if nil != err {
-		return fmt.Errorf("detect mime: %w", err)
+		return fmt.Errorf("detect mime: %v", err)
 	}
 
 	const notCollapsed = false
