@@ -182,9 +182,8 @@ func (c *Uploader) uploadAlbum(
 				wg.Go(func() error {
 					select {
 					case <-wgctx.Done():
-						return wgctx.Err()
+						return nil
 					default:
-						break
 					}
 
 					logger := logger.With().Int("index", idx).Logger()
@@ -307,9 +306,8 @@ func (c *Uploader) uploadMix(
 			wg.Go(func() error {
 				select {
 				case <-wgctx.Done():
-					return wgctx.Err()
+					return nil
 				default:
-					break
 				}
 
 				logger := logger.With().Int("index", idx).Str("track_id", trackID).Logger()
@@ -433,9 +431,8 @@ func (c *Uploader) uploadPlaylist(
 			wg.Go(func() error {
 				select {
 				case <-wgctx.Done():
-					return wgctx.Err()
+					return nil
 				default:
-					break
 				}
 
 				logger := logger.With().Int("index", idx).Str("track_id", trackID).Logger()

@@ -44,9 +44,8 @@ func (d *VndTrackStream) saveTo(
 		wg.Go(func() (err error) {
 			select {
 			case <-wgctx.Done():
-				return wgctx.Err()
+				return nil
 			default:
-				break
 			}
 
 			logger := logger.With().Int("chunk_index", i).Logger()

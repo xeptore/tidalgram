@@ -98,11 +98,6 @@ tidal:
       # Network-intensive operation.
       # Default: 5
       vnd_track_parts: 5
-      # OPTIONAL
-      # Number of concurrent track post-processing workers
-      # CPU-intensive operation.
-      # Default: 100
-      post_process: 100
 
 telegram:
   # REQUIRED

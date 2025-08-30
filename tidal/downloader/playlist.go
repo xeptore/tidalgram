@@ -34,10 +34,8 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 	}
 
 	var (
-		playlistFs      = d.dir.Playlist(id)
-		wg, wgctx       = errgroup.WithContext(ctx)
-		embedTrackAttrs = make([]TrackEmbeddedAttrs, len(tracks))
-		trackInfoFiles  = make([]types.StoredTrack, len(tracks))
+		playlistFs = d.dir.Playlist(id)
+		wg, wgctx  = errgroup.WithContext(ctx)
 	)
 
 	wg.SetLimit(d.conf.Concurrency.PlaylistTracks)
@@ -46,9 +44,8 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 		wg.Go(func() (err error) {
 			select {
 			case <-wgctx.Done():
-				return wgctx.Err()
+				return nil
 			default:
-				break
 			}
 
 			logger := logger.With().Int("track_index", i).Str("track_id", track.ID).Logger()
@@ -106,7 +103,7 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				return fmt.Errorf("get album meta: %w", err)
 			}
 
-			embedTrackAttrs[i] = TrackEmbeddedAttrs{
+			attrs := TrackEmbeddedAttrs{
 				LeadArtist:   track.Artist,
 				Album:        track.AlbumTitle,
 				AlbumArtist:  album.Artist,
@@ -125,8 +122,11 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				Lyrics:       trackLyrics,
 				Ext:          ext,
 			}
+			if err := embedTrackAttributes(wgctx, logger, trackFs.Path, attrs); nil != err {
+				return fmt.Errorf("embed track attributes: %w", err)
+			}
 
-			trackInfoFiles[i] = types.StoredTrack{
+			info := types.StoredTrack{
 				Track: types.Track{
 					Artists:  track.Artists,
 					Title:    track.Title,
@@ -137,36 +137,7 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				},
 				Caption: trackCaption(album.Title, album.ReleaseDate),
 			}
-
-			return nil
-		})
-	}
-
-	if err := wg.Wait(); nil != err {
-		return fmt.Errorf("wait for track download workers: %w", err)
-	}
-
-	wg, wgctx = errgroup.WithContext(ctx)
-	wg.SetLimit(d.conf.Concurrency.PostProcess)
-
-	for i, track := range tracks {
-		wg.Go(func() error {
-			select {
-			case <-wgctx.Done():
-				return wgctx.Err()
-			default:
-				break
-			}
-
-			logger := logger.With().Int("track_index", i).Str("track_id", track.ID).Logger()
-
-			trackFs := playlistFs.Track(track.ID)
-
-			if err := embedTrackAttributes(wgctx, logger, trackFs.Path, embedTrackAttrs[i]); nil != err {
-				return fmt.Errorf("embed track attributes: %w", err)
-			}
-
-			if err := trackFs.InfoFile.Write(trackInfoFiles[i]); nil != err {
+			if err := trackFs.InfoFile.Write(info); nil != err {
 				logger.Error().Err(err).Msg("Failed to write track info file")
 				return fmt.Errorf("write track info file: %v", err)
 			}
@@ -176,7 +147,7 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 	}
 
 	if err := wg.Wait(); nil != err {
-		return fmt.Errorf("wait for track post-processing workers: %w", err)
+		return fmt.Errorf("wait for track download workers: %w", err)
 	}
 
 	info := types.StoredPlaylist{

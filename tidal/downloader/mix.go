@@ -35,10 +35,8 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 	}
 
 	var (
-		mixFs           = d.dir.Mix(id)
-		wg, wgctx       = errgroup.WithContext(ctx)
-		embedTrackAttrs = make([]TrackEmbeddedAttrs, len(tracks))
-		trackInfoFiles  = make([]types.StoredTrack, len(tracks))
+		mixFs     = d.dir.Mix(id)
+		wg, wgctx = errgroup.WithContext(ctx)
 	)
 
 	wg.SetLimit(d.conf.Concurrency.MixTracks)
@@ -47,9 +45,8 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 		wg.Go(func() (err error) {
 			select {
 			case <-wgctx.Done():
-				return wgctx.Err()
+				return nil
 			default:
-				break
 			}
 
 			logger := logger.With().Int("track_index", i).Str("track_id", track.ID).Logger()
@@ -108,7 +105,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 				return fmt.Errorf("get album meta: %w", err)
 			}
 
-			embedTrackAttrs[i] = TrackEmbeddedAttrs{
+			attrs := TrackEmbeddedAttrs{
 				LeadArtist:   track.Artist,
 				Album:        track.AlbumTitle,
 				AlbumArtist:  album.Artist,
@@ -127,8 +124,11 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 				Lyrics:       trackLyrics,
 				Ext:          ext,
 			}
+			if err := embedTrackAttributes(wgctx, logger, trackFs.Path, attrs); nil != err {
+				return fmt.Errorf("embed track attributes: %w", err)
+			}
 
-			trackInfoFiles[i] = types.StoredTrack{
+			info := types.StoredTrack{
 				Track: types.Track{
 					Artists:  track.Artists,
 					Title:    track.Title,
@@ -139,36 +139,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 				},
 				Caption: trackCaption(album.Title, album.ReleaseDate),
 			}
-
-			return nil
-		})
-	}
-
-	if err := wg.Wait(); nil != err {
-		return fmt.Errorf("wait for track download workers: %w", err)
-	}
-
-	wg, wgctx = errgroup.WithContext(ctx)
-	wg.SetLimit(d.conf.Concurrency.PostProcess)
-
-	for i, track := range tracks {
-		wg.Go(func() error {
-			select {
-			case <-wgctx.Done():
-				return wgctx.Err()
-			default:
-				break
-			}
-
-			logger := logger.With().Int("track_index", i).Str("track_id", track.ID).Logger()
-
-			trackFs := mixFs.Track(track.ID)
-
-			if err := embedTrackAttributes(wgctx, logger, trackFs.Path, embedTrackAttrs[i]); nil != err {
-				return fmt.Errorf("embed track attributes: %w", err)
-			}
-
-			if err := trackFs.InfoFile.Write(trackInfoFiles[i]); nil != err {
+			if err := trackFs.InfoFile.Write(info); nil != err {
 				logger.Error().Err(err).Msg("Failed to write track info")
 				return fmt.Errorf("write track info: %v", err)
 			}
@@ -178,7 +149,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 	}
 
 	if err := wg.Wait(); nil != err {
-		return fmt.Errorf("wait for track post-processing workers: %w", err)
+		return fmt.Errorf("wait for track download workers: %w", err)
 	}
 
 	info := types.StoredMix{
