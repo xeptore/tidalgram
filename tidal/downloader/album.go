@@ -13,7 +13,6 @@ import (
 
 	"github.com/goccy/go-json"
 	"github.com/rs/zerolog"
-	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/xeptore/tidalgram/cache"
@@ -73,20 +72,19 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 	}
 
 	var (
-		dlwg, dlwgctx       = errgroup.WithContext(ctx)
-		albumVolumeTrackIDs = make([][]string, len(volumes))
+		albumVolumeTrackIDs = mathutil.MakeAlbumShape[AlbumTrackMeta, string](volumes)
 		embedTrackAttrs     = mathutil.MakeAlbumShape[AlbumTrackMeta, TrackEmbeddedAttrs](volumes)
 		trackInfoFiles      = mathutil.MakeAlbumShape[AlbumTrackMeta, types.StoredAlbumTrack](volumes)
+		dlwg, dlwgctx       = errgroup.WithContext(ctx)
 	)
 
 	dlwg.SetLimit(d.conf.Concurrency.AlbumTracks)
 
 	for volIdx, tracks := range volumes {
-		albumVolumeTrackIDs[volIdx] = lo.Map(tracks, func(t AlbumTrackMeta, _ int) string { return t.ID })
-
 		volNum := volIdx + 1
 		for trackIdx, track := range tracks {
 			logger = logger.With().Int("volume_index", volIdx).Int("track_index", trackIdx).Str("track_id", track.ID).Logger()
+			albumVolumeTrackIDs[volIdx][trackIdx] = track.ID
 
 			dlwg.Go(func() (err error) {
 				trackFs := albumFs.Track(volNum, track.ID)
@@ -165,9 +163,9 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 	for volIdx, tracks := range volumes {
 		volNum := volIdx + 1
 		for trackIdx, track := range tracks {
-			trackFs := albumFs.Track(volNum, track.ID)
-
 			postdlwg.Go(func() (err error) {
+				trackFs := albumFs.Track(volNum, track.ID)
+
 				if err := embedTrackAttributes(postdlwgctx, logger, trackFs.Path, embedTrackAttrs[volIdx][trackIdx]); nil != err {
 					return fmt.Errorf("embed track attributes: %w", err)
 				}

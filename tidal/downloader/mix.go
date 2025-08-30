@@ -145,9 +145,9 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 	postdlwg.SetLimit(d.conf.Concurrency.PostProcess)
 
 	for i, track := range tracks {
-		logger = logger.With().Int("track_index", i).Logger()
-
 		postdlwg.Go(func() (err error) {
+			logger = logger.With().Int("track_index", i).Logger()
+
 			trackFs := mixFs.Track(track.ID)
 
 			if err := embedTrackAttributes(postdlwgctx, logger, trackFs.Path, embedTrackAttrs[i]); nil != err {
