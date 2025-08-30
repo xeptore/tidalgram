@@ -7,8 +7,8 @@ import (
 
 func TrackDownloadSleepMS() time.Duration {
 	const (
-		from = 2
-		to   = 6
+		from = 1
+		to   = 3
 	)
 	millis := (rand.IntN(to-from)+from)*1000 + rand.N(1000) //nolint:gosec
 

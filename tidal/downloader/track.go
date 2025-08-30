@@ -22,6 +22,7 @@ import (
 	"github.com/xeptore/tidalgram/httputil"
 	"github.com/xeptore/tidalgram/must"
 	"github.com/xeptore/tidalgram/ptr"
+	"github.com/xeptore/tidalgram/ratelimit"
 	"github.com/xeptore/tidalgram/tidal/auth"
 	"github.com/xeptore/tidalgram/tidal/types"
 )
@@ -309,6 +310,8 @@ func (d *Downloader) downloadTrack(
 	if nil != err {
 		return "", fmt.Errorf("get track stream: %w", err)
 	}
+
+	time.Sleep(ratelimit.TrackDownloadSleepMS())
 
 	if err := stream.saveTo(ctx, logger, accessToken, fileName); nil != err {
 		return "", fmt.Errorf("download track: %w", err)
