@@ -18,6 +18,7 @@ import (
 
 	"github.com/xeptore/tidalgram/cache"
 	"github.com/xeptore/tidalgram/httputil"
+	"github.com/xeptore/tidalgram/mathutil"
 	"github.com/xeptore/tidalgram/tidal/auth"
 	"github.com/xeptore/tidalgram/tidal/types"
 )
@@ -72,23 +73,24 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 	}
 
 	var (
-		dlwg, dlwgctx         = errgroup.WithContext(ctx)
-		postdlwg, postdlwgctx = errgroup.WithContext(dlwgctx)
-		albumVolumeTrackIDs   = make([][]string, len(volumes))
+		dlwg, dlwgctx       = errgroup.WithContext(ctx)
+		albumVolumeTrackIDs = make([][]string, len(volumes))
+		embedTrackAttrs     = mathutil.MakeAlbumShape[AlbumTrackMeta, TrackEmbeddedAttrs](volumes)
+		trackInfoFiles      = mathutil.MakeAlbumShape[AlbumTrackMeta, types.StoredAlbumTrack](volumes)
 	)
 
 	dlwg.SetLimit(d.conf.Concurrency.AlbumTracks)
-	postdlwg.SetLimit(d.conf.Concurrency.PostProcess)
 
-	for i, tracks := range volumes {
-		albumVolumeTrackIDs[i] = lo.Map(tracks, func(t AlbumTrackMeta, _ int) string { return t.ID })
+	for volIdx, tracks := range volumes {
+		albumVolumeTrackIDs[volIdx] = lo.Map(tracks, func(t AlbumTrackMeta, _ int) string { return t.ID })
 
-		volNum := i + 1
-		for idx, track := range tracks {
-			logger = logger.With().Int("track_index", idx).Str("track_id", track.ID).Logger()
+		volNum := volIdx + 1
+		for trackIdx, track := range tracks {
+			logger = logger.With().Int("volume_index", volIdx).Int("track_index", trackIdx).Str("track_id", track.ID).Logger()
 
 			dlwg.Go(func() (err error) {
 				trackFs := albumFs.Track(volNum, track.ID)
+
 				if exists, err := trackFs.AlreadyDownloaded(); nil != err {
 					logger.Error().Err(err).Msg("Failed to check if track file exists")
 					return fmt.Errorf("check if track file exists: %v", err)
@@ -116,48 +118,64 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 					return fmt.Errorf("download track: %w", err)
 				}
 
-				postdlwg.Go(func() (err error) {
-					attrs := TrackEmbeddedAttrs{
-						LeadArtist:   track.Artist,
-						Album:        album.Title,
-						AlbumArtist:  album.Artist,
-						Artists:      track.Artists,
-						Copyright:    track.Copyright,
-						CoverPath:    albumFs.Cover.Path,
-						ISRC:         track.ISRC,
-						ReleaseDate:  album.ReleaseDate,
-						Title:        track.Title,
-						TrackNumber:  track.TrackNumber,
-						TotalTracks:  album.TotalTracks,
-						Version:      track.Version,
-						VolumeNumber: track.VolumeNumber,
-						TotalVolumes: album.TotalVolumes,
-						Credits:      track.Credits,
-						Lyrics:       trackLyrics,
-						Ext:          ext,
-					}
-					if err := embedTrackAttributes(postdlwgctx, logger, trackFs.Path, attrs); nil != err {
-						return fmt.Errorf("embed track attributes: %v", err)
-					}
+				embedTrackAttrs[volIdx][trackIdx] = TrackEmbeddedAttrs{
+					LeadArtist:   track.Artist,
+					Album:        album.Title,
+					AlbumArtist:  album.Artist,
+					Artists:      track.Artists,
+					Copyright:    track.Copyright,
+					CoverPath:    albumFs.Cover.Path,
+					ISRC:         track.ISRC,
+					ReleaseDate:  album.ReleaseDate,
+					Title:        track.Title,
+					TrackNumber:  track.TrackNumber,
+					TotalTracks:  album.TotalTracks,
+					Version:      track.Version,
+					VolumeNumber: track.VolumeNumber,
+					TotalVolumes: album.TotalVolumes,
+					Credits:      track.Credits,
+					Lyrics:       trackLyrics,
+					Ext:          ext,
+				}
 
-					info := types.StoredAlbumTrack{
-						Track: types.Track{
-							Artists:  track.Artists,
-							Title:    track.Title,
-							Duration: track.Duration,
-							Version:  track.Version,
-							CoverID:  album.CoverID,
-							Ext:      ext,
-						},
-						Index: idx,
-					}
-					if err := trackFs.InfoFile.Write(info); nil != err {
-						logger.Error().Err(err).Msg("Failed to write track info file")
-						return fmt.Errorf("write track info file: %v", err)
-					}
+				trackInfoFiles[volIdx][trackIdx] = types.StoredAlbumTrack{
+					Track: types.Track{
+						Artists:  track.Artists,
+						Title:    track.Title,
+						Duration: track.Duration,
+						Version:  track.Version,
+						CoverID:  album.CoverID,
+						Ext:      ext,
+					},
+					Index: trackIdx,
+				}
 
-					return nil
-				})
+				return nil
+			})
+		}
+	}
+
+	if err := dlwg.Wait(); nil != err {
+		return fmt.Errorf("wait for track download workers: %w", err)
+	}
+
+	postdlwg, postdlwgctx := errgroup.WithContext(ctx)
+	postdlwg.SetLimit(d.conf.Concurrency.PostProcess)
+
+	for volIdx, tracks := range volumes {
+		volNum := volIdx + 1
+		for trackIdx, track := range tracks {
+			trackFs := albumFs.Track(volNum, track.ID)
+
+			postdlwg.Go(func() (err error) {
+				if err := embedTrackAttributes(postdlwgctx, logger, trackFs.Path, embedTrackAttrs[trackIdx][trackIdx]); nil != err {
+					return fmt.Errorf("embed track attributes: %w", err)
+				}
+
+				if err := trackFs.InfoFile.Write(trackInfoFiles[trackIdx][trackIdx]); nil != err {
+					logger.Error().Err(err).Msg("Failed to write track info file")
+					return fmt.Errorf("write track info file: %v", err)
+				}
 
 				return nil
 			})
@@ -166,10 +184,6 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 
 	if err := postdlwg.Wait(); nil != err {
 		return fmt.Errorf("wait for track post-processing workers: %w", err)
-	}
-
-	if err := dlwg.Wait(); nil != err {
-		return fmt.Errorf("wait for track download workers: %w", err)
 	}
 
 	info := types.StoredAlbum{

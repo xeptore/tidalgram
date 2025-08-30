@@ -35,19 +35,20 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 	}
 
 	var (
-		mixFs                 = d.dir.Mix(id)
-		dlwg, dlwgctx         = errgroup.WithContext(ctx)
-		postdlwg, postdlwgctx = errgroup.WithContext(dlwgctx)
+		mixFs           = d.dir.Mix(id)
+		dlwg, dlwgctx   = errgroup.WithContext(ctx)
+		embedTrackAttrs = make([]TrackEmbeddedAttrs, len(tracks))
+		trackInfoFiles  = make([]types.StoredTrack, len(tracks))
 	)
 
 	dlwg.SetLimit(d.conf.Concurrency.MixTracks)
-	postdlwg.SetLimit(d.conf.Concurrency.PostProcess)
 
 	for i, track := range tracks {
 		logger = logger.With().Int("track_index", i).Logger()
 
 		dlwg.Go(func() (err error) {
 			trackFs := mixFs.Track(track.ID)
+
 			if exists, err := trackFs.Cover.AlreadyDownloaded(); nil != err {
 				logger.Error().Err(err).Msg("Failed to check if track cover exists")
 				return fmt.Errorf("check if track cover exists: %v", err)
@@ -100,48 +101,63 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 				return fmt.Errorf("get album meta: %w", err)
 			}
 
-			postdlwg.Go(func() (err error) {
-				attrs := TrackEmbeddedAttrs{
-					LeadArtist:   track.Artist,
-					Album:        track.AlbumTitle,
-					AlbumArtist:  album.Artist,
-					Artists:      track.Artists,
-					Copyright:    track.Copyright,
-					CoverPath:    trackFs.Cover.Path,
-					ISRC:         track.ISRC,
-					ReleaseDate:  album.ReleaseDate,
-					Title:        track.Title,
-					TrackNumber:  track.TrackNumber,
-					TotalTracks:  album.TotalTracks,
-					Version:      track.Version,
-					VolumeNumber: track.VolumeNumber,
-					TotalVolumes: album.TotalVolumes,
-					Credits:      *trackCredits,
-					Lyrics:       trackLyrics,
-					Ext:          ext,
-				}
-				if err := embedTrackAttributes(postdlwgctx, logger, trackFs.Path, attrs); nil != err {
-					return fmt.Errorf("embed track attributes: %v", err)
-				}
+			embedTrackAttrs[i] = TrackEmbeddedAttrs{
+				LeadArtist:   track.Artist,
+				Album:        track.AlbumTitle,
+				AlbumArtist:  album.Artist,
+				Artists:      track.Artists,
+				Copyright:    track.Copyright,
+				CoverPath:    trackFs.Cover.Path,
+				ISRC:         track.ISRC,
+				ReleaseDate:  album.ReleaseDate,
+				Title:        track.Title,
+				TrackNumber:  track.TrackNumber,
+				TotalTracks:  album.TotalTracks,
+				Version:      track.Version,
+				VolumeNumber: track.VolumeNumber,
+				TotalVolumes: album.TotalVolumes,
+				Credits:      *trackCredits,
+				Lyrics:       trackLyrics,
+				Ext:          ext,
+			}
 
-				info := types.StoredTrack{
-					Track: types.Track{
-						Artists:  track.Artists,
-						Title:    track.Title,
-						Duration: track.Duration,
-						Version:  track.Version,
-						CoverID:  track.CoverID,
-						Ext:      ext,
-					},
-					Caption: trackCaption(album.Title, album.ReleaseDate),
-				}
-				if err := trackFs.InfoFile.Write(info); nil != err {
-					logger.Error().Err(err).Msg("Failed to write track info")
-					return fmt.Errorf("write track info: %v", err)
-				}
+			trackInfoFiles[i] = types.StoredTrack{
+				Track: types.Track{
+					Artists:  track.Artists,
+					Title:    track.Title,
+					Duration: track.Duration,
+					Version:  track.Version,
+					CoverID:  track.CoverID,
+					Ext:      ext,
+				},
+				Caption: trackCaption(album.Title, album.ReleaseDate),
+			}
 
-				return nil
-			})
+			return nil
+		})
+	}
+
+	if err := dlwg.Wait(); nil != err {
+		return fmt.Errorf("wait for track download workers: %w", err)
+	}
+
+	postdlwg, postdlwgctx := errgroup.WithContext(ctx)
+	postdlwg.SetLimit(d.conf.Concurrency.PostProcess)
+
+	for i, track := range tracks {
+		logger = logger.With().Int("track_index", i).Logger()
+
+		postdlwg.Go(func() (err error) {
+			trackFs := mixFs.Track(track.ID)
+
+			if err := embedTrackAttributes(postdlwgctx, logger, trackFs.Path, embedTrackAttrs[i]); nil != err {
+				return fmt.Errorf("embed track attributes: %w", err)
+			}
+
+			if err := trackFs.InfoFile.Write(trackInfoFiles[i]); nil != err {
+				logger.Error().Err(err).Msg("Failed to write track info")
+				return fmt.Errorf("write track info: %v", err)
+			}
 
 			return nil
 		})
@@ -149,10 +165,6 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 
 	if err := postdlwg.Wait(); nil != err {
 		return fmt.Errorf("wait for track post-processing workers: %w", err)
-	}
-
-	if err := dlwg.Wait(); nil != err {
-		return fmt.Errorf("wait for track download workers: %w", err)
 	}
 
 	info := types.StoredMix{
