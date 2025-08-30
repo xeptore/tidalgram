@@ -55,10 +55,40 @@ jobs:
           export PATH="$PATH:~/.local/bin"
       - name: Run Code Linter
         run: task lint
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+          check-latest: true
+      - name: Install Task
+        run: |
+          sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin/
+          export PATH="$PATH:~/.local/bin"
+      - name: Run Tests
+        run: task test
   build-docker-image:
     name: Build Docker Image
     needs:
       - lint
+      - test
     runs-on: ubuntu-24.04
     permissions:
       packages: write
