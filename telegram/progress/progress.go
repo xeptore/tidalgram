@@ -43,15 +43,6 @@ func (p *AlbumTracker) Percent() int {
 	return int(math.Floor(float64(uploaded) / float64(p.total) * 100))
 }
 
-type AlbumFile struct {
-	atomic.Int64
-}
-
-func (f *AlbumFile) Chunk(ctx context.Context, state uploader.ProgressState) error {
-	f.Store(state.Uploaded)
-	return nil
-}
-
 type FileTracker struct {
 	total int64
 	cover *Cover
