@@ -130,7 +130,7 @@ func (c Cover) AlreadyDownloaded() (bool, error) {
 }
 
 func fileExists(path string) (bool, error) {
-	if _, err := os.Stat(path); nil != err {
+	if _, err := os.Lstat(path); nil != err {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, nil
 		}
