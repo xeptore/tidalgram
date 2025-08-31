@@ -39,11 +39,13 @@ var (
 )
 
 type Uploader struct {
-	client *tg.Client
-	stop   bg.StopFunc
-	conf   config.Telegram
-	peer   tg.InputPeerClass
-	logger zerolog.Logger
+	storage *Storage
+	client  *tg.Client
+	pool    dcpool.Pool
+	stop    bg.StopFunc
+	conf    config.Telegram
+	peer    tg.InputPeerClass
+	logger  zerolog.Logger
 }
 
 func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (*Uploader, error) {
@@ -52,7 +54,6 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 		return nil, fmt.Errorf("create storage: %v", err)
 	}
 
-	const maxRecoveryElapsedTime = 5 * time.Minute
 	opts, err := newClientOptions(ctx, logger, storage, conf)
 	if nil != err {
 		return nil, fmt.Errorf("get client options: %w", err)
@@ -83,6 +84,7 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 	}
 	logger.Info().Int64("id", user.ID).Msg("Got self")
 
+	const maxRecoveryElapsedTime = 5 * time.Minute
 	pool := dcpool.NewPool(
 		client,
 		int64(conf.Upload.PoolSize),
@@ -145,11 +147,13 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 	}
 
 	return &Uploader{
-		client: tgClient,
-		stop:   stop,
-		conf:   conf,
-		peer:   peer,
-		logger: logger,
+		storage: storage,
+		client:  tgClient,
+		pool:    pool,
+		stop:    stop,
+		conf:    conf,
+		peer:    peer,
+		logger:  logger,
 	}, nil
 }
 
@@ -159,6 +163,18 @@ func (u *Uploader) Close() error {
 		return fmt.Errorf("stop background client: %v", err)
 	}
 	u.logger.Debug().Msg("Telegram uploader closed")
+
+	u.logger.Debug().Msg("Closing pool")
+	if err := u.pool.Close(); nil != err {
+		return fmt.Errorf("close pool: %v", err)
+	}
+	u.logger.Debug().Msg("Pool closed")
+
+	u.logger.Debug().Msg("Closing storage")
+	if err := u.storage.Close(); nil != err {
+		return fmt.Errorf("close storage: %v", err)
+	}
+	u.logger.Debug().Msg("Storage closed")
 
 	return nil
 }
