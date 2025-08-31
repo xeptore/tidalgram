@@ -153,7 +153,7 @@ func (c *Bot) validate() error {
 		return errors.New("make sure the BOT_TOKEN environment variable is set")
 	}
 
-	if i, err := os.Stat(c.CredsDir); nil != err {
+	if i, err := os.Lstat(c.CredsDir); nil != err {
 		if errors.Is(err, os.ErrNotExist) {
 			return errors.New("creds_dir does not exist")
 		}
@@ -163,7 +163,7 @@ func (c *Bot) validate() error {
 		return errors.New("creds_dir must be a directory")
 	}
 
-	if i, err := os.Stat(c.DownloadsDir); nil != err {
+	if i, err := os.Lstat(c.DownloadsDir); nil != err {
 		if errors.Is(err, os.ErrNotExist) {
 			return errors.New("downloads_dir does not exist")
 		}
