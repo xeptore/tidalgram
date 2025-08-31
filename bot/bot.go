@@ -141,7 +141,7 @@ func (b *Bot) Start(ctx context.Context) error {
 	compiledAt, _ := time.Parse(time.RFC3339, constant.CompileTime)
 	msg := strings.Join(
 		[]string{
-			"I'm online, Papa 🙂",
+			"I'm online, papa 🙂",
 			"",
 			"> 🏷️ Version: `" + constant.Version + "`",
 			"> 🕒 Compiled At: `" + compiledAt.Format("2006/01/02 15:04:05") + " UTC`",
@@ -191,7 +191,7 @@ func (b *Bot) Stop() error {
 	sendOpts := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
 		ParseMode: gotgbot.ParseModeMarkdown,
 	}
-	if _, err := b.bot.SendMessage(b.papaChatID, "I'm going offline, Papa 💤", sendOpts); nil != err {
+	if _, err := b.bot.SendMessage(b.papaChatID, "I'm going offline, papa 💤", sendOpts); nil != err {
 		return fmt.Errorf("send message: %v", err)
 	}
 
