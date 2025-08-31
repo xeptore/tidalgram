@@ -6,8 +6,6 @@ on:
   push:
     branches:
       - main
-    tags:
-      - "v[0-9]+"
 concurrency:
   group: ${{ github.workflow }}/${{ github.ref_type }}/${{ github.ref_name }}
   cancel-in-progress: true
@@ -122,8 +120,7 @@ jobs:
           tags: |
             type=edge,branch=${{ github.event.repository.default_branch }}
             type=ref,event=pr
-            type=raw,value=${{ steps.version.outputs.version }}
-            type=match,pattern=\d,group=0
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
           labels: |
             maintainer=${{ github.repository_owner }}
             org.opencontainers.image.authors=${{ github.repository_owner }}
