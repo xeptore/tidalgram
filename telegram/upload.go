@@ -10,6 +10,7 @@ import (
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gotd/contrib/bg"
+	"github.com/gotd/td/constant"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/message"
 	"github.com/gotd/td/telegram/message/html"
@@ -29,8 +30,7 @@ import (
 	"github.com/xeptore/tidalgram/tidal/types"
 )
 
-// MaxPartSize refer to https://core.telegram.org/api/files#uploading-files
-const MaxPartSize = 512 * 1024
+const MaxPartSize = constant.UploadMaxPartSize
 
 var (
 	ErrUnauthorized = errors.New("unauthorized")
@@ -169,6 +169,12 @@ func (c *Uploader) Close() error {
 }
 
 func (c *Uploader) Upload(ctx context.Context, logger zerolog.Logger, dir fs.DownloadsDir, link types.Link) error {
+	c.client.MessagesSetTyping(ctx, &tg.MessagesSetTypingRequest{
+		Peer: c.peer,
+		// Action: &tg.SendMessageUploadAudioAction{},
+		Action: &tg.SendMessageCancelAction{},
+	})
+
 	switch link.Kind {
 	case types.LinkKindTrack:
 		return c.uploadTrack(ctx, logger, dir, link.ID)
@@ -214,7 +220,6 @@ func (c *Uploader) uploadAlbum(
 		for partIdx, trackIDs := range batches {
 			const notCollapsed = false
 			partCaption := []message.StyledTextOption{
-				styling.Plain("\n"),
 				styling.Blockquote(info.Caption, notCollapsed),
 				styling.Plain("\n"),
 				styling.Plain("\n"),
@@ -340,7 +345,6 @@ func (c *Uploader) uploadMix(
 	for partIdx, trackIDs := range batches {
 		const notCollapsed = false
 		partCaption := []styling.StyledTextOption{
-			styling.Plain("\n"),
 			styling.Blockquote(info.Caption, notCollapsed),
 			styling.Plain("\n"),
 			styling.Plain("\n"),
@@ -465,7 +469,6 @@ func (c *Uploader) uploadPlaylist(
 	for partIdx, trackIDs := range batches {
 		const notCollapsed = false
 		partCaption := []styling.StyledTextOption{
-			styling.Plain("\n"),
 			styling.Blockquote(info.Caption, notCollapsed),
 			styling.Plain("\n"),
 			styling.Plain("\n"),
