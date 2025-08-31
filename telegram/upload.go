@@ -347,61 +347,43 @@ func (u *Uploader) uploadMix(
 		}
 
 		tracker := progress.NewAlbumTracker(len(trackIDs))
+		for i, trackID := range trackIDs {
+			logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
+
+			track := mixFs.Track(trackID)
+
+			trackStat, err := os.Lstat(track.Path)
+			if nil != err {
+				logger.Error().Err(err).Msg("Failed to stat mix track file")
+				return fmt.Errorf("stat mix track file: %v", err)
+			}
+			if !trackStat.Mode().IsRegular() {
+				return fmt.Errorf("mix track file %q is not a regular file", track.Path)
+			}
+			if trackStat.Size() == 0 {
+				return errors.New("mix track file is empty")
+			}
+
+			trackProgress := &progress.Track{Size: trackStat.Size()}
+
+			coverStat, err := os.Lstat(track.Cover.Path)
+			if nil != err {
+				logger.Error().Err(err).Msg("Failed to stat mix track cover file")
+				return fmt.Errorf("stat mix track cover file: %v", err)
+			}
+			if !coverStat.Mode().IsRegular() {
+				return fmt.Errorf("mix track cover file %q is not a regular file", track.Cover.Path)
+			}
+			if coverStat.Size() == 0 {
+				return errors.New("mix track cover file is empty")
+			}
+
+			coverProgress := &progress.Cover{Size: coverStat.Size()}
+
+			tracker.Set(i, progress.NewFileTracker(coverProgress, trackProgress))
+		}
 
 		wg, wgctx := errgroup.WithContext(ctx)
-		wg.SetLimit(len(trackIDs))
-
-		for i, trackID := range trackIDs {
-			wg.Go(func() (err error) {
-				select {
-				case <-wgctx.Done():
-					return nil
-				default:
-				}
-
-				logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
-
-				track := mixFs.Track(trackID)
-
-				trackStat, err := os.Lstat(track.Path)
-				if nil != err {
-					logger.Error().Err(err).Msg("Failed to stat mix track file")
-					return fmt.Errorf("stat mix track file: %v", err)
-				}
-				if !trackStat.Mode().IsRegular() {
-					return fmt.Errorf("mix track file %q is not a regular file", track.Path)
-				}
-				if trackStat.Size() == 0 {
-					return errors.New("mix track file is empty")
-				}
-
-				trackProgress := &progress.Track{Size: trackStat.Size()}
-
-				coverStat, err := os.Lstat(track.Cover.Path)
-				if nil != err {
-					logger.Error().Err(err).Msg("Failed to stat mix track cover file")
-					return fmt.Errorf("stat mix track cover file: %v", err)
-				}
-				if !coverStat.Mode().IsRegular() {
-					return fmt.Errorf("mix track cover file %q is not a regular file", track.Cover.Path)
-				}
-				if coverStat.Size() == 0 {
-					return errors.New("mix track cover file is empty")
-				}
-
-				coverProgress := &progress.Cover{Size: coverStat.Size()}
-
-				tracker.Set(i, progress.NewFileTracker(coverProgress, trackProgress))
-
-				return nil
-			})
-		}
-
-		if err := wg.Wait(); nil != err {
-			return fmt.Errorf("wait for stats of mix tracks: %w", err)
-		}
-
-		wg, wgctx = errgroup.WithContext(ctx)
 		wg.SetLimit(u.conf.Upload.Limit)
 
 		typingWait := make(chan struct{})
