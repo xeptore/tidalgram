@@ -268,60 +268,6 @@ func (c *TidalDownloader) validate() error {
 	return nil
 }
 
-type TidalDownloadConcurrency struct {
-	AlbumTracks    int `yaml:"album_tracks"`
-	PlaylistTracks int `yaml:"playlist_tracks"`
-	MixTracks      int `yaml:"mix_tracks"`
-	VNDTrackParts  int `yaml:"vnd_track_parts"`
-}
-
-func (c *TidalDownloadConcurrency) ToDict() *zerolog.Event {
-	return zerolog.
-		Dict().
-		Int("album_tracks", c.AlbumTracks).
-		Int("playlist_tracks", c.PlaylistTracks).
-		Int("mix_tracks", c.MixTracks).
-		Int("vnd_track_parts", c.VNDTrackParts)
-}
-
-func (c *TidalDownloadConcurrency) setDefaults() {
-	if c.AlbumTracks == 0 {
-		c.AlbumTracks = 20
-	}
-
-	if c.PlaylistTracks == 0 {
-		c.PlaylistTracks = 20
-	}
-
-	if c.MixTracks == 0 {
-		c.MixTracks = 20
-	}
-
-	if c.VNDTrackParts == 0 {
-		c.VNDTrackParts = 5
-	}
-}
-
-func (c *TidalDownloadConcurrency) validate() error {
-	if c.AlbumTracks < 0 {
-		return errors.New("album_tracks must be greater than 0")
-	}
-
-	if c.PlaylistTracks < 0 {
-		return errors.New("playlist_tracks must be greater than 0")
-	}
-
-	if c.MixTracks < 0 {
-		return errors.New("mix_tracks must be greater than 0")
-	}
-
-	if c.VNDTrackParts < 0 {
-		return errors.New("vnd_track_parts must be greater than 0")
-	}
-
-	return nil
-}
-
 type TidalDownloadTimeouts struct {
 	GetTrackCredits     int `yaml:"get_track_credits"`
 	GetTrackLyrics      int `yaml:"get_track_lyrics"`
@@ -446,6 +392,60 @@ func (c *TidalDownloadTimeouts) validate() error {
 	return nil
 }
 
+type TidalDownloadConcurrency struct {
+	AlbumTracks    int `yaml:"album_tracks"`
+	PlaylistTracks int `yaml:"playlist_tracks"`
+	MixTracks      int `yaml:"mix_tracks"`
+	VNDTrackParts  int `yaml:"vnd_track_parts"`
+}
+
+func (c *TidalDownloadConcurrency) ToDict() *zerolog.Event {
+	return zerolog.
+		Dict().
+		Int("album_tracks", c.AlbumTracks).
+		Int("playlist_tracks", c.PlaylistTracks).
+		Int("mix_tracks", c.MixTracks).
+		Int("vnd_track_parts", c.VNDTrackParts)
+}
+
+func (c *TidalDownloadConcurrency) setDefaults() {
+	if c.AlbumTracks == 0 {
+		c.AlbumTracks = 20
+	}
+
+	if c.PlaylistTracks == 0 {
+		c.PlaylistTracks = 20
+	}
+
+	if c.MixTracks == 0 {
+		c.MixTracks = 20
+	}
+
+	if c.VNDTrackParts == 0 {
+		c.VNDTrackParts = 5
+	}
+}
+
+func (c *TidalDownloadConcurrency) validate() error {
+	if c.AlbumTracks < 0 {
+		return errors.New("album_tracks must be greater than 0")
+	}
+
+	if c.PlaylistTracks < 0 {
+		return errors.New("playlist_tracks must be greater than 0")
+	}
+
+	if c.MixTracks < 0 {
+		return errors.New("mix_tracks must be greater than 0")
+	}
+
+	if c.VNDTrackParts < 0 {
+		return errors.New("vnd_track_parts must be greater than 0")
+	}
+
+	return nil
+}
+
 type Telegram struct {
 	AppID   int             `yaml:"app_id"`
 	AppHash string          `yaml:"app_hash"`
@@ -494,6 +494,26 @@ func (c *Telegram) validate() error {
 	return nil
 }
 
+type TelegramStorage struct {
+	Path string `yaml:"path"`
+}
+
+func (c *TelegramStorage) ToDict() *zerolog.Event {
+	return zerolog.
+		Dict().
+		Str("path", c.Path)
+}
+
+func (c *TelegramStorage) setDefaults() {
+	if c.Path == "" {
+		c.Path = "./telegram.db"
+	}
+}
+
+func (c *TelegramStorage) validate() error {
+	return nil
+}
+
 type TelegramProxy struct {
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
@@ -537,26 +557,6 @@ func (c *TelegramProxy) validate() error {
 		}
 	}
 
-	return nil
-}
-
-type TelegramStorage struct {
-	Path string `yaml:"path"`
-}
-
-func (c *TelegramStorage) ToDict() *zerolog.Event {
-	return zerolog.
-		Dict().
-		Str("path", c.Path)
-}
-
-func (c *TelegramStorage) setDefaults() {
-	if c.Path == "" {
-		c.Path = "telegram.db"
-	}
-}
-
-func (c *TelegramStorage) validate() error {
 	return nil
 }
 

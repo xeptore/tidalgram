@@ -112,6 +112,21 @@ telegram:
   storage:
     path: ./telegram.db
 
+  # OPTIONAL
+  # Socks5 proxy
+  # Ignored if both port and host are not set or are empty
+  proxy:
+    # OPTIONAL
+    # Required if port is set
+    host: ""
+    # OPTIONAL
+    # Required if host is set
+    port: 0
+    # OPTIONAL
+    username: ""
+    # OPTIONAL
+    password: ""
+
   upload:
     # OPTIONAL
     # Number of concurrent upload threads per upload operation
@@ -128,15 +143,6 @@ telegram:
     # OPTIONAL
     # Default: 1s
     pause_duration: 1s
-    # OPTIONAL
-    # Signature to be added to the end of the caption in Telegram-flavored HTML format.
-    # See:
-    #   https://core.telegram.org/bots/api#html-style
-    #   https://core.telegram.org/api/entities#allowed-entities
-    signature: |-
-
-
-      <i>@itsxeptore</i>
     # REQUIRED
     # Telegram peer to upload to
     peer:
@@ -148,17 +154,12 @@ telegram:
       # One of: user, chat, channel
       kind: user
 
-  # OPTIONAL
-  # Socks5 proxy
-  # Ignored if both port and host are not set or are empty
-  proxy:
     # OPTIONAL
-    # Required if port is set
-    host: ""
-    # OPTIONAL
-    # Required if host is set
-    port: 0
-    # OPTIONAL
-    username: ""
-    # OPTIONAL
-    password: ""
+    # Signature to be added to the end of the caption in Telegram-flavored HTML format.
+    # See:
+    #   https://core.telegram.org/bots/api#html-style
+    #   https://core.telegram.org/api/entities#allowed-entities
+    signature: |-
+
+
+      <i>@itsxeptore</i>
