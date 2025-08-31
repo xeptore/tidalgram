@@ -13,6 +13,6 @@ type Progress struct {
 }
 
 func (receiver *Progress) Chunk(ctx context.Context, state uploader.ProgressState) error {
-	receiver.uploaded.Add(state.Uploaded)
+	receiver.uploaded.Store(int64(state.Uploaded))
 	return nil
 }

@@ -583,8 +583,7 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		return fmt.Errorf("read track info file: %v", err)
 	}
 
-	var totalSize int64
-
+	var trackFileSize int64
 	if st, err := os.Lstat(track.Path); nil != err {
 		return fmt.Errorf("stat track file: %v", err)
 	} else if !st.Mode().IsRegular() {
@@ -592,24 +591,14 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	} else if st.Size() == 0 {
 		return fmt.Errorf("track file is empty")
 	} else {
-		totalSize += st.Size()
+		trackFileSize = st.Size()
 	}
 
-	if st, err := os.Lstat(track.Cover.Path); nil != err {
-		return fmt.Errorf("stat track cover file: %v", err)
-	} else if !st.Mode().IsRegular() {
-		return fmt.Errorf("%q: not a regular file", track.Cover.Path)
-	} else if st.Size() == 0 {
-		return fmt.Errorf("track cover file is empty")
-	} else {
-		totalSize += st.Size()
-	}
-
-	progress := &Progress{total: totalSize}
+	progress := &Progress{total: trackFileSize}
 
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		ticker := time.NewTicker(1333 * time.Millisecond)
+		ticker := time.NewTicker(1221 * time.Millisecond)
 		defer ticker.Stop()
 		defer c.cancelTyping(ctx)
 
@@ -638,17 +627,63 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		}
 	})
 
-	up := c.engine.WithProgress(progress)
-
-	trackInputFile, err := up.FromPath(ctx, track.Path)
+	trackInputFile, err := c.engine.WithProgress(progress).FromPath(ctx, track.Path)
 	if nil != err {
 		return fmt.Errorf("upload track file: %w", err)
 	}
 
-	coverInputFile, err := up.FromPath(ctx, track.Cover.Path)
+	wg.Wait()
+
+	var coverFileSize int64
+	if st, err := os.Lstat(track.Cover.Path); nil != err {
+		return fmt.Errorf("stat track cover file: %v", err)
+	} else if !st.Mode().IsRegular() {
+		return fmt.Errorf("%q: not a regular file", track.Cover.Path)
+	} else if st.Size() == 0 {
+		return fmt.Errorf("track cover file is empty")
+	} else {
+		coverFileSize = st.Size()
+	}
+
+	progress = &Progress{total: coverFileSize}
+
+	wg = sync.WaitGroup{}
+	wg.Go(func() {
+		ticker := time.NewTicker(1221 * time.Millisecond)
+		defer ticker.Stop()
+		defer c.cancelTyping(ctx)
+
+		if err := c.sendTyping(ctx, logger, progress); nil != err {
+			if !errors.Is(err, os.ErrProcessDone) {
+				logger.Error().Err(err).Msg("Failed to send typing action")
+				return
+			}
+			return
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case t := <-ticker.C:
+				logger := logger.With().Time("tick", t).Logger()
+				if err := c.sendTyping(ctx, logger, progress); nil != err {
+					if !errors.Is(err, os.ErrProcessDone) {
+						logger.Error().Err(err).Msg("Failed to send typing action")
+						return
+					}
+					return
+				}
+			}
+		}
+	})
+
+	coverInputFile, err := c.engine.WithProgress(progress).FromPath(ctx, track.Cover.Path)
 	if nil != err {
 		return fmt.Errorf("upload track cover file: %w", err)
 	}
+
+	wg.Wait()
 
 	mime, err := mimetype.DetectFile(track.Path)
 	if nil != err {
@@ -684,7 +719,7 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 
 	_, err = message.
 		NewSender(c.client).
-		WithUploader(up).
+		WithUploader(c.engine).
 		To(c.peer).
 		Clear().
 		Background().
@@ -693,10 +728,6 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	if nil != err {
 		return fmt.Errorf("send message: %w", err)
 	}
-
-	logger.Debug().Msg("Waiting for progress typing goroutine to finish")
-	wg.Wait()
-	logger.Debug().Msg("Progress typing goroutine finished")
 
 	time.Sleep(c.conf.Upload.PauseDuration.Duration)
 
