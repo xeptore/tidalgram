@@ -224,7 +224,7 @@ func (u *Uploader) uploadAlbum(
 				styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
 			}
 
-			tracker := progress.NewAlbumTracker(len(trackIDs))
+			monitor := progress.NewAlbumMonitor(len(trackIDs))
 			for i, trackID := range trackIDs {
 				logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
 
@@ -244,18 +244,14 @@ func (u *Uploader) uploadAlbum(
 
 				trackProgress := &progress.Track{Size: trackStat.Size()}
 
-				// Cover is the same for all tracks in the album.
-				// And, it is already uploaded.
-				coverProgress := &progress.Cover{Size: 0}
-
-				tracker.Set(i, progress.NewFileTracker(coverProgress, trackProgress))
+				monitor.Set(i, trackProgress)
 			}
 
 			wg, wgctx := errgroup.WithContext(ctx)
 			wg.SetLimit(u.conf.Upload.Limit)
 
 			typingWait := make(chan struct{})
-			go u.keepTyping(ctx, tracker, typingWait, logger)
+			go u.keepTyping(ctx, monitor, typingWait, logger)
 
 			album := make([]message.MultiMediaOption, len(trackIDs))
 			for idx, trackID := range trackIDs {
@@ -270,9 +266,7 @@ func (u *Uploader) uploadAlbum(
 
 					track := albumFs.Track(volNum, trackID)
 
-					// Cover is the same for all tracks in the album.
-					// And, it is already uploaded.
-					trackProgress, _ := tracker.At(idx)
+					trackProgress := monitor.At(idx)
 
 					trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(wgctx, track.Path)
 					if nil != err {
@@ -383,7 +377,7 @@ func (u *Uploader) uploadMix(
 			styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
 		}
 
-		tracker := progress.NewAlbumTracker(len(trackIDs))
+		monitor := progress.NewBatchMonitor(len(trackIDs))
 		for i, trackID := range trackIDs {
 			logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
 
@@ -417,14 +411,14 @@ func (u *Uploader) uploadMix(
 
 			coverProgress := &progress.Cover{Size: coverStat.Size()}
 
-			tracker.Set(i, progress.NewFileTracker(coverProgress, trackProgress))
+			monitor.Set(i, trackProgress, coverProgress)
 		}
 
 		wg, wgctx := errgroup.WithContext(ctx)
 		wg.SetLimit(u.conf.Upload.Limit)
 
 		typingWait := make(chan struct{})
-		go u.keepTyping(ctx, tracker, typingWait, logger)
+		go u.keepTyping(ctx, monitor, typingWait, logger)
 
 		album := make([]message.MultiMediaOption, len(trackIDs))
 		for i, trackID := range trackIDs {
@@ -439,7 +433,7 @@ func (u *Uploader) uploadMix(
 
 				track := mixFs.Track(trackID)
 
-				trackProgress, coverProgress := tracker.At(i)
+				trackProgress, coverProgress := monitor.At(i)
 
 				trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(wgctx, track.Path)
 				if nil != err {
@@ -553,7 +547,7 @@ func (u *Uploader) uploadPlaylist(
 			styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
 		}
 
-		tracker := progress.NewAlbumTracker(len(trackIDs))
+		monitor := progress.NewBatchMonitor(len(trackIDs))
 		for i, trackID := range trackIDs {
 			logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
 
@@ -587,14 +581,14 @@ func (u *Uploader) uploadPlaylist(
 
 			coverProgress := &progress.Cover{Size: coverStat.Size()}
 
-			tracker.Set(i, progress.NewFileTracker(coverProgress, trackProgress))
+			monitor.Set(i, trackProgress, coverProgress)
 		}
 
 		wg, wgctx := errgroup.WithContext(ctx)
 		wg.SetLimit(u.conf.Upload.Limit)
 
 		typingWait := make(chan struct{})
-		go u.keepTyping(ctx, tracker, typingWait, logger)
+		go u.keepTyping(ctx, monitor, typingWait, logger)
 
 		album := make([]message.MultiMediaOption, len(trackIDs))
 		for idx, trackID := range trackIDs {
@@ -609,7 +603,7 @@ func (u *Uploader) uploadPlaylist(
 
 				track := playlistFs.Track(trackID)
 
-				trackProgress, coverProgress := tracker.At(idx)
+				trackProgress, coverProgress := monitor.At(idx)
 
 				trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(wgctx, track.Path)
 				if nil != err {
@@ -731,10 +725,10 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	}
 	coverProgress := &progress.Cover{Size: coverStat.Size()}
 
-	tracker := progress.NewFileTracker(coverProgress, trackProgress)
+	monitor := progress.NewTrackMonitor(coverProgress, trackProgress)
 
 	typingWait := make(chan struct{})
-	go u.keepTyping(ctx, tracker, typingWait, logger)
+	go u.keepTyping(ctx, monitor, typingWait, logger)
 
 	trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(ctx, track.Path)
 	if nil != err {
@@ -812,8 +806,8 @@ func (u *Uploader) cancelTyping(ctx context.Context) {
 	}
 }
 
-func (u *Uploader) sendTyping(ctx context.Context, logger zerolog.Logger, tracker progress.Tracker) error {
-	percent := tracker.Percent()
+func (u *Uploader) sendTyping(ctx context.Context, logger zerolog.Logger, mon progress.Monitor) error {
+	percent := mon.Percent()
 	logger.Debug().Int("percent", percent).Msg("Sending typing action")
 
 	if percent == 100 {
@@ -837,7 +831,7 @@ func (u *Uploader) sendTyping(ctx context.Context, logger zerolog.Logger, tracke
 
 func (u *Uploader) keepTyping(
 	ctx context.Context,
-	tracker progress.Tracker,
+	mon progress.Monitor,
 	wait chan<- struct{},
 	logger zerolog.Logger,
 ) {
@@ -847,7 +841,7 @@ func (u *Uploader) keepTyping(
 	defer ticker.Stop()
 	defer u.cancelTyping(ctx)
 
-	if err := u.sendTyping(ctx, logger, tracker); nil != err {
+	if err := u.sendTyping(ctx, logger, mon); nil != err {
 		if !errors.Is(err, os.ErrProcessDone) {
 			logger.Error().Err(err).Msg("Failed to send typing action")
 			return
@@ -861,7 +855,7 @@ func (u *Uploader) keepTyping(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := u.sendTyping(ctx, logger, tracker); nil != err {
+			if err := u.sendTyping(ctx, logger, mon); nil != err {
 				if !errors.Is(err, os.ErrProcessDone) {
 					logger.Error().Err(err).Msg("Failed to send typing action")
 					return

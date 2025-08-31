@@ -8,56 +8,100 @@ import (
 	"github.com/gotd/td/telegram/uploader"
 )
 
-type Tracker interface {
+type Monitor interface {
 	Percent() int
 }
 
-type AlbumTracker struct {
-	total int64
-	files []*FileTracker
+type BatchMonitor struct {
+	total  int64
+	tracks []BatchTrack
 }
 
-func NewAlbumTracker(size int) *AlbumTracker {
-	return &AlbumTracker{
-		total: 0,
-		files: make([]*FileTracker, size),
+func NewBatchMonitor(size int) *BatchMonitor {
+	return &BatchMonitor{
+		total:  0,
+		tracks: make([]BatchTrack, size),
 	}
 }
 
-func (p *AlbumTracker) Set(i int, f *FileTracker) {
-	p.total += f.total
-	p.files[i] = f
+func (p *BatchMonitor) Set(i int, t *Track, c *Cover) {
+	p.total += t.Size + c.Size
+	p.tracks[i] = BatchTrack{
+		cover: c,
+		track: t,
+	}
 }
 
-func (p *AlbumTracker) At(i int) (*Track, *Cover) {
-	f := p.files[i]
+func (p *BatchMonitor) At(i int) (*Track, *Cover) {
+	f := p.tracks[i]
 	return f.track, f.cover
 }
 
-func (p *AlbumTracker) Percent() int {
+func (p *BatchMonitor) Percent() int {
 	var uploaded int64
-	for _, f := range p.files {
+	for _, f := range p.tracks {
 		uploaded += f.cover.uploaded.Load() + f.track.uploaded.Load()
 	}
 
 	return int(math.Floor(float64(uploaded) / float64(p.total) * 100))
 }
 
-type FileTracker struct {
+type BatchTrack struct {
+	cover *Cover
+	track *Track
+}
+
+type AlbumMonitor struct {
+	total  int64
+	tracks []AlbumTrack
+}
+
+func NewAlbumMonitor(size int) *AlbumMonitor {
+	return &AlbumMonitor{
+		total:  0,
+		tracks: make([]AlbumTrack, size),
+	}
+}
+
+func (p *AlbumMonitor) Set(i int, t *Track) {
+	p.total += t.Size
+	p.tracks[i] = AlbumTrack{
+		track: t,
+	}
+}
+
+func (p *AlbumMonitor) At(i int) *Track {
+	return p.tracks[i].track
+}
+
+func (p *AlbumMonitor) Percent() int {
+	var uploaded int64
+	for _, f := range p.tracks {
+		uploaded += f.track.uploaded.Load()
+	}
+
+	return int(math.Floor(float64(uploaded) / float64(p.total) * 100))
+}
+
+type AlbumTrack struct {
+	track *Track
+}
+
+type TrackMonitor struct {
 	total int64
 	cover *Cover
 	track *Track
 }
 
-func NewFileTracker(cover *Cover, track *Track) *FileTracker {
-	return &FileTracker{
+func NewTrackMonitor(cover *Cover, track *Track) *TrackMonitor {
+	return &TrackMonitor{
 		total: cover.Size + track.Size,
 		cover: cover,
 		track: track,
 	}
 }
 
-func (f *FileTracker) Percent() int {
+func (f *TrackMonitor) Percent() int {
 	uploaded := f.cover.uploaded.Load() + f.track.uploaded.Load()
 	return int(math.Floor(float64(uploaded) / float64(f.total) * 100))
 }
