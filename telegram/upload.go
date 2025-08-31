@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/gabriel-vasile/mimetype"
@@ -581,12 +583,57 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		return fmt.Errorf("read track info file: %v", err)
 	}
 
-	trackInputFile, err := c.engine.FromPath(ctx, track.Path)
+	var totalSize int64
+
+	if st, err := os.Lstat(track.Path); nil != err {
+		return fmt.Errorf("stat track file: %v", err)
+	} else if !st.Mode().IsRegular() {
+		return fmt.Errorf("%q: not a regular file", track.Path)
+	} else if st.Size() == 0 {
+		return fmt.Errorf("track file is empty")
+	} else {
+		totalSize += st.Size()
+	}
+
+	if st, err := os.Lstat(track.Cover.Path); nil != err {
+		return fmt.Errorf("stat track cover file: %v", err)
+	} else if !st.Mode().IsRegular() {
+		return fmt.Errorf("%q: not a regular file", track.Cover.Path)
+	} else if st.Size() == 0 {
+		return fmt.Errorf("track cover file is empty")
+	} else {
+		totalSize += st.Size()
+	}
+
+	progress := &Progress{total: totalSize}
+
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		ticker := time.NewTicker(1333 * time.Millisecond)
+		defer ticker.Stop()
+		defer c.cancelTyping(ctx)
+
+		c.sendTyping(ctx, logger, progress)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case t := <-ticker.C:
+				logger := logger.With().Time("tick", t).Logger()
+				c.sendTyping(ctx, logger, progress)
+			}
+		}
+	})
+
+	up := c.engine.WithProgress(progress)
+
+	trackInputFile, err := up.FromPath(ctx, track.Path)
 	if nil != err {
 		return fmt.Errorf("upload track file: %w", err)
 	}
 
-	coverInputFile, err := c.engine.FromPath(ctx, track.Cover.Path)
+	coverInputFile, err := up.FromPath(ctx, track.Cover.Path)
 	if nil != err {
 		return fmt.Errorf("upload track cover file: %w", err)
 	}
@@ -625,7 +672,7 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 
 	_, err = message.
 		NewSender(c.client).
-		WithUploader(c.engine).
+		WithUploader(up).
 		To(c.peer).
 		Clear().
 		Background().
@@ -635,7 +682,31 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		return fmt.Errorf("send message: %w", err)
 	}
 
+	logger.Debug().Msg("Waiting for progress typing goroutine to finish")
+	wg.Wait()
+	logger.Debug().Msg("Progress typing goroutine finished")
+
 	time.Sleep(c.conf.Upload.PauseDuration.Duration)
 
 	return nil
+}
+
+func (u *Uploader) cancelTyping(ctx context.Context) {
+	u.client.MessagesSetTyping(ctx, &tg.MessagesSetTypingRequest{
+		Peer:   u.peer,
+		Action: &tg.SendMessageCancelAction{},
+	})
+}
+
+func (u *Uploader) sendTyping(ctx context.Context, logger zerolog.Logger, progress *Progress) {
+	percent := math.Floor(float64(progress.uploaded.Load()) / float64(progress.total) * 100)
+
+	logger.Debug().Int("percent", int(percent)).Msg("Sending typing action")
+
+	u.client.MessagesSetTyping(ctx, &tg.MessagesSetTypingRequest{
+		Peer: u.peer,
+		Action: &tg.SendMessageUploadDocumentAction{
+			Progress: int(percent),
+		},
+	})
 }
