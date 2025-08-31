@@ -613,7 +613,13 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		defer ticker.Stop()
 		defer c.cancelTyping(ctx)
 
-		c.sendTyping(ctx, logger, progress)
+		if err := c.sendTyping(ctx, logger, progress); nil != err {
+			if !errors.Is(err, os.ErrProcessDone) {
+				logger.Error().Err(err).Msg("Failed to send typing action")
+				return
+			}
+			return
+		}
 
 		for {
 			select {
@@ -621,7 +627,13 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 				return
 			case t := <-ticker.C:
 				logger := logger.With().Time("tick", t).Logger()
-				c.sendTyping(ctx, logger, progress)
+				if err := c.sendTyping(ctx, logger, progress); nil != err {
+					if !errors.Is(err, os.ErrProcessDone) {
+						logger.Error().Err(err).Msg("Failed to send typing action")
+						return
+					}
+					return
+				}
 			}
 		}
 	})
@@ -692,21 +704,33 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 }
 
 func (u *Uploader) cancelTyping(ctx context.Context) {
-	u.client.MessagesSetTyping(ctx, &tg.MessagesSetTypingRequest{
+	req := &tg.MessagesSetTypingRequest{
 		Peer:   u.peer,
 		Action: &tg.SendMessageCancelAction{},
-	})
+	}
+	if ok, err := u.client.MessagesSetTyping(ctx, req); nil != err {
+		u.logger.Error().Err(err).Msg("Failed to cancel typing action")
+	} else if !ok {
+		u.logger.Error().Msg("Failed to cancel typing action: not ok")
+	}
 }
 
-func (u *Uploader) sendTyping(ctx context.Context, logger zerolog.Logger, progress *Progress) {
+func (u *Uploader) sendTyping(ctx context.Context, logger zerolog.Logger, progress *Progress) error {
 	percent := math.Floor(float64(progress.uploaded.Load()) / float64(progress.total) * 100)
 
-	logger.Debug().Int("percent", int(percent)).Msg("Sending typing action")
+	logger.Debug().Int("total", int(progress.total)).Int("uploaded", int(progress.uploaded.Load())).Int("percent", int(percent)).Msg("Sending typing action")
 
-	u.client.MessagesSetTyping(ctx, &tg.MessagesSetTypingRequest{
+	req := &tg.MessagesSetTypingRequest{
 		Peer: u.peer,
 		Action: &tg.SendMessageUploadDocumentAction{
 			Progress: int(percent),
 		},
-	})
+	}
+	if ok, err := u.client.MessagesSetTyping(ctx, req); nil != err {
+		return fmt.Errorf("send typing action: %w", err)
+	} else if !ok {
+		return errors.New("send typing action: not ok")
+	}
+
+	return nil
 }
