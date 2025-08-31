@@ -382,7 +382,7 @@ func (u *Uploader) uploadAlbum(
 
 			select {
 			case <-typingWait:
-				time.Sleep(1 * time.Second)
+				time.Sleep(u.conf.Upload.PauseDuration.Duration)
 			case <-ctx.Done():
 				return fmt.Errorf("wait for typing: %w", ctx.Err())
 			}
@@ -554,7 +554,7 @@ func (u *Uploader) uploadMix(
 
 		select {
 		case <-typingWait:
-			time.Sleep(1 * time.Second)
+			time.Sleep(u.conf.Upload.PauseDuration.Duration)
 		case <-ctx.Done():
 			return fmt.Errorf("wait for typing: %w", ctx.Err())
 		}
@@ -725,7 +725,7 @@ func (u *Uploader) uploadPlaylist(
 
 		select {
 		case <-typingWait:
-			time.Sleep(1 * time.Second)
+			time.Sleep(u.conf.Upload.PauseDuration.Duration)
 		case <-ctx.Done():
 			return fmt.Errorf("wait for typing: %w", ctx.Err())
 		}
@@ -833,6 +833,8 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	if nil != err {
 		return fmt.Errorf("send message: %w", err)
 	}
+
+	time.Sleep(u.conf.Upload.PauseDuration.Duration)
 
 	return nil
 }
