@@ -20,9 +20,14 @@ func NewAlbumTracker(size int) *AlbumTracker {
 	}
 }
 
-func (p *AlbumTracker) AddFile(f *FileTracker) {
+func (p *AlbumTracker) Set(i int, f *FileTracker) {
 	p.total += f.total
-	p.files = append(p.files, f)
+	p.files[i] = f
+}
+
+func (p *AlbumTracker) At(i int) (*Cover, *Track) {
+	f := p.files[i]
+	return f.cover, f.track
 }
 
 func (p *AlbumTracker) Percent(ctx context.Context) int {

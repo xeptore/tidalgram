@@ -347,33 +347,85 @@ func (c *Uploader) uploadMix(
 			styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
 		}
 
-		wg, wgctx := errgroup.WithContext(ctx)
-		wg.SetLimit(c.conf.Upload.Limit)
+		tracker := progress.NewAlbumTracker(len(trackIDs))
 
-		album := make([]message.MultiMediaOption, len(trackIDs))
-		for idx, trackID := range trackIDs {
-			wg.Go(func() error {
+		wg, wgctx := errgroup.WithContext(ctx)
+		wg.SetLimit(len(trackIDs))
+
+		for i, trackID := range trackIDs {
+			wg.Go(func() (err error) {
 				select {
 				case <-wgctx.Done():
 					return nil
 				default:
 				}
 
-				logger := logger.With().Int("index", idx).Str("track_id", trackID).Logger()
+				logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
 
 				track := mixFs.Track(trackID)
-				trackInfo, err := track.InfoFile.Read()
+
+				trackStat, err := os.Lstat(track.Path)
 				if nil != err {
-					logger.Error().Err(err).Msg("read mix track info file")
-					return fmt.Errorf("read mix track info file: %v", err)
+					logger.Error().Err(err).Msg("Failed to stat mix track file")
+					return fmt.Errorf("stat mix track file: %v", err)
+				}
+				if !trackStat.Mode().IsRegular() {
+					return fmt.Errorf("mix track file %q is not a regular file", track.Path)
+				}
+				if trackStat.Size() == 0 {
+					return errors.New("mix track file is empty")
 				}
 
-				trackInputFile, err := c.engine.FromPath(wgctx, track.Path)
+				trackProgress := &progress.Track{Total: trackStat.Size()}
+
+				coverStat, err := os.Lstat(track.Cover.Path)
+				if nil != err {
+					logger.Error().Err(err).Msg("Failed to stat mix track cover file")
+					return fmt.Errorf("stat mix track cover file: %v", err)
+				}
+				if !coverStat.Mode().IsRegular() {
+					return fmt.Errorf("mix track cover file %q is not a regular file", track.Cover.Path)
+				}
+				if coverStat.Size() == 0 {
+					return errors.New("mix track cover file is empty")
+				}
+
+				coverProgress := &progress.Cover{Total: coverStat.Size()}
+
+				tracker.Set(i, progress.NewFileTracker(coverProgress, trackProgress))
+
+				return nil
+			})
+		}
+
+		if err := wg.Wait(); nil != err {
+			return fmt.Errorf("wait for stats of mix tracks: %w", err)
+		}
+
+		wg, wgctx = errgroup.WithContext(ctx)
+		wg.SetLimit(c.conf.Upload.Limit)
+
+		album := make([]message.MultiMediaOption, len(trackIDs))
+		for i, trackID := range trackIDs {
+			wg.Go(func() (err error) {
+				select {
+				case <-wgctx.Done():
+					return nil
+				default:
+				}
+
+				logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
+
+				track := mixFs.Track(trackID)
+
+				trackProgress, coverProgress := tracker.At(i)
+
+				trackInputFile, err := c.engine.WithProgress(trackProgress).FromPath(wgctx, track.Path)
 				if nil != err {
 					return fmt.Errorf("upload mix track file: %w", err)
 				}
 
-				coverInputFile, err := c.engine.FromPath(wgctx, track.Cover.Path)
+				coverInputFile, err := c.engine.WithProgress(coverProgress).FromPath(wgctx, track.Cover.Path)
 				if nil != err {
 					return fmt.Errorf("upload mix track cover file: %w", err)
 				}
@@ -384,11 +436,17 @@ func (c *Uploader) uploadMix(
 				}
 
 				var caption []message.StyledTextOption
-				if idx == len(trackIDs)-1 {
+				if i == len(trackIDs)-1 {
 					caption = append(caption, partCaption...)
 					if sig := c.conf.Upload.Signature; len(sig) > 0 {
 						caption = append(caption, html.String(nil, sig))
 					}
+				}
+
+				trackInfo, err := track.InfoFile.Read()
+				if nil != err {
+					logger.Error().Err(err).Msg("read mix track info file")
+					return fmt.Errorf("read mix track info file: %v", err)
 				}
 
 				doc := message.
@@ -410,7 +468,7 @@ func (c *Uploader) uploadMix(
 					Performer(types.JoinArtists(trackInfo.Artists)).
 					Title(trackInfo.Title)
 
-				album[idx] = doc
+				album[i] = doc
 
 				time.Sleep(c.conf.Upload.PauseDuration.Duration)
 
@@ -419,7 +477,7 @@ func (c *Uploader) uploadMix(
 		}
 
 		if err := wg.Wait(); nil != err {
-			return fmt.Errorf("upload mix: %w", err)
+			return fmt.Errorf("wait for upload mix tracks: %w", err)
 		}
 
 		var rest []message.MultiMediaOption
