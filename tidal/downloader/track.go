@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/goccy/go-json"
@@ -727,6 +728,28 @@ func embedTrackAttributes(
 	args = append(args, trackFilenameExt)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
+
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} //nolint:exhaustruct
+
+	cmd.Cancel = func() error {
+		proc := cmd.Process
+		if proc == nil {
+			return os.ErrProcessDone
+		}
+
+		// Sends the signal to process group (-pid) so child processes get it too.
+		_ = syscall.Kill(-proc.Pid, syscall.SIGINT)
+
+		for {
+			time.Sleep(300 * time.Millisecond)
+
+			if err := syscall.Kill(proc.Pid, 0); nil != err {
+				return os.ErrProcessDone
+			}
+
+			_ = syscall.Kill(-proc.Pid, syscall.SIGINT)
+		}
+	}
 
 	logger.Debug().Strs("args", args).Msg("Running ffmpeg")
 
