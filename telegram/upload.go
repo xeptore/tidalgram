@@ -605,7 +605,7 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		coverFileSize = st.Size()
 	}
 
-	progress := &Progress{total: trackFileSize + coverFileSize}
+	progress := &Progress{total: trackFileSize + coverFileSize, logger: logger}
 
 	var wg sync.WaitGroup
 	wg.Go(func() {
