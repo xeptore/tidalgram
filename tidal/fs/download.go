@@ -111,8 +111,8 @@ type Mix struct {
 	InfoFile InfoFile[types.StoredMix]
 }
 
-func (d Mix) Track(id string) Track {
-	trackPath := filepath.Join(d.DirPath, id)
+func (m Mix) Track(id string) Track {
+	trackPath := filepath.Join(m.DirPath, id)
 
 	return Track{
 		Path:     trackPath,

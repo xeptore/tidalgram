@@ -26,6 +26,7 @@ import (
 
 	"github.com/xeptore/tidalgram/config"
 	"github.com/xeptore/tidalgram/mathutil"
+	"github.com/xeptore/tidalgram/telegram/progress"
 	"github.com/xeptore/tidalgram/tidal/fs"
 	"github.com/xeptore/tidalgram/tidal/types"
 )
@@ -38,12 +39,13 @@ var (
 )
 
 type Uploader struct {
-	client *tg.Client
-	stop   bg.StopFunc
-	conf   config.Telegram
-	engine *uploader.Uploader
-	peer   tg.InputPeerClass
-	logger zerolog.Logger
+	storage *Storage
+	client  *tg.Client
+	pool    dcpool.Pool
+	stop    bg.StopFunc
+	conf    config.Telegram
+	peer    tg.InputPeerClass
+	logger  zerolog.Logger
 }
 
 func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (*Uploader, error) {
@@ -52,7 +54,6 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 		return nil, fmt.Errorf("create storage: %v", err)
 	}
 
-	const maxRecoveryElapsedTime = 5 * time.Minute
 	opts, err := newClientOptions(ctx, logger, storage, conf)
 	if nil != err {
 		return nil, fmt.Errorf("get client options: %w", err)
@@ -83,16 +84,13 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 	}
 	logger.Info().Int64("id", user.ID).Msg("Got self")
 
+	const maxRecoveryElapsedTime = 5 * time.Minute
 	pool := dcpool.NewPool(
 		client,
 		int64(conf.Upload.PoolSize),
 		tclient.NewDefaultMiddlewares(ctx, maxRecoveryElapsedTime)...,
 	)
 	tgClient := pool.Default(ctx)
-	engine := uploader.
-		NewUploader(tgClient).
-		WithPartSize(MaxPartSize).
-		WithThreads(conf.Upload.Threads)
 
 	var (
 		peer      tg.InputPeerClass
@@ -149,41 +147,48 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 	}
 
 	return &Uploader{
-		client: tgClient,
-		stop:   stop,
-		conf:   conf,
-		engine: engine,
-		peer:   peer,
-		logger: logger,
+		storage: storage,
+		client:  tgClient,
+		pool:    pool,
+		stop:    stop,
+		conf:    conf,
+		peer:    peer,
+		logger:  logger,
 	}, nil
 }
 
-func (c *Uploader) Close() error {
-	c.logger.Debug().Msg("Closing telegram uploader")
-	if err := c.stop(); nil != err {
+func (u *Uploader) Close() error {
+	u.logger.Debug().Msg("Closing telegram uploader")
+	if err := u.stop(); nil != err {
 		return fmt.Errorf("stop background client: %v", err)
 	}
-	c.logger.Debug().Msg("Telegram uploader closed")
+	u.logger.Debug().Msg("Telegram uploader closed")
+
+	u.logger.Debug().Msg("Closing pool")
+	if err := u.pool.Close(); nil != err {
+		return fmt.Errorf("close pool: %v", err)
+	}
+	u.logger.Debug().Msg("Pool closed")
+
+	u.logger.Debug().Msg("Closing storage")
+	if err := u.storage.Close(); nil != err {
+		return fmt.Errorf("close storage: %v", err)
+	}
+	u.logger.Debug().Msg("Storage closed")
 
 	return nil
 }
 
-func (c *Uploader) Upload(ctx context.Context, logger zerolog.Logger, dir fs.DownloadsDir, link types.Link) error {
-	c.client.MessagesSetTyping(ctx, &tg.MessagesSetTypingRequest{
-		Peer: c.peer,
-		// Action: &tg.SendMessageUploadAudioAction{},
-		Action: &tg.SendMessageCancelAction{},
-	})
-
+func (u *Uploader) Upload(ctx context.Context, logger zerolog.Logger, dir fs.DownloadsDir, link types.Link) error {
 	switch link.Kind {
 	case types.LinkKindTrack:
-		return c.uploadTrack(ctx, logger, dir, link.ID)
+		return u.uploadTrack(ctx, logger, dir, link.ID)
 	case types.LinkKindAlbum:
-		return c.uploadAlbum(ctx, logger, dir, link.ID)
+		return u.uploadAlbum(ctx, logger, dir, link.ID)
 	case types.LinkKindPlaylist:
-		return c.uploadPlaylist(ctx, logger, dir, link.ID)
+		return u.uploadPlaylist(ctx, logger, dir, link.ID)
 	case types.LinkKindMix:
-		return c.uploadMix(ctx, logger, dir, link.ID)
+		return u.uploadMix(ctx, logger, dir, link.ID)
 	case types.LinkKindVideo:
 		return errors.New("artist links are not supported")
 	case types.LinkKindArtist:
@@ -193,21 +198,52 @@ func (c *Uploader) Upload(ctx context.Context, logger zerolog.Logger, dir fs.Dow
 	}
 }
 
-func (c *Uploader) uploadAlbum(
+func (u *Uploader) newUploader(ctx context.Context) *uploader.Uploader {
+	return uploader.
+		NewUploader(u.pool.Default(ctx)).
+		WithPartSize(MaxPartSize).
+		WithThreads(u.conf.Upload.Threads)
+}
+
+func (u *Uploader) uploadAlbum(
 	ctx context.Context,
 	logger zerolog.Logger,
 	dir fs.DownloadsDir,
 	id string,
 ) (err error) {
 	albumFs := dir.Album(id)
+
 	info, err := albumFs.InfoFile.Read()
 	if nil != err {
 		return fmt.Errorf("read playlist info file: %v", err)
 	}
 
-	coverInputFile, err := c.engine.FromPath(ctx, albumFs.Cover.Path)
+	coverStat, err := os.Lstat(albumFs.Cover.Path)
+	if nil != err {
+		return fmt.Errorf("stat album cover file: %v", err)
+	}
+	if !coverStat.Mode().IsRegular() {
+		return fmt.Errorf("album cover file %q is not a regular file", albumFs.Cover.Path)
+	}
+	if coverStat.Size() == 0 {
+		return errors.New("album cover file is empty")
+	}
+
+	coverProgress := &progress.Cover{Size: coverStat.Size()}
+	coverMonitor := progress.NewCoverMonitor(coverProgress)
+
+	typingWait := make(chan struct{})
+	go u.keepTyping(ctx, coverMonitor, typingWait, logger)
+
+	coverInputFile, err := u.newUploader(ctx).WithProgress(coverProgress).FromPath(ctx, albumFs.Cover.Path)
 	if nil != err {
 		return fmt.Errorf("upload album track cover file: %w", err)
+	}
+
+	select {
+	case <-typingWait:
+	case <-ctx.Done():
+		return fmt.Errorf("wait for typing: %w", ctx.Err())
 	}
 
 	for volIdx, trackIDs := range info.VolumeTrackIDs {
@@ -228,8 +264,34 @@ func (c *Uploader) uploadAlbum(
 				styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
 			}
 
+			monitor := progress.NewAlbumMonitor(len(trackIDs))
+			for i, trackID := range trackIDs {
+				logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
+
+				track := albumFs.Track(volNum, trackID)
+
+				trackStat, err := os.Lstat(track.Path)
+				if nil != err {
+					logger.Error().Err(err).Msg("Failed to stat album track file")
+					return fmt.Errorf("stat album track file: %v", err)
+				}
+				if !trackStat.Mode().IsRegular() {
+					return fmt.Errorf("album track file %q is not a regular file", track.Path)
+				}
+				if trackStat.Size() == 0 {
+					return errors.New("album track file is empty")
+				}
+
+				trackProgress := &progress.Track{Size: trackStat.Size()}
+
+				monitor.Set(i, trackProgress)
+			}
+
 			wg, wgctx := errgroup.WithContext(ctx)
-			wg.SetLimit(c.conf.Upload.Limit)
+			wg.SetLimit(u.conf.Upload.Limit)
+
+			typingWait := make(chan struct{})
+			go u.keepTyping(ctx, monitor, typingWait, logger)
 
 			album := make([]message.MultiMediaOption, len(trackIDs))
 			for idx, trackID := range trackIDs {
@@ -240,34 +302,36 @@ func (c *Uploader) uploadAlbum(
 					default:
 					}
 
-					logger := logger.With().Int("index", idx).Logger()
+					logger := logger.With().Int("index", idx).Str("track_id", trackID).Logger()
 
-					logger = logger.With().Str("track_id", trackID).Logger()
 					track := albumFs.Track(volNum, trackID)
-					trackInfo, err := track.InfoFile.Read()
-					if nil != err {
-						logger.Error().Err(err).Msg("read album track info file")
-						return fmt.Errorf("read album track info file: %v", err)
-					}
 
-					trackInputFile, err := c.engine.FromPath(wgctx, track.Path)
+					trackProgress := monitor.At(idx)
+
+					trackInputFile, err := u.newUploader(wgctx).WithProgress(trackProgress).FromPath(wgctx, track.Path)
 					if nil != err {
-						logger.Error().Err(err).Msg("upload album track file")
+						logger.Error().Err(err).Msg("Failed to upload album track file")
 						return fmt.Errorf("upload album track file: %w", err)
 					}
 
 					mime, err := mimetype.DetectFile(track.Path)
 					if nil != err {
-						logger.Error().Err(err).Msg("detect album track mime")
+						logger.Error().Err(err).Msg("Failed to detect album track mime")
 						return fmt.Errorf("detect album track mime: %v", err)
 					}
 
 					var caption []message.StyledTextOption
 					if idx == len(trackIDs)-1 {
 						caption = append(caption, partCaption...)
-						if sig := c.conf.Upload.Signature; len(sig) > 0 {
+						if sig := u.conf.Upload.Signature; len(sig) > 0 {
 							caption = append(caption, html.String(nil, sig))
 						}
+					}
+
+					trackInfo, err := track.InfoFile.Read()
+					if nil != err {
+						logger.Error().Err(err).Msg("Failed to read album track info file")
+						return fmt.Errorf("read album track info file: %v", err)
 					}
 
 					doc := message.
@@ -291,8 +355,6 @@ func (c *Uploader) uploadAlbum(
 
 					album[idx] = doc
 
-					time.Sleep(c.conf.Upload.PauseDuration.Duration)
-
 					return nil
 				})
 			}
@@ -307,9 +369,8 @@ func (c *Uploader) uploadAlbum(
 			}
 
 			_, err = message.
-				NewSender(c.client).
-				WithUploader(c.engine).
-				To(c.peer).
+				NewSender(u.client).
+				To(u.peer).
 				Clear().
 				Background().
 				Silent().
@@ -317,15 +378,20 @@ func (c *Uploader) uploadAlbum(
 			if nil != err {
 				return fmt.Errorf("send mix: %w", err)
 			}
+
+			select {
+			case <-typingWait:
+				time.Sleep(u.conf.Upload.PauseDuration.Duration)
+			case <-ctx.Done():
+				return fmt.Errorf("wait for typing: %w", ctx.Err())
+			}
 		}
 	}
-
-	time.Sleep(c.conf.Upload.PauseDuration.Duration)
 
 	return nil
 }
 
-func (c *Uploader) uploadMix(
+func (u *Uploader) uploadMix(
 	ctx context.Context,
 	logger zerolog.Logger,
 	dir fs.DownloadsDir,
@@ -351,48 +417,92 @@ func (c *Uploader) uploadMix(
 			styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
 		}
 
+		monitor := progress.NewBatchMonitor(len(trackIDs))
+		for i, trackID := range trackIDs {
+			logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
+
+			track := mixFs.Track(trackID)
+
+			trackStat, err := os.Lstat(track.Path)
+			if nil != err {
+				logger.Error().Err(err).Msg("Failed to stat mix track file")
+				return fmt.Errorf("stat mix track file: %v", err)
+			}
+			if !trackStat.Mode().IsRegular() {
+				return fmt.Errorf("mix track file %q is not a regular file", track.Path)
+			}
+			if trackStat.Size() == 0 {
+				return errors.New("mix track file is empty")
+			}
+
+			trackProgress := &progress.Track{Size: trackStat.Size()}
+
+			coverStat, err := os.Lstat(track.Cover.Path)
+			if nil != err {
+				logger.Error().Err(err).Msg("Failed to stat mix track cover file")
+				return fmt.Errorf("stat mix track cover file: %v", err)
+			}
+			if !coverStat.Mode().IsRegular() {
+				return fmt.Errorf("mix track cover file %q is not a regular file", track.Cover.Path)
+			}
+			if coverStat.Size() == 0 {
+				return errors.New("mix track cover file is empty")
+			}
+
+			coverProgress := &progress.Cover{Size: coverStat.Size()}
+
+			monitor.Set(i, trackProgress, coverProgress)
+		}
+
 		wg, wgctx := errgroup.WithContext(ctx)
-		wg.SetLimit(c.conf.Upload.Limit)
+		wg.SetLimit(u.conf.Upload.Limit)
+
+		typingWait := make(chan struct{})
+		go u.keepTyping(ctx, monitor, typingWait, logger)
 
 		album := make([]message.MultiMediaOption, len(trackIDs))
-		for idx, trackID := range trackIDs {
-			wg.Go(func() error {
+		for i, trackID := range trackIDs {
+			wg.Go(func() (err error) {
 				select {
 				case <-wgctx.Done():
 					return nil
 				default:
 				}
 
-				logger := logger.With().Int("index", idx).Str("track_id", trackID).Logger()
+				logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
 
 				track := mixFs.Track(trackID)
-				trackInfo, err := track.InfoFile.Read()
-				if nil != err {
-					logger.Error().Err(err).Msg("read mix track info file")
-					return fmt.Errorf("read mix track info file: %v", err)
-				}
 
-				trackInputFile, err := c.engine.FromPath(wgctx, track.Path)
+				trackProgress, coverProgress := monitor.At(i)
+
+				trackInputFile, err := u.newUploader(wgctx).WithProgress(trackProgress).FromPath(wgctx, track.Path)
 				if nil != err {
 					return fmt.Errorf("upload mix track file: %w", err)
 				}
 
-				coverInputFile, err := c.engine.FromPath(wgctx, track.Cover.Path)
+				coverInputFile, err := u.newUploader(wgctx).WithProgress(coverProgress).FromPath(wgctx, track.Cover.Path)
 				if nil != err {
 					return fmt.Errorf("upload mix track cover file: %w", err)
 				}
 
 				mime, err := mimetype.DetectFile(track.Path)
 				if nil != err {
+					logger.Error().Err(err).Msg("Failed to detect mix mime")
 					return fmt.Errorf("detect mix mime: %v", err)
 				}
 
 				var caption []message.StyledTextOption
-				if idx == len(trackIDs)-1 {
+				if i == len(trackIDs)-1 {
 					caption = append(caption, partCaption...)
-					if sig := c.conf.Upload.Signature; len(sig) > 0 {
+					if sig := u.conf.Upload.Signature; len(sig) > 0 {
 						caption = append(caption, html.String(nil, sig))
 					}
+				}
+
+				trackInfo, err := track.InfoFile.Read()
+				if nil != err {
+					logger.Error().Err(err).Msg("Failed to read mix track info file")
+					return fmt.Errorf("read mix track info file: %v", err)
 				}
 
 				doc := message.
@@ -414,16 +524,14 @@ func (c *Uploader) uploadMix(
 					Performer(types.JoinArtists(trackInfo.Artists)).
 					Title(trackInfo.Title)
 
-				album[idx] = doc
-
-				time.Sleep(c.conf.Upload.PauseDuration.Duration)
+				album[i] = doc
 
 				return nil
 			})
 		}
 
 		if err := wg.Wait(); nil != err {
-			return fmt.Errorf("upload mix: %w", err)
+			return fmt.Errorf("wait for upload mix tracks: %w", err)
 		}
 
 		var rest []message.MultiMediaOption
@@ -432,9 +540,8 @@ func (c *Uploader) uploadMix(
 		}
 
 		_, err = message.
-			NewSender(c.client).
-			WithUploader(c.engine).
-			To(c.peer).
+			NewSender(u.client).
+			To(u.peer).
 			Clear().
 			Background().
 			Silent().
@@ -442,14 +549,19 @@ func (c *Uploader) uploadMix(
 		if nil != err {
 			return fmt.Errorf("send mix: %w", err)
 		}
-	}
 
-	time.Sleep(c.conf.Upload.PauseDuration.Duration)
+		select {
+		case <-typingWait:
+			time.Sleep(u.conf.Upload.PauseDuration.Duration)
+		case <-ctx.Done():
+			return fmt.Errorf("wait for typing: %w", ctx.Err())
+		}
+	}
 
 	return nil
 }
 
-func (c *Uploader) uploadPlaylist(
+func (u *Uploader) uploadPlaylist(
 	ctx context.Context,
 	logger zerolog.Logger,
 	dir fs.DownloadsDir,
@@ -475,8 +587,48 @@ func (c *Uploader) uploadPlaylist(
 			styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
 		}
 
+		monitor := progress.NewBatchMonitor(len(trackIDs))
+		for i, trackID := range trackIDs {
+			logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
+
+			track := playlistFs.Track(trackID)
+
+			trackStat, err := os.Lstat(track.Path)
+			if nil != err {
+				logger.Error().Err(err).Msg("Failed to stat playlist track file")
+				return fmt.Errorf("stat playlist track file: %v", err)
+			}
+			if !trackStat.Mode().IsRegular() {
+				return fmt.Errorf("playlist track file %q is not a regular file", track.Path)
+			}
+			if trackStat.Size() == 0 {
+				return errors.New("playlist track file is empty")
+			}
+
+			trackProgress := &progress.Track{Size: trackStat.Size()}
+
+			coverStat, err := os.Lstat(track.Cover.Path)
+			if nil != err {
+				logger.Error().Err(err).Msg("Failed to stat playlist track cover file")
+				return fmt.Errorf("stat playlist track cover file: %v", err)
+			}
+			if !coverStat.Mode().IsRegular() {
+				return fmt.Errorf("playlist track cover file %q is not a regular file", track.Cover.Path)
+			}
+			if coverStat.Size() == 0 {
+				return errors.New("playlist track cover file is empty")
+			}
+
+			coverProgress := &progress.Cover{Size: coverStat.Size()}
+
+			monitor.Set(i, trackProgress, coverProgress)
+		}
+
 		wg, wgctx := errgroup.WithContext(ctx)
-		wg.SetLimit(c.conf.Upload.Limit)
+		wg.SetLimit(u.conf.Upload.Limit)
+
+		typingWait := make(chan struct{})
+		go u.keepTyping(ctx, monitor, typingWait, logger)
 
 		album := make([]message.MultiMediaOption, len(trackIDs))
 		for idx, trackID := range trackIDs {
@@ -490,31 +642,35 @@ func (c *Uploader) uploadPlaylist(
 				logger := logger.With().Int("index", idx).Str("track_id", trackID).Logger()
 
 				track := playlistFs.Track(trackID)
-				trackInfo, err := track.InfoFile.Read()
-				if nil != err {
-					logger.Error().Err(err).Msg("read playlist track info file")
-					return fmt.Errorf("read track info file: %v", err)
-				}
 
-				trackInputFile, err := c.engine.FromPath(wgctx, track.Path)
+				trackProgress, coverProgress := monitor.At(idx)
+
+				trackInputFile, err := u.newUploader(wgctx).WithProgress(trackProgress).FromPath(wgctx, track.Path)
 				if nil != err {
 					return fmt.Errorf("upload playlist track file: %w", err)
 				}
 
-				coverInputFile, err := c.engine.FromPath(wgctx, track.Cover.Path)
+				coverInputFile, err := u.newUploader(wgctx).WithProgress(coverProgress).FromPath(wgctx, track.Cover.Path)
 				if nil != err {
 					return fmt.Errorf("upload playlist track cover file: %w", err)
 				}
 
+				trackInfo, err := track.InfoFile.Read()
+				if nil != err {
+					logger.Error().Err(err).Msg("Failed to read playlist track info file")
+					return fmt.Errorf("read track info file: %v", err)
+				}
+
 				mime, err := mimetype.DetectFile(track.Path)
 				if nil != err {
+					logger.Error().Err(err).Msg("Failed to detect playlist mime")
 					return fmt.Errorf("detect playlist mime: %v", err)
 				}
 
 				var caption []message.StyledTextOption
 				if idx == len(trackIDs)-1 {
 					caption = append(caption, partCaption...)
-					if sig := c.conf.Upload.Signature; len(sig) > 0 {
+					if sig := u.conf.Upload.Signature; len(sig) > 0 {
 						caption = append(caption, html.String(nil, sig))
 					}
 				}
@@ -540,8 +696,6 @@ func (c *Uploader) uploadPlaylist(
 
 				album[idx] = doc
 
-				time.Sleep(c.conf.Upload.PauseDuration.Duration)
-
 				return nil
 			})
 		}
@@ -556,9 +710,8 @@ func (c *Uploader) uploadPlaylist(
 		}
 
 		_, err = message.
-			NewSender(c.client).
-			WithUploader(c.engine).
-			To(c.peer).
+			NewSender(u.client).
+			To(u.peer).
 			Clear().
 			Background().
 			Silent().
@@ -566,33 +719,76 @@ func (c *Uploader) uploadPlaylist(
 		if nil != err {
 			return fmt.Errorf("send playlist: %w", err)
 		}
-	}
 
-	time.Sleep(c.conf.Upload.PauseDuration.Duration)
+		select {
+		case <-typingWait:
+			time.Sleep(u.conf.Upload.PauseDuration.Duration)
+		case <-ctx.Done():
+			return fmt.Errorf("wait for typing: %w", ctx.Err())
+		}
+	}
 
 	return nil
 }
 
-func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir fs.DownloadsDir, id string) error {
+func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir fs.DownloadsDir, id string) error {
 	track := dir.Track(id)
 	trackInfo, err := track.InfoFile.Read()
 	if nil != err {
-		logger.Error().Err(err).Msg("read track info file")
+		logger.Error().Err(err).Msg("Failed to read track info file")
 		return fmt.Errorf("read track info file: %v", err)
 	}
 
-	trackInputFile, err := c.engine.FromPath(ctx, track.Path)
+	trackStat, err := os.Lstat(track.Path)
+	if nil != err {
+		logger.Error().Err(err).Msg("Failed to stat track file")
+		return fmt.Errorf("stat track file: %v", err)
+	}
+	if !trackStat.Mode().IsRegular() {
+		return fmt.Errorf("track file %q is not a regular file", track.Path)
+	}
+	if trackStat.Size() == 0 {
+		return errors.New("track file is empty")
+	}
+	trackProgress := &progress.Track{Size: trackStat.Size()}
+
+	coverStat, err := os.Lstat(track.Cover.Path)
+	if nil != err {
+		logger.Error().Err(err).Msg("Failed to stat track cover file")
+		return fmt.Errorf("stat track cover file: %v", err)
+	}
+	if !coverStat.Mode().IsRegular() {
+		return fmt.Errorf("track cover file %q is not a regular file", track.Cover.Path)
+	}
+	if coverStat.Size() == 0 {
+		return errors.New("track cover file is empty")
+	}
+	coverProgress := &progress.Cover{Size: coverStat.Size()}
+
+	monitor := progress.NewTrackMonitor(coverProgress, trackProgress)
+
+	typingWait := make(chan struct{})
+	go u.keepTyping(ctx, monitor, typingWait, logger)
+
+	trackInputFile, err := u.newUploader(ctx).WithProgress(trackProgress).FromPath(ctx, track.Path)
 	if nil != err {
 		return fmt.Errorf("upload track file: %w", err)
 	}
 
-	coverInputFile, err := c.engine.FromPath(ctx, track.Cover.Path)
+	coverInputFile, err := u.newUploader(ctx).WithProgress(coverProgress).FromPath(ctx, track.Cover.Path)
 	if nil != err {
 		return fmt.Errorf("upload track cover file: %w", err)
 	}
 
+	select {
+	case <-typingWait:
+	case <-ctx.Done():
+		return fmt.Errorf("wait for typing: %w", ctx.Err())
+	}
+
 	mime, err := mimetype.DetectFile(track.Path)
 	if nil != err {
+		logger.Error().Err(err).Msg("Failed to detect track mime")
 		return fmt.Errorf("detect mime: %v", err)
 	}
 
@@ -600,7 +796,7 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	caption := []message.StyledTextOption{
 		styling.Blockquote(trackInfo.Caption, notCollapsed),
 	}
-	if sig := c.conf.Upload.Signature; len(sig) > 0 {
+	if sig := u.conf.Upload.Signature; len(sig) > 0 {
 		caption = append(caption, html.String(nil, sig))
 	}
 
@@ -624,9 +820,8 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		Title(trackInfo.Title)
 
 	_, err = message.
-		NewSender(c.client).
-		WithUploader(c.engine).
-		To(c.peer).
+		NewSender(u.client).
+		To(u.peer).
 		Clear().
 		Background().
 		Silent().
@@ -635,7 +830,80 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		return fmt.Errorf("send message: %w", err)
 	}
 
-	time.Sleep(c.conf.Upload.PauseDuration.Duration)
+	time.Sleep(u.conf.Upload.PauseDuration.Duration)
 
 	return nil
+}
+
+func (u *Uploader) cancelTyping(ctx context.Context) {
+	req := &tg.MessagesSetTypingRequest{ //nolint:exhaustruct
+		Peer:   u.peer,
+		Action: &tg.SendMessageCancelAction{},
+	}
+	if ok, err := u.client.MessagesSetTyping(ctx, req); nil != err {
+		u.logger.Error().Err(err).Msg("Failed to cancel typing action")
+	} else if !ok {
+		u.logger.Error().Msg("Failed to cancel typing action: not ok")
+	}
+}
+
+func (u *Uploader) sendTyping(ctx context.Context, logger zerolog.Logger, mon progress.Monitor) error {
+	percent := mon.Percent()
+	logger.Debug().Int("percent", percent).Msg("Sending typing action")
+
+	if percent == 100 {
+		return os.ErrProcessDone
+	}
+
+	req := &tg.MessagesSetTypingRequest{ //nolint:exhaustruct
+		Peer: u.peer,
+		Action: &tg.SendMessageUploadDocumentAction{
+			Progress: percent,
+		},
+	}
+	if ok, err := u.client.MessagesSetTyping(ctx, req); nil != err {
+		return fmt.Errorf("send typing action: %w", err)
+	} else if !ok {
+		return errors.New("send typing action: not ok")
+	}
+
+	return nil
+}
+
+func (u *Uploader) keepTyping(
+	ctx context.Context,
+	mon progress.Monitor,
+	wait chan<- struct{},
+	logger zerolog.Logger,
+) {
+	defer close(wait)
+
+	ticker := time.NewTicker(1221 * time.Millisecond)
+	defer ticker.Stop()
+	defer u.cancelTyping(ctx)
+
+	if err := u.sendTyping(ctx, logger, mon); nil != err {
+		if !errors.Is(err, os.ErrProcessDone) {
+			logger.Error().Err(err).Msg("Failed to send typing action")
+			return
+		}
+
+		return
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := u.sendTyping(ctx, logger, mon); nil != err {
+				if !errors.Is(err, os.ErrProcessDone) {
+					logger.Error().Err(err).Msg("Failed to send typing action")
+					return
+				}
+
+				return
+			}
+		}
+	}
 }

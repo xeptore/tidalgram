@@ -112,39 +112,6 @@ telegram:
   storage:
     path: ./telegram.db
 
-  upload:
-    # OPTIONAL
-    # Default: 8
-    threads: 8
-    # OPTIONAL
-    # Default: 8
-    pool_size: 8
-    # OPTIONAL
-    # Default: 4
-    limit: 4
-    # OPTIONAL
-    # Default: 1s
-    pause_duration: 1s
-    # OPTIONAL
-    # Signature to be added to the end of the caption in Telegram-flavored HTML format.
-    # See:
-    #   https://core.telegram.org/bots/api#html-style
-    #   https://core.telegram.org/api/entities#allowed-entities
-    signature: |-
-
-
-      <i>@itsxeptore</i>
-    # REQUIRED
-    # Telegram peer to upload to
-    peer:
-      # REQUIRED
-      # Telegram peer ID
-      id: 1234567890
-      # REQUIRED
-      # Telegram peer kind
-      # One of: user, chat, channel
-      kind: user
-
   # OPTIONAL
   # Socks5 proxy
   # Ignored if both port and host are not set or are empty
@@ -159,3 +126,40 @@ telegram:
     username: ""
     # OPTIONAL
     password: ""
+
+  upload:
+    # OPTIONAL
+    # Number of concurrent upload threads per upload operation
+    # Default: 8
+    threads: 8
+    # OPTIONAL
+    # Number of live datacenter connections
+    # Default: 8
+    pool_size: 8
+    # OPTIONAL
+    # Number of concurrent upload operations
+    # Default: 4
+    limit: 4
+    # OPTIONAL
+    # Default: 1500ms
+    pause_duration: 1500ms
+    # REQUIRED
+    # Telegram peer to upload to
+    peer:
+      # REQUIRED
+      # Telegram peer ID
+      id: 1234567890
+      # REQUIRED
+      # Telegram peer kind
+      # One of: user, chat, channel
+      kind: user
+
+    # OPTIONAL
+    # Signature to be added to the end of the caption in Telegram-flavored HTML format.
+    # See:
+    #   https://core.telegram.org/bots/api#html-style
+    #   https://core.telegram.org/api/entities#allowed-entities
+    signature: |-
+
+
+      <i>@itsxeptore</i>

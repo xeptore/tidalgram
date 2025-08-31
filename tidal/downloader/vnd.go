@@ -25,19 +25,19 @@ type VndTrackStream struct {
 	VNDTrackPartsConcurrency int
 }
 
-func (d *VndTrackStream) saveTo(
+func (v *VndTrackStream) saveTo(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
 	fileName string,
 ) (err error) {
-	fileSize, err := d.fileSize(ctx, logger, accessToken)
+	fileSize, err := v.fileSize(ctx, logger, accessToken)
 	if nil != err {
 		return fmt.Errorf("unexpected error while getting track file size: %w", err)
 	}
 
 	wg, wgctx := errgroup.WithContext(ctx)
-	wg.SetLimit(d.VNDTrackPartsConcurrency)
+	wg.SetLimit(v.VNDTrackPartsConcurrency)
 
 	numChunks := mathutil.DivCeil(fileSize, singlePartChunkSize)
 	for i := range numChunks {
@@ -73,7 +73,7 @@ func (d *VndTrackStream) saveTo(
 				}
 			}()
 
-			if err := d.downloadChunkRange(wgctx, logger, accessToken, start, end, f); nil != err {
+			if err := v.downloadChunkRange(wgctx, logger, accessToken, start, end, f); nil != err {
 				return fmt.Errorf("download track chunk %d: %w", i, err)
 			}
 
@@ -119,12 +119,12 @@ func (d *VndTrackStream) saveTo(
 	return nil
 }
 
-func (d *VndTrackStream) fileSize(
+func (v *VndTrackStream) fileSize(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
 ) (size int, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, d.URL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, v.URL, nil)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create get track metadata request")
 		return 0, fmt.Errorf("create get track metada request: %w", err)
@@ -132,7 +132,7 @@ func (d *VndTrackStream) fileSize(
 
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
-	client := http.Client{Timeout: d.GetTrackFileSizeTimeout} //nolint:exhaustruct
+	client := http.Client{Timeout: v.GetTrackFileSizeTimeout} //nolint:exhaustruct
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send get track file size request")
@@ -236,14 +236,14 @@ type VNDManifest struct {
 	URLs           []string `json:"urls"`
 }
 
-func (d *VndTrackStream) downloadChunkRange(
+func (v *VndTrackStream) downloadChunkRange(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
 	start, end int,
 	f *os.File,
 ) (err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.URL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, v.URL, nil)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create get track chunk request")
 		return fmt.Errorf("create get track chunk request: %w", err)
@@ -252,7 +252,7 @@ func (d *VndTrackStream) downloadChunkRange(
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 	req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", start, end))
 
-	client := http.Client{Timeout: d.DownloadTimeout} //nolint:exhaustruct
+	client := http.Client{Timeout: v.DownloadTimeout} //nolint:exhaustruct
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send track chunk download request")

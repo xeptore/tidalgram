@@ -66,15 +66,15 @@ type DownloadedCoversCache struct {
 	mux sync.Mutex
 }
 
-func (c *DownloadedCoversCache) Fetch(
+func (dcc *DownloadedCoversCache) Fetch(
 	k string,
 	ttl time.Duration,
 	fetch func() ([]byte, error),
 ) (*ccache.Item[[]byte], error) {
-	c.mux.Lock()
-	defer c.mux.Unlock()
+	dcc.mux.Lock()
+	defer dcc.mux.Unlock()
 
-	v, err := c.c.Fetch(k, ttl, fetch)
+	v, err := dcc.c.Fetch(k, ttl, fetch)
 	if nil != err {
 		return nil, fmt.Errorf("fetch cover: %w", err)
 	}
@@ -87,15 +87,15 @@ type AlbumsMetaCache struct {
 	mux sync.Mutex
 }
 
-func (c *AlbumsMetaCache) Fetch(
+func (amc *AlbumsMetaCache) Fetch(
 	k string,
 	ttl time.Duration,
 	fetch func() (*types.AlbumMeta, error),
 ) (*ccache.Item[*types.AlbumMeta], error) {
-	c.mux.Lock()
-	defer c.mux.Unlock()
+	amc.mux.Lock()
+	defer amc.mux.Unlock()
 
-	v, err := c.c.Fetch(k, ttl, fetch)
+	v, err := amc.c.Fetch(k, ttl, fetch)
 	if nil != err {
 		return nil, fmt.Errorf("fetch album meta: %w", err)
 	}
@@ -108,15 +108,15 @@ type TrackCreditsCache struct {
 	mux sync.Mutex
 }
 
-func (c *TrackCreditsCache) Fetch(
+func (tcc *TrackCreditsCache) Fetch(
 	k string,
 	ttl time.Duration,
 	fetch func() (*types.TrackCredits, error),
 ) (*ccache.Item[*types.TrackCredits], error) {
-	c.mux.Lock()
-	defer c.mux.Unlock()
+	tcc.mux.Lock()
+	defer tcc.mux.Unlock()
 
-	v, err := c.c.Fetch(k, ttl, fetch)
+	v, err := tcc.c.Fetch(k, ttl, fetch)
 	if nil != err {
 		return nil, fmt.Errorf("fetch track credits: %w", err)
 	}
@@ -124,6 +124,6 @@ func (c *TrackCreditsCache) Fetch(
 	return v, nil
 }
 
-func (c *TrackCreditsCache) Set(k string, v *types.TrackCredits, ttl time.Duration) {
-	c.c.Set(k, v, ttl)
+func (tcc *TrackCreditsCache) Set(k string, v *types.TrackCredits, ttl time.Duration) {
+	tcc.c.Set(k, v, ttl)
 }
