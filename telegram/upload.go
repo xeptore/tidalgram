@@ -605,7 +605,9 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		coverFileSize = st.Size()
 	}
 
-	progress := &Progress{total: trackFileSize + coverFileSize, logger: logger}
+	p1 := &ChildProgress{total: trackFileSize}
+	p2 := &ChildProgress{total: coverFileSize}
+	progress := &Progress{[]*ChildProgress{p1, p2}}
 
 	var wg sync.WaitGroup
 	wg.Go(func() {
@@ -638,14 +640,12 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		}
 	})
 
-	up := c.engine.WithProgress(progress)
-
-	trackInputFile, err := up.FromPath(ctx, track.Path)
+	trackInputFile, err := c.engine.WithProgress(p1).FromPath(ctx, track.Path)
 	if nil != err {
 		return fmt.Errorf("upload track file: %w", err)
 	}
 
-	coverInputFile, err := up.FromPath(ctx, track.Cover.Path)
+	coverInputFile, err := c.engine.WithProgress(p2).FromPath(ctx, track.Cover.Path)
 	if nil != err {
 		return fmt.Errorf("upload track cover file: %w", err)
 	}
@@ -714,17 +714,22 @@ func (u *Uploader) cancelTyping(ctx context.Context) {
 }
 
 func (u *Uploader) sendTyping(ctx context.Context, logger zerolog.Logger, progress *Progress) error {
-	uploaded := progress.uploaded.Load()
-	percent := math.Floor(float64(uploaded) / float64(progress.total) * 100)
+	var total int64
+	var uploaded int64
+	for _, v := range progress.children {
+		uploaded += v.uploaded.Load()
+		total += v.total
+	}
+	percent := math.Floor(float64(uploaded) / float64(total) * 100)
 
 	logger.
 		Debug().
-		Int64("total", progress.total).
+		Int64("total", total).
 		Int64("uploaded", uploaded).
 		Int("percent", int(percent)).
 		Msg("Sending typing action")
 
-	if uploaded == progress.total {
+	if uploaded == total {
 		return os.ErrProcessDone
 	}
 
