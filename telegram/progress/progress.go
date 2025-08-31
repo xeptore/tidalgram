@@ -2,7 +2,6 @@ package progress
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sync/atomic"
 
@@ -33,10 +32,6 @@ func (p *AlbumTracker) Set(i int, f *FileTracker) {
 func (p *AlbumTracker) At(i int) (*Track, *Cover) {
 	f := p.files[i]
 	return f.track, f.cover
-}
-
-func (p *AlbumTracker) PrintTotal() {
-	fmt.Printf("Total size: %d\n", p.total)
 }
 
 func (p *AlbumTracker) Percent() int {

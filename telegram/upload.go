@@ -382,17 +382,8 @@ func (u *Uploader) uploadMix(
 
 			coverProgress := &progress.Cover{Size: coverStat.Size()}
 
-			logger.
-				Debug().
-				Int("cover_size", int(coverStat.Size())).
-				Int("track_size", int(trackStat.Size())).
-				Int("total_size", int(coverStat.Size()+trackStat.Size())).
-				Msg("Setting mix track progress")
-
 			tracker.Set(i, progress.NewFileTracker(coverProgress, trackProgress))
 		}
-
-		tracker.PrintTotal()
 
 		wg, wgctx := errgroup.WithContext(ctx)
 		wg.SetLimit(u.conf.Upload.Limit)
@@ -413,7 +404,6 @@ func (u *Uploader) uploadMix(
 
 				track := mixFs.Track(trackID)
 
-				logger.Debug().Int("index", i).Msg("Getting mix track progress")
 				trackProgress, coverProgress := tracker.At(i)
 
 				trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(wgctx, track.Path)
@@ -428,6 +418,7 @@ func (u *Uploader) uploadMix(
 
 				mime, err := mimetype.DetectFile(track.Path)
 				if nil != err {
+					logger.Error().Err(err).Msg("Failed to detect mix mime")
 					return fmt.Errorf("detect mix mime: %v", err)
 				}
 
@@ -441,7 +432,7 @@ func (u *Uploader) uploadMix(
 
 				trackInfo, err := track.InfoFile.Read()
 				if nil != err {
-					logger.Error().Err(err).Msg("read mix track info file")
+					logger.Error().Err(err).Msg("Failed to read mix track info file")
 					return fmt.Errorf("read mix track info file: %v", err)
 				}
 
@@ -466,20 +457,12 @@ func (u *Uploader) uploadMix(
 
 				album[i] = doc
 
-				time.Sleep(u.conf.Upload.PauseDuration.Duration)
-
 				return nil
 			})
 		}
 
 		if err := wg.Wait(); nil != err {
 			return fmt.Errorf("wait for upload mix tracks: %w", err)
-		}
-
-		select {
-		case <-typingWait:
-		case <-ctx.Done():
-			return ctx.Err()
 		}
 
 		var rest []message.MultiMediaOption
@@ -498,9 +481,13 @@ func (u *Uploader) uploadMix(
 		if nil != err {
 			return fmt.Errorf("send mix: %w", err)
 		}
-	}
 
-	time.Sleep(u.conf.Upload.PauseDuration.Duration)
+		select {
+		case <-typingWait:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 
 	return nil
 }
@@ -684,6 +671,7 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 
 	mime, err := mimetype.DetectFile(track.Path)
 	if nil != err {
+		logger.Error().Err(err).Msg("Failed to detect track mime")
 		return fmt.Errorf("detect mime: %v", err)
 	}
 
