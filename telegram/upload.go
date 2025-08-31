@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"slices"
 	"sync"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/xeptore/tidalgram/config"
 	"github.com/xeptore/tidalgram/mathutil"
+	"github.com/xeptore/tidalgram/telegram/progress"
 	"github.com/xeptore/tidalgram/tidal/fs"
 	"github.com/xeptore/tidalgram/tidal/types"
 )
@@ -171,12 +171,6 @@ func (c *Uploader) Close() error {
 }
 
 func (c *Uploader) Upload(ctx context.Context, logger zerolog.Logger, dir fs.DownloadsDir, link types.Link) error {
-	c.client.MessagesSetTyping(ctx, &tg.MessagesSetTypingRequest{
-		Peer: c.peer,
-		// Action: &tg.SendMessageUploadAudioAction{},
-		Action: &tg.SendMessageCancelAction{},
-	})
-
 	switch link.Kind {
 	case types.LinkKindTrack:
 		return c.uploadTrack(ctx, logger, dir, link.ID)
@@ -583,31 +577,31 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		return fmt.Errorf("read track info file: %v", err)
 	}
 
-	var trackFileSize int64
-	if st, err := os.Lstat(track.Path); nil != err {
+	trackStat, err := os.Lstat(track.Path)
+	if nil != err {
 		return fmt.Errorf("stat track file: %v", err)
-	} else if !st.Mode().IsRegular() {
+	}
+	if !trackStat.Mode().IsRegular() {
 		return fmt.Errorf("%q: not a regular file", track.Path)
-	} else if st.Size() == 0 {
-		return fmt.Errorf("track file is empty")
-	} else {
-		trackFileSize = st.Size()
 	}
+	if trackStat.Size() == 0 {
+		return errors.New("track file is empty")
+	}
+	trackProgress := &progress.Track{Total: trackStat.Size()}
 
-	var coverFileSize int64
-	if st, err := os.Lstat(track.Cover.Path); nil != err {
+	coverStat, err := os.Lstat(track.Cover.Path)
+	if nil != err {
 		return fmt.Errorf("stat track cover file: %v", err)
-	} else if !st.Mode().IsRegular() {
-		return fmt.Errorf("%q: not a regular file", track.Cover.Path)
-	} else if st.Size() == 0 {
-		return fmt.Errorf("track cover file is empty")
-	} else {
-		coverFileSize = st.Size()
 	}
+	if !coverStat.Mode().IsRegular() {
+		return fmt.Errorf("%q: not a regular file", track.Cover.Path)
+	}
+	if coverStat.Size() == 0 {
+		return errors.New("track cover file is empty")
+	}
+	coverProgress := &progress.Cover{Total: coverStat.Size()}
 
-	p1 := &ChildProgress{total: trackFileSize}
-	p2 := &ChildProgress{total: coverFileSize}
-	progress := &Progress{[]*ChildProgress{p1, p2}}
+	tracker := progress.NewFileTracker(coverProgress, trackProgress)
 
 	var wg sync.WaitGroup
 	wg.Go(func() {
@@ -615,11 +609,12 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		defer ticker.Stop()
 		defer c.cancelTyping(ctx)
 
-		if err := c.sendTyping(ctx, logger, progress); nil != err {
+		if err := c.sendTyping(ctx, tracker); nil != err {
 			if !errors.Is(err, os.ErrProcessDone) {
 				logger.Error().Err(err).Msg("Failed to send typing action")
 				return
 			}
+
 			return
 		}
 
@@ -629,23 +624,24 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 				return
 			case t := <-ticker.C:
 				logger := logger.With().Time("tick", t).Logger()
-				if err := c.sendTyping(ctx, logger, progress); nil != err {
+				if err := c.sendTyping(ctx, tracker); nil != err {
 					if !errors.Is(err, os.ErrProcessDone) {
 						logger.Error().Err(err).Msg("Failed to send typing action")
 						return
 					}
+
 					return
 				}
 			}
 		}
 	})
 
-	trackInputFile, err := c.engine.WithProgress(p1).FromPath(ctx, track.Path)
+	trackInputFile, err := c.engine.WithProgress(trackProgress).FromPath(ctx, track.Path)
 	if nil != err {
 		return fmt.Errorf("upload track file: %w", err)
 	}
 
-	coverInputFile, err := c.engine.WithProgress(p2).FromPath(ctx, track.Cover.Path)
+	coverInputFile, err := c.engine.WithProgress(coverProgress).FromPath(ctx, track.Cover.Path)
 	if nil != err {
 		return fmt.Errorf("upload track cover file: %w", err)
 	}
@@ -702,7 +698,7 @@ func (c *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 }
 
 func (u *Uploader) cancelTyping(ctx context.Context) {
-	req := &tg.MessagesSetTypingRequest{
+	req := &tg.MessagesSetTypingRequest{ //nolint:exhaustruct
 		Peer:   u.peer,
 		Action: &tg.SendMessageCancelAction{},
 	}
@@ -713,30 +709,17 @@ func (u *Uploader) cancelTyping(ctx context.Context) {
 	}
 }
 
-func (u *Uploader) sendTyping(ctx context.Context, logger zerolog.Logger, progress *Progress) error {
-	var total int64
-	var uploaded int64
-	for _, v := range progress.children {
-		uploaded += v.uploaded.Load()
-		total += v.total
-	}
-	percent := math.Floor(float64(uploaded) / float64(total) * 100)
+func (u *Uploader) sendTyping(ctx context.Context, tracker *progress.FileTracker) error {
+	percent := tracker.Percent()
 
-	logger.
-		Debug().
-		Int64("total", total).
-		Int64("uploaded", uploaded).
-		Int("percent", int(percent)).
-		Msg("Sending typing action")
-
-	if uploaded == total {
+	if percent == 100 {
 		return os.ErrProcessDone
 	}
 
-	req := &tg.MessagesSetTypingRequest{
+	req := &tg.MessagesSetTypingRequest{ //nolint:exhaustruct
 		Peer: u.peer,
 		Action: &tg.SendMessageUploadDocumentAction{
-			Progress: int(percent),
+			Progress: percent,
 		},
 	}
 	if ok, err := u.client.MessagesSetTyping(ctx, req); nil != err {
