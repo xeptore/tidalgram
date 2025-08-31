@@ -716,9 +716,19 @@ func (u *Uploader) cancelTyping(ctx context.Context) {
 }
 
 func (u *Uploader) sendTyping(ctx context.Context, logger zerolog.Logger, progress *Progress) error {
-	percent := math.Floor(float64(progress.uploaded.Load()) / float64(progress.total) * 100)
+	uploaded := progress.uploaded.Load()
+	percent := math.Floor(float64(uploaded) / float64(progress.total) * 100)
 
-	logger.Debug().Int("total", int(progress.total)).Int("uploaded", int(progress.uploaded.Load())).Int("percent", int(percent)).Msg("Sending typing action")
+	logger.
+		Debug().
+		Int64("total", progress.total).
+		Int64("uploaded", uploaded).
+		Int("percent", int(percent)).
+		Msg("Sending typing action")
+
+	if uploaded >= progress.total {
+		return os.ErrProcessDone
+	}
 
 	req := &tg.MessagesSetTypingRequest{
 		Peer: u.peer,
