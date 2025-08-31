@@ -42,7 +42,6 @@ type Uploader struct {
 	client *tg.Client
 	stop   bg.StopFunc
 	conf   config.Telegram
-	engine *uploader.Uploader
 	peer   tg.InputPeerClass
 	logger zerolog.Logger
 }
@@ -90,10 +89,6 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 		tclient.NewDefaultMiddlewares(ctx, maxRecoveryElapsedTime)...,
 	)
 	tgClient := pool.Default(ctx)
-	engine := uploader.
-		NewUploader(tgClient).
-		WithPartSize(MaxPartSize).
-		WithThreads(conf.Upload.Threads)
 
 	var (
 		peer      tg.InputPeerClass
@@ -153,10 +148,17 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 		client: tgClient,
 		stop:   stop,
 		conf:   conf,
-		engine: engine,
 		peer:   peer,
 		logger: logger,
 	}, nil
+}
+
+func (u *Uploader) newUploader() *uploader.Uploader {
+	return uploader.
+		NewUploader(u.client).
+		WithPartSize(MaxPartSize).
+		WithThreads(u.conf.Upload.Threads)
+
 }
 
 func (u *Uploader) Close() error {
@@ -200,7 +202,7 @@ func (u *Uploader) uploadAlbum(
 		return fmt.Errorf("read playlist info file: %v", err)
 	}
 
-	coverInputFile, err := u.engine.FromPath(ctx, albumFs.Cover.Path)
+	coverInputFile, err := u.newUploader().FromPath(ctx, albumFs.Cover.Path)
 	if nil != err {
 		return fmt.Errorf("upload album track cover file: %w", err)
 	}
@@ -245,7 +247,7 @@ func (u *Uploader) uploadAlbum(
 						return fmt.Errorf("read album track info file: %v", err)
 					}
 
-					trackInputFile, err := u.engine.FromPath(wgctx, track.Path)
+					trackInputFile, err := u.newUploader().FromPath(wgctx, track.Path)
 					if nil != err {
 						logger.Error().Err(err).Msg("upload album track file")
 						return fmt.Errorf("upload album track file: %w", err)
@@ -303,7 +305,7 @@ func (u *Uploader) uploadAlbum(
 
 			_, err = message.
 				NewSender(u.client).
-				WithUploader(u.engine).
+				WithUploader(u.newUploader()).
 				To(u.peer).
 				Clear().
 				Background().
@@ -380,8 +382,17 @@ func (u *Uploader) uploadMix(
 
 			coverProgress := &progress.Cover{Size: coverStat.Size()}
 
+			logger.
+				Debug().
+				Int("cover_size", int(coverStat.Size())).
+				Int("track_size", int(trackStat.Size())).
+				Int("total_size", int(coverStat.Size()+trackStat.Size())).
+				Msg("Setting mix track progress")
+
 			tracker.Set(i, progress.NewFileTracker(coverProgress, trackProgress))
 		}
+
+		tracker.PrintTotal()
 
 		wg, wgctx := errgroup.WithContext(ctx)
 		wg.SetLimit(u.conf.Upload.Limit)
@@ -402,14 +413,15 @@ func (u *Uploader) uploadMix(
 
 				track := mixFs.Track(trackID)
 
+				logger.Debug().Int("index", i).Msg("Getting mix track progress")
 				trackProgress, coverProgress := tracker.At(i)
 
-				trackInputFile, err := u.engine.WithProgress(trackProgress).FromPath(wgctx, track.Path)
+				trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(wgctx, track.Path)
 				if nil != err {
 					return fmt.Errorf("upload mix track file: %w", err)
 				}
 
-				coverInputFile, err := u.engine.WithProgress(coverProgress).FromPath(wgctx, track.Cover.Path)
+				coverInputFile, err := u.newUploader().WithProgress(coverProgress).FromPath(wgctx, track.Cover.Path)
 				if nil != err {
 					return fmt.Errorf("upload mix track cover file: %w", err)
 				}
@@ -477,7 +489,7 @@ func (u *Uploader) uploadMix(
 
 		_, err = message.
 			NewSender(u.client).
-			WithUploader(u.engine).
+			WithUploader(u.newUploader()).
 			To(u.peer).
 			Clear().
 			Background().
@@ -540,12 +552,12 @@ func (u *Uploader) uploadPlaylist(
 					return fmt.Errorf("read track info file: %v", err)
 				}
 
-				trackInputFile, err := u.engine.FromPath(wgctx, track.Path)
+				trackInputFile, err := u.newUploader().FromPath(wgctx, track.Path)
 				if nil != err {
 					return fmt.Errorf("upload playlist track file: %w", err)
 				}
 
-				coverInputFile, err := u.engine.FromPath(wgctx, track.Cover.Path)
+				coverInputFile, err := u.newUploader().FromPath(wgctx, track.Cover.Path)
 				if nil != err {
 					return fmt.Errorf("upload playlist track cover file: %w", err)
 				}
@@ -601,7 +613,7 @@ func (u *Uploader) uploadPlaylist(
 
 		_, err = message.
 			NewSender(u.client).
-			WithUploader(u.engine).
+			WithUploader(u.newUploader()).
 			To(u.peer).
 			Clear().
 			Background().
@@ -654,12 +666,12 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	typingWait := make(chan struct{})
 	go u.keepTyping(ctx, tracker, typingWait, logger)
 
-	trackInputFile, err := u.engine.WithProgress(trackProgress).FromPath(ctx, track.Path)
+	trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(ctx, track.Path)
 	if nil != err {
 		return fmt.Errorf("upload track file: %w", err)
 	}
 
-	coverInputFile, err := u.engine.WithProgress(coverProgress).FromPath(ctx, track.Cover.Path)
+	coverInputFile, err := u.newUploader().WithProgress(coverProgress).FromPath(ctx, track.Cover.Path)
 	if nil != err {
 		return fmt.Errorf("upload track cover file: %w", err)
 	}
@@ -704,7 +716,7 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 
 	_, err = message.
 		NewSender(u.client).
-		WithUploader(u.engine).
+		WithUploader(u.newUploader()).
 		To(u.peer).
 		Clear().
 		Background().
