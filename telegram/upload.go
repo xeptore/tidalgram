@@ -366,6 +366,7 @@ func (u *Uploader) uploadAlbum(
 
 			select {
 			case <-typingWait:
+				time.Sleep(1 * time.Second)
 			case <-ctx.Done():
 				return fmt.Errorf("wait for typing: %w", ctx.Err())
 			}
@@ -537,6 +538,7 @@ func (u *Uploader) uploadMix(
 
 		select {
 		case <-typingWait:
+			time.Sleep(1 * time.Second)
 		case <-ctx.Done():
 			return fmt.Errorf("wait for typing: %w", ctx.Err())
 		}
@@ -707,6 +709,7 @@ func (u *Uploader) uploadPlaylist(
 
 		select {
 		case <-typingWait:
+			time.Sleep(1 * time.Second)
 		case <-ctx.Done():
 			return fmt.Errorf("wait for typing: %w", ctx.Err())
 		}
