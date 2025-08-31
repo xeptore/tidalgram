@@ -22,36 +22,36 @@ type Config struct {
 	Telegram Telegram `yaml:"telegram"`
 }
 
-func (c *Config) ToDict() *zerolog.Event {
+func (conf *Config) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Dict("bot", c.Bot.ToDict()).
-		Dict("log", c.Log.ToDict()).
-		Dict("tidal", c.Tidal.ToDict()).
-		Dict("telegram", c.Telegram.ToDict())
+		Dict("bot", conf.Bot.ToDict()).
+		Dict("log", conf.Log.ToDict()).
+		Dict("tidal", conf.Tidal.ToDict()).
+		Dict("telegram", conf.Telegram.ToDict())
 }
 
-func (c *Config) setDefaults() {
-	c.Bot.setDefaults()
-	c.Log.setDefaults()
-	c.Tidal.setDefaults()
-	c.Telegram.setDefaults()
+func (conf *Config) setDefaults() {
+	conf.Bot.setDefaults()
+	conf.Log.setDefaults()
+	conf.Tidal.setDefaults()
+	conf.Telegram.setDefaults()
 }
 
-func (c *Config) validate() error {
-	if err := c.Bot.validate(); nil != err {
+func (conf *Config) validate() error {
+	if err := conf.Bot.validate(); nil != err {
 		return fmt.Errorf("bot config validation: %v", err)
 	}
 
-	if err := c.Log.validate(); nil != err {
+	if err := conf.Log.validate(); nil != err {
 		return fmt.Errorf("log config validation: %v", err)
 	}
 
-	if err := c.Tidal.validate(); nil != err {
+	if err := conf.Tidal.validate(); nil != err {
 		return fmt.Errorf("tidal config validation: %v", err)
 	}
 
-	if err := c.Telegram.validate(); nil != err {
+	if err := conf.Telegram.validate(); nil != err {
 		return fmt.Errorf("telegram config validation: %v", err)
 	}
 
@@ -67,31 +67,31 @@ type Bot struct {
 	Proxy        BotProxy `yaml:"proxy"`
 }
 
-func (c *Bot) ToDict() *zerolog.Event {
+func (b *Bot) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Int64("papa_id", c.PapaID).
-		Str("api_url", c.APIURL).
-		Str("token", redact.String(c.Token)).
-		Str("creds_dir", c.CredsDir).
-		Str("downloads_dir", c.DownloadsDir).
-		Dict("proxy", c.Proxy.ToDict())
+		Int64("papa_id", b.PapaID).
+		Str("api_url", b.APIURL).
+		Str("token", redact.String(b.Token)).
+		Str("creds_dir", b.CredsDir).
+		Str("downloads_dir", b.DownloadsDir).
+		Dict("proxy", b.Proxy.ToDict())
 }
 
-func (c *Bot) setDefaults() {
-	if c.APIURL == "" {
-		c.APIURL = "https://api.telegram.org"
+func (b *Bot) setDefaults() {
+	if b.APIURL == "" {
+		b.APIURL = "https://api.telegram.org"
 	}
 
-	if c.CredsDir == "" {
-		c.CredsDir = "./creds"
+	if b.CredsDir == "" {
+		b.CredsDir = "./creds"
 	}
 
-	if c.DownloadsDir == "" {
-		c.DownloadsDir = "./downloads"
+	if b.DownloadsDir == "" {
+		b.DownloadsDir = "./downloads"
 	}
 
-	c.Proxy.setDefaults()
+	b.Proxy.setDefaults()
 }
 
 type BotProxy struct {
@@ -101,42 +101,34 @@ type BotProxy struct {
 	Password string `yaml:"password"`
 }
 
-func (c *BotProxy) ToDict() *zerolog.Event {
+func (bp *BotProxy) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Str("host", c.Host).
-		Int("port", c.Port).
-		Str("username", redact.String(c.Username)).
-		Str("password", redact.String(c.Password))
+		Str("host", bp.Host).
+		Int("port", bp.Port).
+		Str("username", redact.String(bp.Username)).
+		Str("password", redact.String(bp.Password))
 }
 
-func (c *BotProxy) setDefaults() {}
+func (bp *BotProxy) setDefaults() {}
 
-func (c *BotProxy) validate() error {
-	if len(c.Host) > 0 {
-		if c.Port == 0 {
+func (bp *BotProxy) validate() error {
+	if len(bp.Host) > 0 {
+		if bp.Port == 0 {
 			return errors.New("port is required if host is set")
-		}
-
-		if c.Port < 0 {
-			return errors.New("port must be greater than or equal to 0")
-		}
-
-		if c.Port > 65535 {
-			return errors.New("port must be less than or equal to 65535")
 		}
 	}
 
-	if c.Port != 0 {
-		if c.Port < 0 {
+	if bp.Port != 0 {
+		if bp.Port < 0 {
 			return errors.New("port must be greater than or equal to 0")
 		}
 
-		if c.Port > 65535 {
+		if bp.Port > 65535 {
 			return errors.New("port must be less than or equal to 65535")
 		}
 
-		if c.Host == "" {
+		if bp.Host == "" {
 			return errors.New("host is required if port is set")
 		}
 	}
@@ -144,16 +136,16 @@ func (c *BotProxy) validate() error {
 	return nil
 }
 
-func (c *Bot) validate() error {
-	if c.PapaID == 0 {
+func (b *Bot) validate() error {
+	if b.PapaID == 0 {
 		return errors.New("papa_id is required")
 	}
 
-	if c.Token == "" {
+	if b.Token == "" {
 		return errors.New("make sure the BOT_TOKEN environment variable is set")
 	}
 
-	if i, err := os.Stat(c.CredsDir); nil != err {
+	if i, err := os.Stat(b.CredsDir); nil != err {
 		if errors.Is(err, os.ErrNotExist) {
 			return errors.New("creds_dir does not exist")
 		}
@@ -163,7 +155,7 @@ func (c *Bot) validate() error {
 		return errors.New("creds_dir must be a directory")
 	}
 
-	if i, err := os.Stat(c.DownloadsDir); nil != err {
+	if i, err := os.Stat(b.DownloadsDir); nil != err {
 		if errors.Is(err, os.ErrNotExist) {
 			return errors.New("downloads_dir does not exist")
 		}
@@ -173,7 +165,7 @@ func (c *Bot) validate() error {
 		return errors.New("downloads_dir must be a directory")
 	}
 
-	if err := c.Proxy.validate(); nil != err {
+	if err := b.Proxy.validate(); nil != err {
 		return fmt.Errorf("proxy config validation: %v", err)
 	}
 
@@ -185,33 +177,33 @@ type Log struct {
 	Format string `yaml:"format"`
 }
 
-func (c *Log) ToDict() *zerolog.Event {
+func (l *Log) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Str("level", c.Level).
-		Str("format", c.Format)
+		Str("level", l.Level).
+		Str("format", l.Format)
 }
 
-func (c *Log) setDefaults() {
-	if c.Level == "" {
-		c.Level = "info"
+func (l *Log) setDefaults() {
+	if l.Level == "" {
+		l.Level = "info"
 	}
 
-	if c.Format == "" {
-		c.Format = "pretty"
+	if l.Format == "" {
+		l.Format = "pretty"
 	}
 }
 
-func (c *Log) validate() error {
-	if !slices.Contains([]string{"trace", "debug", "info", "warn", "error", "fatal", "panic"}, c.Level) {
+func (l *Log) validate() error {
+	if !slices.Contains([]string{"trace", "debug", "info", "warn", "error", "fatal", "panic"}, l.Level) {
 		return fmt.Errorf(
 			"level must be one of: trace, debug, info, warn, error, fatal, panic, got: %s",
-			c.Level,
+			l.Level,
 		)
 	}
 
-	if !slices.Contains([]string{"json", "pretty"}, c.Format) {
-		return fmt.Errorf("format must be 'json' or 'pretty', got: %s", c.Format)
+	if !slices.Contains([]string{"json", "pretty"}, l.Format) {
+		return fmt.Errorf("format must be 'json' or 'pretty', got: %s", l.Format)
 	}
 
 	return nil
@@ -221,18 +213,18 @@ type Tidal struct {
 	Downloader TidalDownloader `yaml:"downloader"`
 }
 
-func (c *Tidal) ToDict() *zerolog.Event {
+func (t *Tidal) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Dict("downloader", c.Downloader.ToDict())
+		Dict("downloader", t.Downloader.ToDict())
 }
 
-func (c *Tidal) setDefaults() {
-	c.Downloader.setDefaults()
+func (t *Tidal) setDefaults() {
+	t.Downloader.setDefaults()
 }
 
-func (c *Tidal) validate() error {
-	if err := c.Downloader.validate(); nil != err {
+func (t *Tidal) validate() error {
+	if err := t.Downloader.validate(); nil != err {
 		return fmt.Errorf("downloader config validation: %v", err)
 	}
 
@@ -244,24 +236,24 @@ type TidalDownloader struct {
 	Concurrency TidalDownloadConcurrency `yaml:"concurrency"`
 }
 
-func (c *TidalDownloader) ToDict() *zerolog.Event {
+func (td *TidalDownloader) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Dict("timeouts", c.Timeouts.ToDict()).
-		Dict("concurrency", c.Concurrency.ToDict())
+		Dict("timeouts", td.Timeouts.ToDict()).
+		Dict("concurrency", td.Concurrency.ToDict())
 }
 
-func (c *TidalDownloader) setDefaults() {
-	c.Timeouts.setDefaults()
-	c.Concurrency.setDefaults()
+func (td *TidalDownloader) setDefaults() {
+	td.Timeouts.setDefaults()
+	td.Concurrency.setDefaults()
 }
 
-func (c *TidalDownloader) validate() error {
-	if err := c.Timeouts.validate(); nil != err {
+func (td *TidalDownloader) validate() error {
+	if err := td.Timeouts.validate(); nil != err {
 		return fmt.Errorf("timeouts config validation: %v", err)
 	}
 
-	if err := c.Concurrency.validate(); nil != err {
+	if err := td.Concurrency.validate(); nil != err {
 		return fmt.Errorf("concurrency config validation: %v", err)
 	}
 
@@ -282,110 +274,110 @@ type TidalDownloadTimeouts struct {
 	DownloadVNDSegment  int `yaml:"download_vnd_segment"`
 }
 
-func (c *TidalDownloadTimeouts) ToDict() *zerolog.Event {
+func (tdt *TidalDownloadTimeouts) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Int("get_track_credits", c.GetTrackCredits).
-		Int("get_track_lyrics", c.GetTrackLyrics).
-		Int("download_cover", c.DownloadCover).
-		Int("get_album_info", c.GetAlbumInfo).
-		Int("get_stream_urls", c.GetStreamURLs).
-		Int("get_playlist_info", c.GetPlaylistInfo).
-		Int("get_mix_info", c.GetMixInfo).
-		Int("get_paged_tracks", c.GetPagedTracks).
-		Int("download_dash_segment", c.DownloadDashSegment).
-		Int("get_vnd_track_file_size", c.GetVNDTrackFileSize).
-		Int("download_vnd_segment", c.DownloadVNDSegment)
+		Int("get_track_credits", tdt.GetTrackCredits).
+		Int("get_track_lyrics", tdt.GetTrackLyrics).
+		Int("download_cover", tdt.DownloadCover).
+		Int("get_album_info", tdt.GetAlbumInfo).
+		Int("get_stream_urls", tdt.GetStreamURLs).
+		Int("get_playlist_info", tdt.GetPlaylistInfo).
+		Int("get_mix_info", tdt.GetMixInfo).
+		Int("get_paged_tracks", tdt.GetPagedTracks).
+		Int("download_dash_segment", tdt.DownloadDashSegment).
+		Int("get_vnd_track_file_size", tdt.GetVNDTrackFileSize).
+		Int("download_vnd_segment", tdt.DownloadVNDSegment)
 }
 
-func (c *TidalDownloadTimeouts) setDefaults() {
-	if c.GetTrackCredits == 0 {
-		c.GetTrackCredits = 2
+func (tdt *TidalDownloadTimeouts) setDefaults() {
+	if tdt.GetTrackCredits == 0 {
+		tdt.GetTrackCredits = 2
 	}
 
-	if c.GetTrackLyrics == 0 {
-		c.GetTrackLyrics = 2
+	if tdt.GetTrackLyrics == 0 {
+		tdt.GetTrackLyrics = 2
 	}
 
-	if c.DownloadCover == 0 {
-		c.DownloadCover = 10
+	if tdt.DownloadCover == 0 {
+		tdt.DownloadCover = 10
 	}
 
-	if c.GetAlbumInfo == 0 {
-		c.GetAlbumInfo = 2
+	if tdt.GetAlbumInfo == 0 {
+		tdt.GetAlbumInfo = 2
 	}
 
-	if c.GetStreamURLs == 0 {
-		c.GetStreamURLs = 2
+	if tdt.GetStreamURLs == 0 {
+		tdt.GetStreamURLs = 2
 	}
 
-	if c.GetPlaylistInfo == 0 {
-		c.GetPlaylistInfo = 2
+	if tdt.GetPlaylistInfo == 0 {
+		tdt.GetPlaylistInfo = 2
 	}
 
-	if c.GetMixInfo == 0 {
-		c.GetMixInfo = 2
+	if tdt.GetMixInfo == 0 {
+		tdt.GetMixInfo = 2
 	}
 
-	if c.GetPagedTracks == 0 {
-		c.GetPagedTracks = 2
+	if tdt.GetPagedTracks == 0 {
+		tdt.GetPagedTracks = 2
 	}
 
-	if c.DownloadDashSegment == 0 {
-		c.DownloadDashSegment = 60
+	if tdt.DownloadDashSegment == 0 {
+		tdt.DownloadDashSegment = 60
 	}
 
-	if c.GetVNDTrackFileSize == 0 {
-		c.GetVNDTrackFileSize = 5
+	if tdt.GetVNDTrackFileSize == 0 {
+		tdt.GetVNDTrackFileSize = 5
 	}
 
-	if c.DownloadVNDSegment == 0 {
-		c.DownloadVNDSegment = 60
+	if tdt.DownloadVNDSegment == 0 {
+		tdt.DownloadVNDSegment = 60
 	}
 }
 
-func (c *TidalDownloadTimeouts) validate() error {
-	if c.GetTrackCredits < 0 {
+func (tdt *TidalDownloadTimeouts) validate() error {
+	if tdt.GetTrackCredits < 0 {
 		return errors.New("get_track_credits must be greater than 0")
 	}
 
-	if c.GetTrackLyrics < 0 {
+	if tdt.GetTrackLyrics < 0 {
 		return errors.New("get_track_lyrics must be greater than 0")
 	}
 
-	if c.DownloadCover < 0 {
+	if tdt.DownloadCover < 0 {
 		return errors.New("download_cover must be greater than 0")
 	}
 
-	if c.GetAlbumInfo < 0 {
+	if tdt.GetAlbumInfo < 0 {
 		return errors.New("get_album_info must be greater than 0")
 	}
 
-	if c.GetStreamURLs < 0 {
+	if tdt.GetStreamURLs < 0 {
 		return errors.New("get_stream_urls must be greater than 0")
 	}
 
-	if c.GetPlaylistInfo < 0 {
+	if tdt.GetPlaylistInfo < 0 {
 		return errors.New("get_playlist_info must be greater than 0")
 	}
 
-	if c.GetMixInfo < 0 {
+	if tdt.GetMixInfo < 0 {
 		return errors.New("get_mix_info must be greater than 0")
 	}
 
-	if c.GetPagedTracks < 0 {
+	if tdt.GetPagedTracks < 0 {
 		return errors.New("get_page_tracks must be greater than 0")
 	}
 
-	if c.DownloadDashSegment < 0 {
+	if tdt.DownloadDashSegment < 0 {
 		return errors.New("download_dash_segment must be greater than 0")
 	}
 
-	if c.GetVNDTrackFileSize < 0 {
+	if tdt.GetVNDTrackFileSize < 0 {
 		return errors.New("get_vnd_track_file_size must be greater than 0")
 	}
 
-	if c.DownloadVNDSegment < 0 {
+	if tdt.DownloadVNDSegment < 0 {
 		return errors.New("download_vnd_segment must be greater than 0")
 	}
 
@@ -399,47 +391,47 @@ type TidalDownloadConcurrency struct {
 	VNDTrackParts  int `yaml:"vnd_track_parts"`
 }
 
-func (c *TidalDownloadConcurrency) ToDict() *zerolog.Event {
+func (tdc *TidalDownloadConcurrency) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Int("album_tracks", c.AlbumTracks).
-		Int("playlist_tracks", c.PlaylistTracks).
-		Int("mix_tracks", c.MixTracks).
-		Int("vnd_track_parts", c.VNDTrackParts)
+		Int("album_tracks", tdc.AlbumTracks).
+		Int("playlist_tracks", tdc.PlaylistTracks).
+		Int("mix_tracks", tdc.MixTracks).
+		Int("vnd_track_parts", tdc.VNDTrackParts)
 }
 
-func (c *TidalDownloadConcurrency) setDefaults() {
-	if c.AlbumTracks == 0 {
-		c.AlbumTracks = 20
+func (tdc *TidalDownloadConcurrency) setDefaults() {
+	if tdc.AlbumTracks == 0 {
+		tdc.AlbumTracks = 20
 	}
 
-	if c.PlaylistTracks == 0 {
-		c.PlaylistTracks = 20
+	if tdc.PlaylistTracks == 0 {
+		tdc.PlaylistTracks = 20
 	}
 
-	if c.MixTracks == 0 {
-		c.MixTracks = 20
+	if tdc.MixTracks == 0 {
+		tdc.MixTracks = 20
 	}
 
-	if c.VNDTrackParts == 0 {
-		c.VNDTrackParts = 5
+	if tdc.VNDTrackParts == 0 {
+		tdc.VNDTrackParts = 5
 	}
 }
 
-func (c *TidalDownloadConcurrency) validate() error {
-	if c.AlbumTracks < 0 {
+func (tdc *TidalDownloadConcurrency) validate() error {
+	if tdc.AlbumTracks < 0 {
 		return errors.New("album_tracks must be greater than 0")
 	}
 
-	if c.PlaylistTracks < 0 {
+	if tdc.PlaylistTracks < 0 {
 		return errors.New("playlist_tracks must be greater than 0")
 	}
 
-	if c.MixTracks < 0 {
+	if tdc.MixTracks < 0 {
 		return errors.New("mix_tracks must be greater than 0")
 	}
 
-	if c.VNDTrackParts < 0 {
+	if tdc.VNDTrackParts < 0 {
 		return errors.New("vnd_track_parts must be greater than 0")
 	}
 
@@ -454,40 +446,40 @@ type Telegram struct {
 	Upload  TelegramUpload  `yaml:"upload"`
 }
 
-func (c *Telegram) ToDict() *zerolog.Event {
+func (tg *Telegram) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Int("app_id", c.AppID).
-		Str("app_hash", c.AppHash).
-		Dict("storage", c.Storage.ToDict()).
-		Dict("proxy", c.Proxy.ToDict()).
-		Dict("upload", c.Upload.ToDict())
+		Int("app_id", tg.AppID).
+		Str("app_hash", tg.AppHash).
+		Dict("storage", tg.Storage.ToDict()).
+		Dict("proxy", tg.Proxy.ToDict()).
+		Dict("upload", tg.Upload.ToDict())
 }
 
-func (c *Telegram) setDefaults() {
-	c.Storage.setDefaults()
-	c.Proxy.setDefaults()
-	c.Upload.setDefaults()
+func (tg *Telegram) setDefaults() {
+	tg.Storage.setDefaults()
+	tg.Proxy.setDefaults()
+	tg.Upload.setDefaults()
 }
 
-func (c *Telegram) validate() error {
-	if c.AppID == 0 {
+func (tg *Telegram) validate() error {
+	if tg.AppID == 0 {
 		return errors.New("app_id is required")
 	}
 
-	if c.AppHash == "" {
+	if tg.AppHash == "" {
 		return errors.New("app_hash is required")
 	}
 
-	if err := c.Storage.validate(); nil != err {
+	if err := tg.Storage.validate(); nil != err {
 		return fmt.Errorf("storage config validation: %v", err)
 	}
 
-	if err := c.Proxy.validate(); nil != err {
+	if err := tg.Proxy.validate(); nil != err {
 		return fmt.Errorf("proxy config validation: %v", err)
 	}
 
-	if err := c.Upload.validate(); nil != err {
+	if err := tg.Upload.validate(); nil != err {
 		return fmt.Errorf("upload config validation: %v", err)
 	}
 
@@ -498,19 +490,19 @@ type TelegramStorage struct {
 	Path string `yaml:"path"`
 }
 
-func (c *TelegramStorage) ToDict() *zerolog.Event {
+func (ts *TelegramStorage) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Str("path", c.Path)
+		Str("path", ts.Path)
 }
 
-func (c *TelegramStorage) setDefaults() {
-	if c.Path == "" {
-		c.Path = "./telegram.db"
+func (ts *TelegramStorage) setDefaults() {
+	if ts.Path == "" {
+		ts.Path = "./telegram.db"
 	}
 }
 
-func (c *TelegramStorage) validate() error {
+func (ts *TelegramStorage) validate() error {
 	return nil
 }
 
@@ -521,38 +513,38 @@ type TelegramProxy struct {
 	Password string `yaml:"password"`
 }
 
-func (c *TelegramProxy) ToDict() *zerolog.Event {
+func (tp *TelegramProxy) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Str("host", c.Host).
-		Int("port", c.Port).
-		Str("username", redact.String(c.Username)).
-		Str("password", redact.String(c.Password))
+		Str("host", tp.Host).
+		Int("port", tp.Port).
+		Str("username", redact.String(tp.Username)).
+		Str("password", redact.String(tp.Password))
 }
 
-func (c *TelegramProxy) setDefaults() {}
+func (tp *TelegramProxy) setDefaults() {}
 
-func (c *TelegramProxy) validate() error {
-	if len(c.Host) > 0 {
-		if c.Port == 0 {
+func (tp *TelegramProxy) validate() error {
+	if len(tp.Host) > 0 {
+		if tp.Port == 0 {
 			return errors.New("port is required if host is set")
 		}
 
-		if c.Port < 0 {
+		if tp.Port < 0 {
 			return errors.New("port must be greater than or equal to 0")
 		}
 	}
 
-	if c.Port != 0 {
-		if c.Port < 0 {
+	if tp.Port != 0 {
+		if tp.Port < 0 {
 			return errors.New("port must be greater than or equal to 0")
 		}
 
-		if c.Port > 65535 {
+		if tp.Port > 65535 {
 			return errors.New("port must be less than or equal to 65535")
 		}
 
-		if c.Host == "" {
+		if tp.Host == "" {
 			return errors.New("host is required if port is set")
 		}
 	}
@@ -589,55 +581,55 @@ type TelegramUpload struct {
 	Peer          TelegramUploadPeer `yaml:"peer"`
 }
 
-func (c *TelegramUpload) ToDict() *zerolog.Event {
+func (tu *TelegramUpload) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Int("threads", c.Threads).
-		Int("pool_size", c.PoolSize).
-		Int("limit", c.Limit).
-		Str("signature", c.Signature).
-		Str("pause_duration", c.PauseDuration.String()).
-		Dict("peer", c.Peer.ToDict())
+		Int("threads", tu.Threads).
+		Int("pool_size", tu.PoolSize).
+		Int("limit", tu.Limit).
+		Str("signature", tu.Signature).
+		Str("pause_duration", tu.PauseDuration.String()).
+		Dict("peer", tu.Peer.ToDict())
 }
 
-func (c *TelegramUpload) setDefaults() {
-	if c.Threads == 0 {
-		c.Threads = 8
+func (tu *TelegramUpload) setDefaults() {
+	if tu.Threads == 0 {
+		tu.Threads = 8
 	}
 
-	if c.PoolSize == 0 {
-		c.PoolSize = 8
+	if tu.PoolSize == 0 {
+		tu.PoolSize = 8
 	}
 
-	if c.Limit == 0 {
-		c.Limit = 4
+	if tu.Limit == 0 {
+		tu.Limit = 4
 	}
 
-	if c.PauseDuration.Duration == 0 {
-		c.PauseDuration.Duration = 1 * time.Second
+	if tu.PauseDuration.Duration == 0 {
+		tu.PauseDuration.Duration = 1 * time.Second
 	}
 
-	c.Peer.setDefaults()
+	tu.Peer.setDefaults()
 }
 
-func (c *TelegramUpload) validate() error {
-	if c.Threads < 0 {
+func (tu *TelegramUpload) validate() error {
+	if tu.Threads < 0 {
 		return errors.New("threads must be greater than 0")
 	}
 
-	if c.PoolSize < 0 {
+	if tu.PoolSize < 0 {
 		return errors.New("pool_size must be greater than 0")
 	}
 
-	if c.Limit < 0 {
+	if tu.Limit < 0 {
 		return errors.New("limit must be greater than 0")
 	}
 
-	if c.PauseDuration.Duration < 0 {
+	if tu.PauseDuration.Duration < 0 {
 		return errors.New("pause_duration must be greater than 0")
 	}
 
-	if err := c.Peer.validate(); nil != err {
+	if err := tu.Peer.validate(); nil != err {
 		return fmt.Errorf("peer config validation: %v", err)
 	}
 
@@ -649,24 +641,24 @@ type TelegramUploadPeer struct {
 	Kind string `yaml:"kind"`
 }
 
-func (c *TelegramUploadPeer) ToDict() *zerolog.Event {
+func (tup *TelegramUploadPeer) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
-		Int64("id", c.ID).
-		Str("kind", c.Kind)
+		Int64("id", tup.ID).
+		Str("kind", tup.Kind)
 }
 
-func (c *TelegramUploadPeer) setDefaults() {}
+func (tup *TelegramUploadPeer) setDefaults() {}
 
-func (c *TelegramUploadPeer) validate() error {
-	if c.ID == 0 {
+func (tup *TelegramUploadPeer) validate() error {
+	if tup.ID == 0 {
 		return errors.New("id is required")
 	}
 
-	if c.Kind == "" {
+	if tup.Kind == "" {
 		return errors.New("kind is required")
-	} else if !slices.Contains([]string{"user", "chat", "channel"}, c.Kind) {
-		return fmt.Errorf("invalid peer kind: %s. must be one of: user, chat, channel", c.Kind)
+	} else if !slices.Contains([]string{"user", "chat", "channel"}, tup.Kind) {
+		return fmt.Errorf("invalid peer kind: %s. must be one of: user, chat, channel", tup.Kind)
 	}
 
 	return nil
