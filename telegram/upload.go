@@ -225,8 +225,38 @@ func (u *Uploader) uploadAlbum(
 				styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
 			}
 
+			tracker := progress.NewAlbumTracker(len(trackIDs))
+			for i, trackID := range trackIDs {
+				logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
+
+				track := albumFs.Track(volNum, trackID)
+
+				trackStat, err := os.Lstat(track.Path)
+				if nil != err {
+					logger.Error().Err(err).Msg("Failed to stat album track file")
+					return fmt.Errorf("stat album track file: %v", err)
+				}
+				if !trackStat.Mode().IsRegular() {
+					return fmt.Errorf("album track file %q is not a regular file", track.Path)
+				}
+				if trackStat.Size() == 0 {
+					return errors.New("album track file is empty")
+				}
+
+				trackProgress := &progress.Track{Size: trackStat.Size()}
+
+				// Cover is the same for all tracks in the album.
+				// And, it is already uploaded.
+				coverProgress := &progress.Cover{Size: 0}
+
+				tracker.Set(i, progress.NewFileTracker(coverProgress, trackProgress))
+			}
+
 			wg, wgctx := errgroup.WithContext(ctx)
 			wg.SetLimit(u.conf.Upload.Limit)
+
+			typingWait := make(chan struct{})
+			go u.keepTyping(ctx, tracker, typingWait, logger)
 
 			album := make([]message.MultiMediaOption, len(trackIDs))
 			for idx, trackID := range trackIDs {
@@ -237,25 +267,23 @@ func (u *Uploader) uploadAlbum(
 					default:
 					}
 
-					logger := logger.With().Int("index", idx).Logger()
+					logger := logger.With().Int("index", idx).Str("track_id", trackID).Logger()
 
-					logger = logger.With().Str("track_id", trackID).Logger()
 					track := albumFs.Track(volNum, trackID)
-					trackInfo, err := track.InfoFile.Read()
-					if nil != err {
-						logger.Error().Err(err).Msg("read album track info file")
-						return fmt.Errorf("read album track info file: %v", err)
-					}
 
-					trackInputFile, err := u.newUploader().FromPath(wgctx, track.Path)
+					// Cover is the same for all tracks in the album.
+					// And, it is already uploaded.
+					trackProgress, _ := tracker.At(idx)
+
+					trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(wgctx, track.Path)
 					if nil != err {
-						logger.Error().Err(err).Msg("upload album track file")
+						logger.Error().Err(err).Msg("Failed to upload album track file")
 						return fmt.Errorf("upload album track file: %w", err)
 					}
 
 					mime, err := mimetype.DetectFile(track.Path)
 					if nil != err {
-						logger.Error().Err(err).Msg("detect album track mime")
+						logger.Error().Err(err).Msg("Failed to detect album track mime")
 						return fmt.Errorf("detect album track mime: %v", err)
 					}
 
@@ -265,6 +293,12 @@ func (u *Uploader) uploadAlbum(
 						if sig := u.conf.Upload.Signature; len(sig) > 0 {
 							caption = append(caption, html.String(nil, sig))
 						}
+					}
+
+					trackInfo, err := track.InfoFile.Read()
+					if nil != err {
+						logger.Error().Err(err).Msg("Failed to read album track info file")
+						return fmt.Errorf("read album track info file: %v", err)
 					}
 
 					doc := message.
@@ -287,8 +321,6 @@ func (u *Uploader) uploadAlbum(
 						Title(trackInfo.Title)
 
 					album[idx] = doc
-
-					time.Sleep(u.conf.Upload.PauseDuration.Duration)
 
 					return nil
 				})
@@ -314,10 +346,14 @@ func (u *Uploader) uploadAlbum(
 			if nil != err {
 				return fmt.Errorf("send mix: %w", err)
 			}
+
+			select {
+			case <-typingWait:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 		}
 	}
-
-	time.Sleep(u.conf.Upload.PauseDuration.Duration)
 
 	return nil
 }
@@ -659,8 +695,6 @@ func (u *Uploader) uploadPlaylist(
 		}
 	}
 
-	time.Sleep(u.conf.Upload.PauseDuration.Duration)
-
 	return nil
 }
 
@@ -668,12 +702,13 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	track := dir.Track(id)
 	trackInfo, err := track.InfoFile.Read()
 	if nil != err {
-		logger.Error().Err(err).Msg("read track info file")
+		logger.Error().Err(err).Msg("Failed to read track info file")
 		return fmt.Errorf("read track info file: %v", err)
 	}
 
 	trackStat, err := os.Lstat(track.Path)
 	if nil != err {
+		logger.Error().Err(err).Msg("Failed to stat track file")
 		return fmt.Errorf("stat track file: %v", err)
 	}
 	if !trackStat.Mode().IsRegular() {
@@ -686,6 +721,7 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 
 	coverStat, err := os.Lstat(track.Cover.Path)
 	if nil != err {
+		logger.Error().Err(err).Msg("Failed to stat track cover file")
 		return fmt.Errorf("stat track cover file: %v", err)
 	}
 	if !coverStat.Mode().IsRegular() {
@@ -761,8 +797,6 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	if nil != err {
 		return fmt.Errorf("send message: %w", err)
 	}
-
-	time.Sleep(u.conf.Upload.PauseDuration.Duration)
 
 	return nil
 }

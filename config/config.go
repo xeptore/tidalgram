@@ -573,12 +573,11 @@ func (d *Duration) UnmarshalYAML(unmarshal func(any) error) error {
 }
 
 type TelegramUpload struct {
-	Threads       int                `yaml:"threads"`
-	PoolSize      int                `yaml:"pool_size"`
-	Limit         int                `yaml:"limit"`
-	Signature     string             `yaml:"signature"`
-	PauseDuration Duration           `yaml:"pause_duration"`
-	Peer          TelegramUploadPeer `yaml:"peer"`
+	Threads   int                `yaml:"threads"`
+	PoolSize  int                `yaml:"pool_size"`
+	Limit     int                `yaml:"limit"`
+	Signature string             `yaml:"signature"`
+	Peer      TelegramUploadPeer `yaml:"peer"`
 }
 
 func (tu *TelegramUpload) ToDict() *zerolog.Event {
@@ -588,7 +587,6 @@ func (tu *TelegramUpload) ToDict() *zerolog.Event {
 		Int("pool_size", tu.PoolSize).
 		Int("limit", tu.Limit).
 		Str("signature", tu.Signature).
-		Str("pause_duration", tu.PauseDuration.String()).
 		Dict("peer", tu.Peer.ToDict())
 }
 
@@ -605,10 +603,6 @@ func (tu *TelegramUpload) setDefaults() {
 		tu.Limit = 4
 	}
 
-	if tu.PauseDuration.Duration == 0 {
-		tu.PauseDuration.Duration = 1 * time.Second
-	}
-
 	tu.Peer.setDefaults()
 }
 
@@ -623,10 +617,6 @@ func (tu *TelegramUpload) validate() error {
 
 	if tu.Limit < 0 {
 		return errors.New("limit must be greater than 0")
-	}
-
-	if tu.PauseDuration.Duration < 0 {
-		return errors.New("pause_duration must be greater than 0")
 	}
 
 	if err := tu.Peer.validate(); nil != err {
