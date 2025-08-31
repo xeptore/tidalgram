@@ -518,8 +518,48 @@ func (u *Uploader) uploadPlaylist(
 			styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
 		}
 
+		tracker := progress.NewAlbumTracker(len(trackIDs))
+		for i, trackID := range trackIDs {
+			logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
+
+			track := playlistFs.Track(trackID)
+
+			trackStat, err := os.Lstat(track.Path)
+			if nil != err {
+				logger.Error().Err(err).Msg("Failed to stat playlist track file")
+				return fmt.Errorf("stat playlist track file: %v", err)
+			}
+			if !trackStat.Mode().IsRegular() {
+				return fmt.Errorf("playlist track file %q is not a regular file", track.Path)
+			}
+			if trackStat.Size() == 0 {
+				return errors.New("playlist track file is empty")
+			}
+
+			trackProgress := &progress.Track{Size: trackStat.Size()}
+
+			coverStat, err := os.Lstat(track.Cover.Path)
+			if nil != err {
+				logger.Error().Err(err).Msg("Failed to stat playlist track cover file")
+				return fmt.Errorf("stat playlist track cover file: %v", err)
+			}
+			if !coverStat.Mode().IsRegular() {
+				return fmt.Errorf("playlist track cover file %q is not a regular file", track.Cover.Path)
+			}
+			if coverStat.Size() == 0 {
+				return errors.New("playlist track cover file is empty")
+			}
+
+			coverProgress := &progress.Cover{Size: coverStat.Size()}
+
+			tracker.Set(i, progress.NewFileTracker(coverProgress, trackProgress))
+		}
+
 		wg, wgctx := errgroup.WithContext(ctx)
 		wg.SetLimit(u.conf.Upload.Limit)
+
+		typingWait := make(chan struct{})
+		go u.keepTyping(ctx, tracker, typingWait, logger)
 
 		album := make([]message.MultiMediaOption, len(trackIDs))
 		for idx, trackID := range trackIDs {
@@ -533,24 +573,28 @@ func (u *Uploader) uploadPlaylist(
 				logger := logger.With().Int("index", idx).Str("track_id", trackID).Logger()
 
 				track := playlistFs.Track(trackID)
-				trackInfo, err := track.InfoFile.Read()
-				if nil != err {
-					logger.Error().Err(err).Msg("read playlist track info file")
-					return fmt.Errorf("read track info file: %v", err)
-				}
 
-				trackInputFile, err := u.newUploader().FromPath(wgctx, track.Path)
+				trackProgress, coverProgress := tracker.At(idx)
+
+				trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(wgctx, track.Path)
 				if nil != err {
 					return fmt.Errorf("upload playlist track file: %w", err)
 				}
 
-				coverInputFile, err := u.newUploader().FromPath(wgctx, track.Cover.Path)
+				coverInputFile, err := u.newUploader().WithProgress(coverProgress).FromPath(wgctx, track.Cover.Path)
 				if nil != err {
 					return fmt.Errorf("upload playlist track cover file: %w", err)
 				}
 
+				trackInfo, err := track.InfoFile.Read()
+				if nil != err {
+					logger.Error().Err(err).Msg("Failed to read playlist track info file")
+					return fmt.Errorf("read track info file: %v", err)
+				}
+
 				mime, err := mimetype.DetectFile(track.Path)
 				if nil != err {
+					logger.Error().Err(err).Msg("Failed to detect playlist mime")
 					return fmt.Errorf("detect playlist mime: %v", err)
 				}
 
@@ -583,8 +627,6 @@ func (u *Uploader) uploadPlaylist(
 
 				album[idx] = doc
 
-				time.Sleep(u.conf.Upload.PauseDuration.Duration)
-
 				return nil
 			})
 		}
@@ -608,6 +650,12 @@ func (u *Uploader) uploadPlaylist(
 			Album(ctx, album[0], rest...)
 		if nil != err {
 			return fmt.Errorf("send playlist: %w", err)
+		}
+
+		select {
+		case <-typingWait:
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 
