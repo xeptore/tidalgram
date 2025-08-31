@@ -1,8 +1,8 @@
 version: "3"
 
 vars:
+  VERSION: "3"
   GOLANGCI_LINT_VERSION: v2.4.0
-  VERSION: "2"
 
 tasks:
   version:
