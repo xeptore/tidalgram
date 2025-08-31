@@ -153,6 +153,9 @@ func (b *Bot) Start(ctx context.Context) error {
 	if _, err := b.bot.SendMessageWithContext(ctx, b.papaChatID, msg, sendOpts); nil != err {
 		return fmt.Errorf("send message: %w", err)
 	}
+	if _, err := b.bot.SendMessageWithContext(ctx, b.mamaChatID, msg, sendOpts); nil != err {
+		return fmt.Errorf("send message: %w", err)
+	}
 
 	if _, err := b.bot.DeleteMyCommandsWithContext(ctx, nil); nil != err {
 		b.logger.Error().Err(err).Msg("delete bot commands")
@@ -194,6 +197,9 @@ func (b *Bot) Stop() error {
 		ParseMode: gotgbot.ParseModeMarkdown,
 	}
 	if _, err := b.bot.SendMessage(b.papaChatID, "I'm going offline, papa 💤", sendOpts); nil != err {
+		return fmt.Errorf("send message: %v", err)
+	}
+	if _, err := b.bot.SendMessage(b.papaChatID, "I'm going offline, mama 💤", sendOpts); nil != err {
 		return fmt.Errorf("send message: %v", err)
 	}
 
