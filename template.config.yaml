@@ -114,12 +114,15 @@ telegram:
 
   upload:
     # OPTIONAL
+    # Number of concurrent upload threads per upload operation
     # Default: 8
     threads: 8
     # OPTIONAL
+    # Number of live datacenter connections
     # Default: 8
     pool_size: 8
     # OPTIONAL
+    # Number of concurrent upload operations
     # Default: 4
     limit: 4
     # OPTIONAL
