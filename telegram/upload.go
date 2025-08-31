@@ -196,14 +196,38 @@ func (u *Uploader) uploadAlbum(
 	id string,
 ) (err error) {
 	albumFs := dir.Album(id)
+
 	info, err := albumFs.InfoFile.Read()
 	if nil != err {
 		return fmt.Errorf("read playlist info file: %v", err)
 	}
 
-	coverInputFile, err := u.newUploader().FromPath(ctx, albumFs.Cover.Path)
+	coverStat, err := os.Lstat(albumFs.Cover.Path)
+	if nil != err {
+		return fmt.Errorf("stat album cover file: %v", err)
+	}
+	if !coverStat.Mode().IsRegular() {
+		return fmt.Errorf("album cover file %q is not a regular file", albumFs.Cover.Path)
+	}
+	if coverStat.Size() == 0 {
+		return errors.New("album cover file is empty")
+	}
+
+	coverProgress := &progress.Cover{Size: coverStat.Size()}
+	coverMonitor := progress.NewCoverMonitor(coverProgress)
+
+	typingWait := make(chan struct{})
+	go u.keepTyping(ctx, coverMonitor, typingWait, logger)
+
+	coverInputFile, err := u.newUploader().WithProgress(coverProgress).FromPath(ctx, albumFs.Cover.Path)
 	if nil != err {
 		return fmt.Errorf("upload album track cover file: %w", err)
+	}
+
+	select {
+	case <-typingWait:
+	case <-ctx.Done():
+		return fmt.Errorf("wait for typing: %w", ctx.Err())
 	}
 
 	for volIdx, trackIDs := range info.VolumeTrackIDs {

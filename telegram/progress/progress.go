@@ -106,6 +106,23 @@ func (f *TrackMonitor) Percent() int {
 	return int(math.Floor(float64(uploaded) / float64(f.total) * 100))
 }
 
+type CoverMonitor struct {
+	total int64
+	cover *Cover
+}
+
+func NewCoverMonitor(cover *Cover) *CoverMonitor {
+	return &CoverMonitor{
+		total: cover.Size,
+		cover: cover,
+	}
+}
+
+func (f *CoverMonitor) Percent() int {
+	uploaded := f.cover.uploaded.Load()
+	return int(math.Floor(float64(uploaded) / float64(f.total) * 100))
+}
+
 type Cover struct {
 	Size     int64
 	uploaded atomic.Int64
