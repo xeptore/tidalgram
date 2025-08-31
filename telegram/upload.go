@@ -153,14 +153,6 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 	}, nil
 }
 
-func (u *Uploader) newUploader() *uploader.Uploader {
-	return uploader.
-		NewUploader(u.client).
-		WithPartSize(MaxPartSize).
-		WithThreads(u.conf.Upload.Threads)
-
-}
-
 func (u *Uploader) Close() error {
 	u.logger.Debug().Msg("Closing telegram uploader")
 	if err := u.stop(); nil != err {
@@ -188,6 +180,13 @@ func (u *Uploader) Upload(ctx context.Context, logger zerolog.Logger, dir fs.Dow
 	default:
 		panic(fmt.Sprintf("unknown link kind: %s", link.Kind))
 	}
+}
+
+func (u *Uploader) newUploader() *uploader.Uploader {
+	return uploader.
+		NewUploader(u.client).
+		WithPartSize(MaxPartSize).
+		WithThreads(u.conf.Upload.Threads)
 }
 
 func (u *Uploader) uploadAlbum(
@@ -350,7 +349,7 @@ func (u *Uploader) uploadAlbum(
 			select {
 			case <-typingWait:
 			case <-ctx.Done():
-				return ctx.Err()
+				return fmt.Errorf("wait for typing: %w", ctx.Err())
 			}
 		}
 	}
@@ -521,7 +520,7 @@ func (u *Uploader) uploadMix(
 		select {
 		case <-typingWait:
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("wait for typing: %w", ctx.Err())
 		}
 	}
 
@@ -691,7 +690,7 @@ func (u *Uploader) uploadPlaylist(
 		select {
 		case <-typingWait:
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("wait for typing: %w", ctx.Err())
 		}
 	}
 
@@ -750,7 +749,7 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	select {
 	case <-typingWait:
 	case <-ctx.Done():
-		return ctx.Err()
+		return fmt.Errorf("wait for typing: %w", ctx.Err())
 	}
 
 	mime, err := mimetype.DetectFile(track.Path)
