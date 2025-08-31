@@ -29,9 +29,9 @@ func (p *AlbumTracker) Set(i int, f *FileTracker) {
 	p.files[i] = f
 }
 
-func (p *AlbumTracker) At(i int) (*Cover, *Track) {
+func (p *AlbumTracker) At(i int) (*Track, *Cover) {
 	f := p.files[i]
-	return f.cover, f.track
+	return f.track, f.cover
 }
 
 func (p *AlbumTracker) Percent() int {
@@ -76,8 +76,8 @@ type Cover struct {
 	uploaded atomic.Int64
 }
 
-func (f *Cover) Chunk(ctx context.Context, state uploader.ProgressState) error {
-	f.uploaded.Store(state.Uploaded)
+func (c *Cover) Chunk(ctx context.Context, state uploader.ProgressState) error {
+	c.uploaded.Store(state.Uploaded)
 	return nil
 }
 
@@ -86,7 +86,7 @@ type Track struct {
 	uploaded atomic.Int64
 }
 
-func (f *Track) Chunk(ctx context.Context, state uploader.ProgressState) error {
-	f.uploaded.Store(state.Uploaded)
+func (t *Track) Chunk(ctx context.Context, state uploader.ProgressState) error {
+	t.uploaded.Store(state.Uploaded)
 	return nil
 }

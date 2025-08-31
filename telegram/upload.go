@@ -749,8 +749,9 @@ func (u *Uploader) cancelTyping(ctx context.Context) {
 	}
 }
 
-func (u *Uploader) sendTyping(ctx context.Context, tracker progress.Tracker) error {
+func (u *Uploader) sendTyping(ctx context.Context, logger zerolog.Logger, tracker progress.Tracker) error {
 	percent := tracker.Percent()
+	logger.Debug().Int("percent", percent).Msg("Sending typing action")
 
 	if percent == 100 {
 		return os.ErrProcessDone
@@ -783,7 +784,7 @@ func (u *Uploader) keepTyping(
 	defer ticker.Stop()
 	defer u.cancelTyping(ctx)
 
-	if err := u.sendTyping(ctx, tracker); nil != err {
+	if err := u.sendTyping(ctx, logger, tracker); nil != err {
 		if !errors.Is(err, os.ErrProcessDone) {
 			logger.Error().Err(err).Msg("Failed to send typing action")
 			return
@@ -797,7 +798,7 @@ func (u *Uploader) keepTyping(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := u.sendTyping(ctx, tracker); nil != err {
+			if err := u.sendTyping(ctx, logger, tracker); nil != err {
 				if !errors.Is(err, os.ErrProcessDone) {
 					logger.Error().Err(err).Msg("Failed to send typing action")
 					return

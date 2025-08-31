@@ -230,8 +230,8 @@ func NewAPI(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*APIBo
 // otherwise there is no guarantee that the bot will receive updates.
 // After a successful call, you can immediately log in on a local server,
 // but will not be able to log in back to the cloud Bot API server for 10 minutes.
-func (b *APIBot) Logout(ctx context.Context) error {
-	if _, err := b.bot.LogOutWithContext(ctx, nil); nil != err {
+func (api *APIBot) Logout(ctx context.Context) error {
+	if _, err := api.bot.LogOutWithContext(ctx, nil); nil != err {
 		return fmt.Errorf("log out: %w", err)
 	}
 
@@ -240,12 +240,12 @@ func (b *APIBot) Logout(ctx context.Context) error {
 
 // Close closes the bot instance before moving it from one local server to another.
 // The method will return error 429 in the first 10 minutes after the bot is launched.
-func (b *APIBot) Close(ctx context.Context) error {
-	if _, err := b.bot.DeleteWebhookWithContext(ctx, nil); nil != err {
+func (api *APIBot) Close(ctx context.Context) error {
+	if _, err := api.bot.DeleteWebhookWithContext(ctx, nil); nil != err {
 		return fmt.Errorf("delete webhook: %w", err)
 	}
 
-	if _, err := b.bot.CloseWithContext(ctx, nil); nil != err {
+	if _, err := api.bot.CloseWithContext(ctx, nil); nil != err {
 		return fmt.Errorf("close bot: %w", err)
 	}
 
