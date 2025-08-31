@@ -8,6 +8,10 @@ import (
 	"github.com/gotd/td/telegram/uploader"
 )
 
+type Tracker interface {
+	Percent() int
+}
+
 type AlbumTracker struct {
 	total int64
 	files []*FileTracker
@@ -16,7 +20,7 @@ type AlbumTracker struct {
 func NewAlbumTracker(size int) *AlbumTracker {
 	return &AlbumTracker{
 		total: 0,
-		files: make([]*FileTracker, 0, size),
+		files: make([]*FileTracker, size),
 	}
 }
 
@@ -30,7 +34,7 @@ func (p *AlbumTracker) At(i int) (*Cover, *Track) {
 	return f.cover, f.track
 }
 
-func (p *AlbumTracker) Percent(ctx context.Context) int {
+func (p *AlbumTracker) Percent() int {
 	var uploaded int64
 	for _, f := range p.files {
 		uploaded += f.cover.uploaded.Load() + f.track.uploaded.Load()
@@ -56,7 +60,7 @@ type FileTracker struct {
 
 func NewFileTracker(cover *Cover, track *Track) *FileTracker {
 	return &FileTracker{
-		total: cover.Total + track.Total,
+		total: cover.Size + track.Size,
 		cover: cover,
 		track: track,
 	}
@@ -68,7 +72,7 @@ func (f *FileTracker) Percent() int {
 }
 
 type Cover struct {
-	Total    int64
+	Size     int64
 	uploaded atomic.Int64
 }
 
@@ -78,7 +82,7 @@ func (f *Cover) Chunk(ctx context.Context, state uploader.ProgressState) error {
 }
 
 type Track struct {
-	Total    int64
+	Size     int64
 	uploaded atomic.Int64
 }
 
