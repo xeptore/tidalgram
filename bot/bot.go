@@ -31,6 +31,7 @@ type Bot struct {
 	dispatcher *ext.Dispatcher
 	logger     zerolog.Logger
 	papaChatID int64
+	mamaChatID int64
 	Account    Account
 }
 
@@ -104,6 +105,7 @@ func New(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*Bot, err
 		dispatcher: dispatcher,
 		logger:     logger,
 		papaChatID: conf.PapaID,
+		mamaChatID: conf.MamaID,
 		Account:    fillAccount(b),
 	}, nil
 }
@@ -265,7 +267,7 @@ func (b *Bot) RegisterHandlers(
 			NewMessage(
 				tidalURLFilter,
 				NewChainHandler(
-					NewPapaOnlyGuard(conf.PapaID),
+					NewPapaOrMamaOnlyGuard(conf.PapaID, conf.MamaID),
 					NewTidalURLHandler(ctx, logger, td, conf, up, worker),
 				),
 			).
@@ -278,7 +280,7 @@ func (b *Bot) RegisterHandlers(
 			NewCommand(
 				"hello",
 				NewChainHandler(
-					NewHelloCommandHandler(ctx, conf.PapaID),
+					NewHelloCommandHandler(ctx, conf.PapaID, conf.MamaID),
 				),
 			).
 			SetAllowChannel(false).
@@ -290,7 +292,7 @@ func (b *Bot) RegisterHandlers(
 			NewCommand(
 				"cancel",
 				NewChainHandler(
-					NewPapaOnlyGuard(conf.PapaID),
+					NewPapaOrMamaOnlyGuard(conf.PapaID, conf.MamaID),
 					NewCancelCommandHandler(ctx, worker),
 				),
 			).
@@ -303,7 +305,7 @@ func (b *Bot) RegisterHandlers(
 			NewCommand(
 				"tidal_login",
 				NewChainHandler(
-					NewPapaOnlyGuard(conf.PapaID),
+					NewPapaOrMamaOnlyGuard(conf.PapaID, conf.MamaID),
 					NewTidalLoginCommandHandler(ctx, logger, td),
 				),
 			).
@@ -316,7 +318,7 @@ func (b *Bot) RegisterHandlers(
 			NewCommand(
 				"tidal_auth_status",
 				NewChainHandler(
-					NewPapaOnlyGuard(conf.PapaID),
+					NewPapaOrMamaOnlyGuard(conf.PapaID, conf.MamaID),
 					NewTidalAuthStatusCommandHandler(ctx, logger, td),
 				),
 			).

@@ -17,13 +17,13 @@ import (
 	"github.com/xeptore/tidalgram/tidal"
 )
 
-var ErrNotPapa = errors.New("sender is not papa")
+var ErrNotPapaOrMama = errors.New("sender is not papa or mama")
 
 func NewChainHandler(handlers ...handlers.Response) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
 		for _, handler := range handlers {
 			if err := handler(b, u); nil != err {
-				if errors.Is(err, ErrNotPapa) {
+				if errors.Is(err, ErrNotPapaOrMama) {
 					return ext.EndGroups
 				}
 
@@ -35,11 +35,11 @@ func NewChainHandler(handlers ...handlers.Response) handlers.Response {
 	}
 }
 
-func NewPapaOnlyGuard(papaID int64) handlers.Response {
+func NewPapaOrMamaOnlyGuard(papaID int64, mamaID int64) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
 		senderID := u.EffectiveSender.Id()
-		if senderID != papaID {
-			return ErrNotPapa
+		if senderID != papaID && senderID != mamaID {
+			return ErrNotPapaOrMama
 		}
 
 		return nil
@@ -225,7 +225,7 @@ func NewTidalURLHandler(
 	}
 }
 
-func NewHelloCommandHandler(ctx context.Context, adminID int64) handlers.Response {
+func NewHelloCommandHandler(ctx context.Context, papaID int64, mamaID int64) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
 		sendOpt := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
 			ParseMode: gotgbot.ParseModeMarkdown,
@@ -236,8 +236,16 @@ func NewHelloCommandHandler(ctx context.Context, adminID int64) handlers.Respons
 		senderID := u.EffectiveSender.Id()
 		chatID := u.EffectiveMessage.Chat.Id
 
-		if senderID == adminID {
-			if _, err := b.SendMessage(chatID, "Hello, Papa! 👋🏻", sendOpt); nil != err {
+		if senderID == papaID {
+			if _, err := b.SendMessage(chatID, "Hello, papa! 👋🏻", sendOpt); nil != err {
+				return fmt.Errorf("send message: %w", err)
+			}
+
+			return nil
+		}
+
+		if senderID == mamaID {
+			if _, err := b.SendMessage(chatID, "Hello, mama! 👋🏻", sendOpt); nil != err {
 				return fmt.Errorf("send message: %w", err)
 			}
 

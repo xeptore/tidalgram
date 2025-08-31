@@ -60,6 +60,7 @@ func (conf *Config) validate() error {
 
 type Bot struct {
 	PapaID       int64    `yaml:"papa_id"`
+	MamaID       int64    `yaml:"mama_id"`
 	APIURL       string   `yaml:"api_url"`
 	Token        string   `yaml:"-"`
 	CredsDir     string   `yaml:"creds_dir"`
@@ -71,6 +72,7 @@ func (b *Bot) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
 		Int64("papa_id", b.PapaID).
+		Int64("mama_id", b.MamaID).
 		Str("api_url", b.APIURL).
 		Str("token", redact.String(b.Token)).
 		Str("creds_dir", b.CredsDir).
