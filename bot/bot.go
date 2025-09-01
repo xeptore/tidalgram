@@ -214,7 +214,7 @@ func (b *Bot) Stop() error {
 	if _, err := b.bot.SendMessage(b.papaChatID, "I'm going offline, papa 💤", sendOpts); nil != err {
 		return fmt.Errorf("send message: %v", err)
 	}
-	if _, err := b.bot.SendMessage(b.papaChatID, "I'm going offline, mama 💤", sendOpts); nil != err {
+	if _, err := b.bot.SendMessage(b.mamaChatID, "I'm going offline, mama 💤", sendOpts); nil != err {
 		return fmt.Errorf("send message: %v", err)
 	}
 
