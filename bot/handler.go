@@ -189,6 +189,15 @@ func NewTidalURLHandler(
 			}
 
 			if errors.Is(err, context.Canceled) {
+				if cause := context.Cause(ctx); errors.Is(cause, ErrJobCanceled) {
+					msg := "⏹️ Upload was canceled."
+					if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+						return fmt.Errorf("send message: %w", err)
+					}
+
+					return nil
+				}
+
 				msg := "♿️ Bot is shutting down. Upload was not completed. Try again after bot restart."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 					return fmt.Errorf("send message: %w", err)
