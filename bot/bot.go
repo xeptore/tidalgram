@@ -324,7 +324,7 @@ func (b *Bot) RegisterHandlers(
 	b.dispatcher.AddHandler(
 		handlers.
 			NewCommand(
-				"tidal_login",
+				tidalLoginCommand,
 				NewChainHandler(
 					NewPapaOrMamaOnlyGuard(conf.PapaID, conf.MamaID),
 					NewTidalLoginCommandHandler(ctx, logger, td),

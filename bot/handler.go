@@ -17,6 +17,10 @@ import (
 	"github.com/xeptore/tidalgram/tidal"
 )
 
+const (
+	tidalLoginCommand = "tidal_login"
+)
+
 var ErrNotPapaOrMama = errors.New("sender is not papa or mama")
 
 func NewChainHandler(handlers ...handlers.Response) handlers.Response {
@@ -119,7 +123,7 @@ func NewTidalURLHandler(
 			}
 
 			if errors.Is(err, tidal.ErrLoginRequired) {
-				msg := "🔑 Tidal login required. Use /authorize command to authorize the bot."
+				msg := "🔑 Tidal login required. Use /" + tidalLoginCommand + " command to authorize the bot."
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 					return fmt.Errorf("send message: %w", err)
 				}
