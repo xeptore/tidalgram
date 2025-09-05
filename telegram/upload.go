@@ -44,8 +44,43 @@ type Uploader struct {
 	pool    dcpool.Pool
 	stop    bg.StopFunc
 	conf    config.Telegram
-	peer    tg.InputPeerClass
+	peer    InputPeer
 	logger  zerolog.Logger
+}
+
+type InputPeer struct {
+	tg.InputPeerClass
+
+	isChannel bool
+}
+
+func (p *InputPeer) ReadHistory(ctx context.Context, client *tg.Client) error {
+	if p.isChannel {
+		inputChannel, ok := p.InputPeerClass.(*tg.InputPeerChannel)
+		if !ok {
+			panic(fmt.Sprintf("input peer is not a channel, got: %T", p.InputPeerClass))
+		}
+
+		_, err := client.ChannelsReadHistory(ctx, &tg.ChannelsReadHistoryRequest{
+			Channel: &tg.InputChannel{
+				ChannelID:  inputChannel.ChannelID,
+				AccessHash: inputChannel.AccessHash,
+			},
+			MaxID: 0,
+		})
+		if nil != err {
+			return fmt.Errorf("read history: %w", err)
+		}
+	} else {
+		_, err := client.MessagesReadHistory(ctx, &tg.MessagesReadHistoryRequest{
+			Peer:  p.InputPeerClass,
+			MaxID: 0,
+		})
+		if nil != err {
+			return fmt.Errorf("read history: %w", err)
+		}
+	}
+	return nil
 }
 
 func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (*Uploader, error) {
@@ -93,7 +128,7 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 	tgClient := pool.Default(ctx)
 
 	var (
-		peer      tg.InputPeerClass
+		peer      InputPeer
 		dialogKey dialogs.DialogKey
 	)
 
@@ -107,17 +142,26 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 			switch dialogKey.Kind {
 			case dialogs.User:
 				if dialogKey.ID == conf.Upload.Peer.ID && conf.Upload.Peer.Kind == "user" {
-					peer = elem.Peer
+					peer = InputPeer{
+						InputPeerClass: elem.Peer,
+						isChannel:      false,
+					}
 					return os.ErrExist
 				}
 			case dialogs.Chat:
 				if dialogKey.ID == conf.Upload.Peer.ID && conf.Upload.Peer.Kind == "chat" {
-					peer = elem.Peer
+					peer = InputPeer{
+						InputPeerClass: elem.Peer,
+						isChannel:      false,
+					}
 					return os.ErrExist
 				}
 			case dialogs.Channel:
 				if dialogKey.ID == conf.Upload.Peer.ID && conf.Upload.Peer.Kind == "channel" {
-					peer = elem.Peer
+					peer = InputPeer{
+						InputPeerClass: elem.Peer,
+						isChannel:      true,
+					}
 					return os.ErrExist
 				}
 			default:
@@ -131,7 +175,7 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 			return nil, fmt.Errorf("get dialogs: %w", err)
 		}
 	}
-	if peer == nil {
+	if peer.InputPeerClass == nil {
 		return nil, ErrPeerNotFound
 	}
 
@@ -179,7 +223,15 @@ func (u *Uploader) Close() error {
 	return nil
 }
 
-func (u *Uploader) Upload(ctx context.Context, logger zerolog.Logger, dir fs.DownloadsDir, link types.Link) error {
+func (u *Uploader) Upload(ctx context.Context, logger zerolog.Logger, dir fs.DownloadsDir, link types.Link) (err error) {
+	defer func() {
+		if nil == err {
+			if err := u.peer.ReadHistory(ctx, u.client); nil != err {
+				logger.Error().Err(err).Msg("Failed to read peer history")
+			}
+		}
+	}()
+
 	switch link.Kind {
 	case types.LinkKindTrack:
 		return u.uploadTrack(ctx, logger, dir, link.ID)
