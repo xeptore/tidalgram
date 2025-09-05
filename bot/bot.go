@@ -21,6 +21,7 @@ import (
 	"github.com/xeptore/tidalgram/constant"
 	"github.com/xeptore/tidalgram/telegram"
 	"github.com/xeptore/tidalgram/tidal"
+	"github.com/xeptore/tidalgram/tidal/types"
 )
 
 var ErrChatNotFound = errors.New("chat not found")
@@ -349,7 +350,21 @@ func (b *Bot) RegisterHandlers(
 }
 
 func tidalURLFilter(msg *gotgbot.Message) bool {
-	return message.Text(msg) && !message.Command(msg) && message.Entity("url")(msg) && isTidalURL(msg.Text)
+	if !message.Text(msg) || message.Command(msg) {
+		return false
+	}
+
+	for _, ent := range msg.Entities {
+		if ent.Type != "url" {
+			continue
+		}
+
+		if isTidalURL(gotgbot.ParseEntity(msg.Text, ent).Url) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func isTidalURL(msg string) bool {
@@ -394,13 +409,22 @@ func isTidalURL(msg string) bool {
 	return true
 }
 
-func getMessageURL(msg *gotgbot.Message) string {
+func extractMessageLinks(msg *gotgbot.Message) []types.Link {
+	out := make([]types.Link, 0, len(msg.Entities))
+
 	for _, ent := range msg.Entities {
 		if ent.Type != "url" {
 			continue
 		}
 
-		return gotgbot.ParseEntity(msg.Text, ent).Text
+		msgURL := gotgbot.ParseEntity(msg.Text, ent).Url
+		if !isTidalURL(msgURL) {
+			continue
+		}
+
+		link := tidal.ParseLink(msgURL)
+		out = append(out, link)
 	}
-	panic("expected message to contain URL at this point")
+
+	return out[:len(out):len(out)]
 }

@@ -81,12 +81,13 @@ func (a *Auth) InitiateLoginFlow(ctx context.Context, logger zerolog.Logger) (*L
 					RefreshToken: creds.RefreshToken,
 					ExpiresAt:    creds.ExpiresAt,
 				})
+
 				content := fs.AuthFileContent{
 					Token:        creds.Token,
 					RefreshToken: creds.RefreshToken,
 					ExpiresAt:    creds.ExpiresAt.Unix(),
 				}
-				if err := fs.AuthFileFrom(a.credsDir, tokenFileName).Write(content); nil != err {
+				if err := a.authFile.Write(content); nil != err {
 					logger.Error().Err(err).Msg("Failed to write credentials to file")
 					done <- fmt.Errorf("write credentials to file: %v", err)
 

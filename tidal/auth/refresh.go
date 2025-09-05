@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/xeptore/tidalgram/httputil"
+	"github.com/xeptore/tidalgram/tidal/fs"
 )
 
 func (a *Auth) RefreshToken(ctx context.Context, logger zerolog.Logger) error {
@@ -27,6 +28,16 @@ func (a *Auth) RefreshToken(ctx context.Context, logger zerolog.Logger) error {
 		RefreshToken: newCreds.RefreshToken,
 		ExpiresAt:    newCreds.ExpiresAt,
 	})
+
+	content := fs.AuthFileContent{
+		Token:        newCreds.Token,
+		RefreshToken: newCreds.RefreshToken,
+		ExpiresAt:    newCreds.ExpiresAt.Unix(),
+	}
+	if err := a.authFile.Write(content); nil != err {
+		logger.Error().Err(err).Msg("Failed to write credentials to file")
+		return fmt.Errorf("write credentials to file: %v", err)
+	}
 
 	return nil
 }
