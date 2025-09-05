@@ -5,16 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
 	"github.com/rs/zerolog"
+	"github.com/samber/lo"
 	"golang.org/x/sync/semaphore"
 
 	"github.com/xeptore/tidalgram/config"
 	"github.com/xeptore/tidalgram/telegram"
 	"github.com/xeptore/tidalgram/tidal"
+	"github.com/xeptore/tidalgram/tidal/types"
 )
 
 const (
@@ -90,6 +93,21 @@ func NewTidalURLHandler(
 		if len(links) == 0 {
 			return nil
 		}
+
+		msg := strings.Join(
+			append(
+				[]string{"🚧 Downloading links:"},
+				lo.Map(links, func(link types.Link, _ int) string {
+					return link.Kind.String() + ": `" + link.ID + "`"
+				})...,
+			),
+			"\n",
+		)
+		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+			return fmt.Errorf("send message: %w", err)
+		}
+
+		time.Sleep(time.Duration(len(links)) * time.Second)
 
 		for _, link := range links {
 			msg := "🚧 Downloading " + link.Kind.String() + " `" + link.ID + "`..."
