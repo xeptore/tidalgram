@@ -29,7 +29,7 @@ var (
 )
 
 type Auth struct {
-	credsDir    string
+	authFile    fs.AuthFile
 	credentials atomic.Pointer[Credentials]
 }
 
@@ -40,7 +40,8 @@ type Credentials struct {
 }
 
 func New(logger zerolog.Logger, dir string) (*Auth, error) {
-	content, err := fs.AuthFileFrom(dir, tokenFileName).Read()
+	authFile := fs.AuthFileFrom(dir, tokenFileName)
+	content, err := authFile.Read()
 	if nil != err {
 		if !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("read auth credentials file: %v", err)
@@ -64,7 +65,7 @@ func New(logger zerolog.Logger, dir string) (*Auth, error) {
 
 	a := &Auth{
 		credentials: atomic.Pointer[Credentials]{},
-		credsDir:    dir,
+		authFile:    authFile,
 	}
 	a.credentials.Store(creds)
 
