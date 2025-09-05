@@ -80,6 +80,7 @@ func (p *InputPeer) ReadHistory(ctx context.Context, client *tg.Client) error {
 			return fmt.Errorf("read history: %w", err)
 		}
 	}
+
 	return nil
 }
 
@@ -146,6 +147,7 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 						InputPeerClass: elem.Peer,
 						isChannel:      false,
 					}
+
 					return os.ErrExist
 				}
 			case dialogs.Chat:
@@ -154,6 +156,7 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 						InputPeerClass: elem.Peer,
 						isChannel:      false,
 					}
+
 					return os.ErrExist
 				}
 			case dialogs.Channel:
@@ -162,6 +165,7 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 						InputPeerClass: elem.Peer,
 						isChannel:      true,
 					}
+
 					return os.ErrExist
 				}
 			default:
@@ -223,7 +227,12 @@ func (u *Uploader) Close() error {
 	return nil
 }
 
-func (u *Uploader) Upload(ctx context.Context, logger zerolog.Logger, dir fs.DownloadsDir, link types.Link) (err error) {
+func (u *Uploader) Upload(
+	ctx context.Context,
+	logger zerolog.Logger,
+	dir fs.DownloadsDir,
+	link types.Link,
+) (err error) {
 	defer func() {
 		if nil == err {
 			if err := u.peer.ReadHistory(ctx, u.client); nil != err {
