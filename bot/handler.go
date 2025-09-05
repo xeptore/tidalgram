@@ -107,9 +107,9 @@ func NewTidalURLHandler(
 			return fmt.Errorf("send message: %w", err)
 		}
 
-		time.Sleep(time.Duration(len(links)) * time.Second)
+		for i, link := range links {
+			time.Sleep(time.Duration(i) * time.Second)
 
-		for _, link := range links {
 			msg := "🚧 Downloading " + link.Kind.String() + " `" + link.ID + "`..."
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 				return fmt.Errorf("send message: %w", err)
@@ -255,6 +255,11 @@ func NewTidalURLHandler(
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 				return fmt.Errorf("send message: %w", err)
 			}
+		}
+
+		msg = "✅ Tidal links were successfully uploaded."
+		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+			return fmt.Errorf("send message: %w", err)
 		}
 
 		return nil
