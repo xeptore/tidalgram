@@ -86,27 +86,21 @@ func NewTidalURLHandler(
 		}
 		defer worker.ReleaseJob()
 
-		link := tidal.ParseLink(getMessageURL(u.EffectiveMessage))
-
-		msg := "🚧 Downloading " + link.Kind.String() + " `" + link.ID + "`..."
-		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-			return fmt.Errorf("send message: %w", err)
+		links := extractMessageLinks(u.EffectiveMessage)
+		if len(links) == 0 {
+			return nil
 		}
 
-		logger.Debug().Str("link_id", link.ID).Str("link_kind", link.Kind.String()).Msg("Parsed link")
-		if err := td.TryDownloadLink(ctx, logger, link); nil != err {
-			if errors.Is(err, context.DeadlineExceeded) {
-				msg := "⌛️ Download request timed out. You might need to increase the timeout."
-				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("send message: %w", err)
-				}
-
-				return nil
+		for _, link := range links {
+			msg := "🚧 Downloading " + link.Kind.String() + " `" + link.ID + "`..."
+			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+				return fmt.Errorf("send message: %w", err)
 			}
 
-			if errors.Is(err, context.Canceled) {
-				if cause := context.Cause(ctx); errors.Is(cause, ErrJobCanceled) {
-					msg := "⏹️ Download was canceled."
+			logger.Debug().Str("link_id", link.ID).Str("link_kind", link.Kind.String()).Msg("Parsed link")
+			if err := td.TryDownloadLink(ctx, logger, link); nil != err {
+				if errors.Is(err, context.DeadlineExceeded) {
+					msg := "⌛️ Download request timed out. You might need to increase the timeout."
 					if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 						return fmt.Errorf("send message: %w", err)
 					}
@@ -114,87 +108,17 @@ func NewTidalURLHandler(
 					return nil
 				}
 
-				msg := "♿️ Bot is shutting down. Download was not completed. Try again after bot restart."
-				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("send message: %w", err)
-				}
+				if errors.Is(err, context.Canceled) {
+					if cause := context.Cause(ctx); errors.Is(cause, ErrJobCanceled) {
+						msg := "⏹️ Download was canceled."
+						if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+							return fmt.Errorf("send message: %w", err)
+						}
 
-				return nil
-			}
+						return nil
+					}
 
-			if errors.Is(err, tidal.ErrLoginRequired) {
-				msg := "🔑 Tidal login required. Use /" + tidalLoginCommand + " command to authorize the bot."
-				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("send message: %w", err)
-				}
-
-				return nil
-			}
-
-			if errors.Is(err, tidal.ErrTokenRefreshed) {
-				msg := "🔄 Tidal login token just got refreshed. Retry in a few seconds."
-				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("send message: %w", err)
-				}
-
-				return nil
-			}
-
-			if errors.Is(err, tidal.ErrUnsupportedArtistLinkKind) {
-				msg := "🈲 Artist links are not supported yet."
-				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("send message: %w", err)
-				}
-
-				return nil
-			}
-
-			if errors.Is(err, tidal.ErrUnsupportedVideoLinkKind) {
-				msg := "🈲 Video links are not supported yet."
-				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("send message: %w", err)
-				}
-
-				return nil
-			}
-
-			msg := strings.Join(
-				[]string{
-					"❌ Failed to download " + link.Kind.String() + " `" + link.ID + "`. Insult logs for details.",
-					"",
-					"```txt",
-					err.Error(),
-					"```",
-				},
-				"\n",
-			)
-			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-				return fmt.Errorf("send message: %w", err)
-			}
-
-			logger.Error().Err(err).Msg("failed to download link")
-
-			return nil
-		}
-
-		msg = "📤 Tidal " + link.Kind.String() + " `" + link.ID + "` downloaded. Uploading to Telegram..."
-		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-			return fmt.Errorf("send message: %w", err)
-		}
-
-		if err := up.Upload(ctx, logger, td.DownloadsDirFs, link); nil != err {
-			if errors.Is(err, context.DeadlineExceeded) {
-				msg := "⌛️ Upload request timed out. You might need to increase the timeout."
-				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-					return fmt.Errorf("send message: %w", err)
-				}
-
-				return nil
-			}
-
-			if errors.Is(err, context.Canceled) {
-				if cause := context.Cause(ctx); errors.Is(cause, ErrJobCanceled) {
-					msg := "⏹️ Upload was canceled."
+					msg := "♿️ Bot is shutting down. Download was not completed. Try again after bot restart."
 					if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 						return fmt.Errorf("send message: %w", err)
 					}
@@ -202,36 +126,117 @@ func NewTidalURLHandler(
 					return nil
 				}
 
-				msg := "♿️ Bot is shutting down. Upload was not completed. Try again after bot restart."
+				if errors.Is(err, tidal.ErrLoginRequired) {
+					msg := "🔑 Tidal login required. Use /" + tidalLoginCommand + " command to authorize the bot."
+					if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+						return fmt.Errorf("send message: %w", err)
+					}
+
+					return nil
+				}
+
+				if errors.Is(err, tidal.ErrTokenRefreshed) {
+					msg := "🔄 Tidal login token just got refreshed. Retry in a few seconds."
+					if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+						return fmt.Errorf("send message: %w", err)
+					}
+
+					return nil
+				}
+
+				if errors.Is(err, tidal.ErrUnsupportedArtistLinkKind) {
+					msg := "🈲 Artist links are not supported yet."
+					if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+						return fmt.Errorf("send message: %w", err)
+					}
+
+					return nil
+				}
+
+				if errors.Is(err, tidal.ErrUnsupportedVideoLinkKind) {
+					msg := "🈲 Video links are not supported yet."
+					if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+						return fmt.Errorf("send message: %w", err)
+					}
+
+					return nil
+				}
+
+				msg := strings.Join(
+					[]string{
+						"❌ Failed to download " + link.Kind.String() + " `" + link.ID + "`. Insult logs for details.",
+						"",
+						"```txt",
+						err.Error(),
+						"```",
+					},
+					"\n",
+				)
 				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 					return fmt.Errorf("send message: %w", err)
 				}
 
+				logger.Error().Err(err).Msg("failed to download link")
+
 				return nil
 			}
 
-			msg := strings.Join(
-				[]string{
-					"❌ Failed to upload to Telegram. Insult logs for details.",
-					"",
-					"```txt",
-					err.Error(),
-					"```",
-				},
-				"\n",
-			)
+			msg = "📤 Tidal " + link.Kind.String() + " `" + link.ID + "` downloaded. Uploading to Telegram..."
 			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
 				return fmt.Errorf("send message: %w", err)
 			}
 
-			logger.Error().Err(err).Msg("failed to upload to Telegram")
+			if err := up.Upload(ctx, logger, td.DownloadsDirFs, link); nil != err {
+				if errors.Is(err, context.DeadlineExceeded) {
+					msg := "⌛️ Upload request timed out. You might need to increase the timeout."
+					if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+						return fmt.Errorf("send message: %w", err)
+					}
 
-			return nil
-		}
+					return nil
+				}
 
-		msg = "✅ Tidal " + link.Kind.String() + " `" + link.ID + "` was successfully uploaded."
-		if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
-			return fmt.Errorf("send message: %w", err)
+				if errors.Is(err, context.Canceled) {
+					if cause := context.Cause(ctx); errors.Is(cause, ErrJobCanceled) {
+						msg := "⏹️ Upload was canceled."
+						if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+							return fmt.Errorf("send message: %w", err)
+						}
+
+						return nil
+					}
+
+					msg := "♿️ Bot is shutting down. Upload was not completed. Try again after bot restart."
+					if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+						return fmt.Errorf("send message: %w", err)
+					}
+
+					return nil
+				}
+
+				msg := strings.Join(
+					[]string{
+						"❌ Failed to upload to Telegram. Insult logs for details.",
+						"",
+						"```txt",
+						err.Error(),
+						"```",
+					},
+					"\n",
+				)
+				if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+					return fmt.Errorf("send message: %w", err)
+				}
+
+				logger.Error().Err(err).Msg("failed to upload to Telegram")
+
+				return nil
+			}
+
+			msg = "✅ Tidal " + link.Kind.String() + " `" + link.ID + "` was successfully uploaded."
+			if _, err := b.SendMessage(chatID, msg, sendOpt); nil != err {
+				return fmt.Errorf("send message: %w", err)
+			}
 		}
 
 		return nil
