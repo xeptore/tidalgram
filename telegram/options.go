@@ -53,7 +53,7 @@ func newClientOptions(
 		Device: telegram.DeviceConfig{ //nolint:exhaustruct
 			DeviceModel:    "Tidalgram",
 			SystemVersion:  "Windows 11 x64",
-			AppVersion:     "6.0.2 x64",
+			AppVersion:     "6.1.3 x64",
 			LangCode:       "en",
 			SystemLangCode: "en-US",
 			LangPack:       "tdesktop",
