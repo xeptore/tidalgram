@@ -57,8 +57,8 @@ github.com/hinshun/vt10x v0.0.0-20220119200601-820417d04eec h1:qv2VnGeEQHchGaZ/u
 github.com/hinshun/vt10x v0.0.0-20220119200601-820417d04eec/go.mod h1:Q48J4R4DvxnHolD5P8pOtXigYlRuPLGl6moFx3ulM68=
 github.com/iyear/connectproxy v0.1.1 h1:JZOF/62vvwRGBWcgSyWRb0BpKD4FSs0++B5/y5pNE4c=
 github.com/iyear/connectproxy v0.1.1/go.mod h1:yD4zOmSMQCmwHIT4fk8mg4k2M15z8VoMSoeY6NNJdsA=
-github.com/iyear/tdl/core v0.19.1 h1:xDBrxzPu9PbgcWHYhHdX7y5g4TK/SGcM1H+3e+XszLw=
-github.com/iyear/tdl/core v0.19.1/go.mod h1:hMXFF1FJNqX+jFOLpJdYOWXVrk0Bu8kgziZZAgBPt9g=
+github.com/iyear/tdl/core v0.19.2 h1:y9ct3ZhVI8SL+p3sLfzfYfXqc5/87hNTWFPrDqzmT2Y=
+github.com/iyear/tdl/core v0.19.2/go.mod h1:4LlXRlcPZ5ZLhFtGM0js83GqAV+4OdCXXBIPCWav4Tk=
 github.com/jedib0t/go-pretty/v6 v6.6.8 h1:JnnzQeRz2bACBobIaa/r+nqjvws4yEhcmaZ4n1QzsEc=
 github.com/jedib0t/go-pretty/v6 v6.6.8/go.mod h1:YwC5CE4fJ1HFUDeivSV1r//AmANFHyqczZk+U6BDALU=
 github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
