@@ -8,7 +8,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/gabriel-vasile/mimetype v1.4.10
 	github.com/goccy/go-json v0.10.5
-	github.com/gotd/contrib v0.21.0
+	github.com/gotd/contrib v0.21.1
 	github.com/gotd/td v0.131.0
 	github.com/iyear/tdl/core v0.19.2
 	github.com/jedib0t/go-pretty/v6 v6.6.8
