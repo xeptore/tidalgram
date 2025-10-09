@@ -16,7 +16,7 @@ require (
 	github.com/karlseguin/ccache/v3 v3.0.6
 	github.com/mattn/go-isatty v0.0.20
 	github.com/rs/zerolog v1.34.0
-	github.com/samber/lo v1.51.0
+	github.com/samber/lo v1.52.0
 	github.com/sethvargo/go-retry v0.3.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.11.1
