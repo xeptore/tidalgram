@@ -159,12 +159,11 @@ func (d *DashTrackStream) downloadChunk(
 	start := idx * maxChunkParts
 	end := min(d.Info.Parts.Count, (idx+1)*maxChunkParts)
 
-	for i := range end - start {
-		segmentIdx := start + i
+	for i := start; i < end; i++ {
 		link := strings.Replace(
 			d.Info.Parts.InitializationURLTemplate,
 			"$Number$",
-			strconv.Itoa(segmentIdx),
+			strconv.Itoa(i),
 			1,
 		)
 		if err := d.downloadSegment(ctx, logger, accessToken, link, f); nil != err {

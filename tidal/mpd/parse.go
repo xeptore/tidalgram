@@ -70,13 +70,9 @@ func (m *MPD) parts() (*Parts, error) {
 		return nil, fmt.Errorf("unexpected content type: %s", contentType)
 	}
 
-	partsCount := 2
+	var partsCount int
 	for _, s := range m.Period.AdaptationSet.Representation.SegmentTemplate.SegmentTimeline.S {
-		if s.R != 0 {
-			partsCount += s.R
-		} else {
-			partsCount++
-		}
+		partsCount += s.R + 1
 	}
 
 	return &Parts{
