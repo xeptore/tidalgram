@@ -1,0 +1,46 @@
+name: tidalgram
+services:
+  tidalgram:
+    image: ghcr.io/xeptore/tidalgram:edge
+    pull_policy: always
+    restart: unless-stopped
+    init: true
+    user: nonroot
+    stop_signal: SIGINT
+    stop_grace_period: 1m
+    command:
+      - --config
+      - /home/nonroot/config.yaml
+      - bot
+      - run
+    volumes:
+      - type: bind
+        source: ./telegram.db
+        target: /home/nonroot/telegram.db
+        read_only: false
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./.env
+        target: /home/nonroot/.env
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./config.yaml
+        target: /home/nonroot/config.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./.creds/
+        target: /home/nonroot/.creds/
+        read_only: false
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./downloads/
+        target: /home/nonroot/downloads/
+        read_only: false
+        bind:
+          create_host_path: false
