@@ -28,21 +28,21 @@ func New() *Cache {
 		ccache.Configure[*types.AlbumMeta]().
 			MaxSize(1000).
 			GetsPerPromote(3).
-			ItemsToPrune(1),
+			PercentToPrune(10),
 	)
 
 	downloadedCoversCache := ccache.New(
 		ccache.Configure[[]byte]().
 			MaxSize(100).
 			GetsPerPromote(3).
-			ItemsToPrune(1),
+			PercentToPrune(10),
 	)
 
 	trackCreditsCache := ccache.New(
 		ccache.Configure[*types.TrackCredits]().
 			MaxSize(10_000).
 			GetsPerPromote(3).
-			ItemsToPrune(1),
+			PercentToPrune(10),
 	)
 
 	return &Cache{
