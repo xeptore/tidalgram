@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM docker.io/library/golang:1.25.3 AS build
+FROM docker.io/library/golang:1.25.4 AS build
 RUN <<eot
   set -Eeux
   apt-get update
