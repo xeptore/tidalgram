@@ -81,11 +81,12 @@ func extractExpiresAt(accessToken string) (time.Time, error) {
 	if len(splits) != 3 {
 		return time.Time{}, fmt.Errorf("unexpected access token format: %s", accessToken)
 	}
+
 	var obj struct {
 		ExpiresAt int64 `json:"exp"`
 	}
 	payload := strings.NewReader(splits[1])
-	dec := base64.NewDecoder(base64.StdEncoding, payload)
+	dec := base64.NewDecoder(base64.RawURLEncoding, payload)
 	if err := json.NewDecoder(dec).Decode(&obj); nil != err {
 		return time.Time{}, fmt.Errorf("decode access token payload: %v", err)
 	}
