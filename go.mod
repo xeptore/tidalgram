@@ -9,7 +9,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.11
 	github.com/goccy/go-json v0.10.5
 	github.com/gotd/contrib v0.21.1
-	github.com/gotd/td v0.132.0
+	github.com/gotd/td v0.133.0
 	github.com/iyear/tdl/core v0.19.2
 	github.com/jedib0t/go-pretty/v6 v6.7.1
 	github.com/joho/godotenv v1.5.1
@@ -47,7 +47,7 @@ require (
 	github.com/gotd/neo v0.1.5 // indirect
 	github.com/iyear/connectproxy v0.1.1 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/klauspost/compress v1.18.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
