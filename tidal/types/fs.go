@@ -10,12 +10,14 @@ type StoredMix struct {
 }
 
 type Track struct {
-	Artists  []TrackArtist `json:"artists"`
-	Title    string        `json:"title"`
-	Duration int           `json:"duration"`
-	Version  *string       `json:"version"`
-	CoverID  string        `json:"cover_id"`
-	Ext      string        `json:"ext"`
+	Artists      []TrackArtist `json:"artists"`
+	Title        string        `json:"title"`
+	Duration     int           `json:"duration"`
+	TrackNumber  int           `json:"track_number"`
+	VolumeNumber int           `json:"volume_number"`
+	Version      *string       `json:"version"`
+	CoverID      string        `json:"cover_id"`
+	Ext          string        `json:"ext"`
 }
 
 func (t Track) UploadTitle() string {
@@ -44,8 +46,6 @@ type StoredTrack struct {
 
 type StoredAlbumTrack struct {
 	Track
-
-	Index int `json:"index"`
 }
 
 func (t StoredAlbumTrack) UploadTitle() string {
@@ -60,10 +60,10 @@ func (t StoredAlbumTrack) UploadTitle() string {
 func (t StoredAlbumTrack) UploadFilename() string {
 	artistName := JoinArtists(t.Artists)
 	if nil != t.Version {
-		return fmt.Sprintf("%d. %s - %s (%s).%s", t.Index+1, artistName, t.Title, *t.Version, t.Ext)
+		return fmt.Sprintf("%d. %s - %s (%s).%s", t.TrackNumber, artistName, t.Title, *t.Version, t.Ext)
 	}
 
-	return fmt.Sprintf("%d. %s - %s.%s", t.Index+1, artistName, t.Title, t.Ext)
+	return fmt.Sprintf("%d. %s - %s.%s", t.TrackNumber, artistName, t.Title, t.Ext)
 }
 
 type StoredPlaylist struct {

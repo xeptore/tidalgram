@@ -146,14 +146,15 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 
 				info := types.StoredAlbumTrack{
 					Track: types.Track{
-						Artists:  track.Artists,
-						Title:    track.Title,
-						Duration: track.Duration,
-						Version:  track.Version,
-						CoverID:  album.CoverID,
-						Ext:      ext,
+						Artists:      track.Artists,
+						Title:        track.Title,
+						TrackNumber:  track.TrackNumber,
+						VolumeNumber: track.VolumeNumber,
+						Duration:     track.Duration,
+						Version:      track.Version,
+						CoverID:      album.CoverID,
+						Ext:          ext,
 					},
-					Index: trackIdx,
 				}
 				if err := trackFs.InfoFile.Write(info); nil != err {
 					logger.Error().Err(err).Msg("Failed to write track info file")

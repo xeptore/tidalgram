@@ -128,12 +128,14 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 
 			info := types.StoredTrack{
 				Track: types.Track{
-					Artists:  track.Artists,
-					Title:    track.Title,
-					Duration: track.Duration,
-					Version:  track.Version,
-					CoverID:  track.CoverID,
-					Ext:      ext,
+					Artists:      track.Artists,
+					Title:        track.Title,
+					TrackNumber:  track.TrackNumber,
+					VolumeNumber: track.VolumeNumber,
+					Duration:     track.Duration,
+					Version:      track.Version,
+					CoverID:      track.CoverID,
+					Ext:          ext,
 				},
 				Caption: trackCaption(album.Title, album.ReleaseDate),
 			}
