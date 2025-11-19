@@ -309,22 +309,11 @@ func (u *Uploader) uploadAlbum(
 
 	for volIdx, trackIDs := range info.VolumeTrackIDs {
 		var (
-			volNum     = volIdx + 1
-			batchSize  = mathutil.OptimalAlbumSize(len(trackIDs))
-			numBatches = mathutil.DivCeil(len(trackIDs), batchSize)
-			batches    = slices.Collect(slices.Chunk(trackIDs, batchSize))
+			volNum    = volIdx + 1
+			batchSize = mathutil.OptimalAlbumSize(len(trackIDs))
+			batches   = slices.Collect(slices.Chunk(trackIDs, batchSize))
 		)
-		for partIdx, trackIDs := range batches {
-			const notCollapsed = false
-			partCaption := []message.StyledTextOption{
-				styling.Blockquote(info.Caption, notCollapsed),
-				styling.Plain("\n"),
-				styling.Plain("\n"),
-				styling.Italic(fmt.Sprintf("Volume: %d", volNum)),
-				styling.Plain("\n"),
-				styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
-			}
-
+		for _, trackIDs := range batches {
 			monitor := progress.NewAlbumMonitor(len(trackIDs))
 			for i, trackID := range trackIDs {
 				logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
@@ -367,6 +356,12 @@ func (u *Uploader) uploadAlbum(
 
 					track := albumFs.Track(volNum, trackID)
 
+					trackInfo, err := track.InfoFile.Read()
+					if nil != err {
+						logger.Error().Err(err).Msg("Failed to read album track info file")
+						return fmt.Errorf("read album track info file: %v", err)
+					}
+
 					trackProgress := monitor.At(idx)
 
 					trackInputFile, err := u.newUploader(wgctx).WithProgress(trackProgress).FromPath(wgctx, track.Path)
@@ -381,18 +376,14 @@ func (u *Uploader) uploadAlbum(
 						return fmt.Errorf("detect album track mime: %v", err)
 					}
 
-					var caption []message.StyledTextOption
-					if idx == len(trackIDs)-1 {
-						caption = append(caption, partCaption...)
-						if sig := u.conf.Upload.Signature; len(sig) > 0 {
-							caption = append(caption, html.String(nil, sig))
-						}
+					const notCollapsed = false
+					caption := []message.StyledTextOption{
+						styling.Blockquote(info.Caption, notCollapsed),
+						styling.Plain("\n"),
+						styling.Italic(fmt.Sprintf("Disc %d / Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 					}
-
-					trackInfo, err := track.InfoFile.Read()
-					if nil != err {
-						logger.Error().Err(err).Msg("Failed to read album track info file")
-						return fmt.Errorf("read album track info file: %v", err)
+					if sig := u.conf.Upload.Signature; len(sig) > 0 {
+						caption = append(caption, html.String(nil, sig))
 					}
 
 					doc := message.
@@ -465,19 +456,10 @@ func (u *Uploader) uploadMix(
 	}
 
 	var (
-		batchSize  = mathutil.OptimalAlbumSize(len(info.TrackIDs))
-		batches    = slices.Collect(slices.Chunk(info.TrackIDs, batchSize))
-		numBatches = mathutil.DivCeil(len(info.TrackIDs), batchSize)
+		batchSize = mathutil.OptimalAlbumSize(len(info.TrackIDs))
+		batches   = slices.Collect(slices.Chunk(info.TrackIDs, batchSize))
 	)
-	for partIdx, trackIDs := range batches {
-		const notCollapsed = false
-		partCaption := []styling.StyledTextOption{
-			styling.Blockquote(info.Caption, notCollapsed),
-			styling.Plain("\n"),
-			styling.Plain("\n"),
-			styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
-		}
-
+	for _, trackIDs := range batches {
 		monitor := progress.NewBatchMonitor(len(trackIDs))
 		for i, trackID := range trackIDs {
 			logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
@@ -552,18 +534,20 @@ func (u *Uploader) uploadMix(
 					return fmt.Errorf("detect mix mime: %v", err)
 				}
 
-				var caption []message.StyledTextOption
-				if i == len(trackIDs)-1 {
-					caption = append(caption, partCaption...)
-					if sig := u.conf.Upload.Signature; len(sig) > 0 {
-						caption = append(caption, html.String(nil, sig))
-					}
-				}
-
 				trackInfo, err := track.InfoFile.Read()
 				if nil != err {
 					logger.Error().Err(err).Msg("Failed to read mix track info file")
 					return fmt.Errorf("read mix track info file: %v", err)
+				}
+
+				const notCollapsed = false
+				caption := []message.StyledTextOption{
+					styling.Blockquote(trackInfo.Caption, notCollapsed),
+					styling.Plain("\n"),
+					styling.Italic(fmt.Sprintf("Disc %d / Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
+				}
+				if sig := u.conf.Upload.Signature; len(sig) > 0 {
+					caption = append(caption, html.String(nil, sig))
 				}
 
 				doc := message.
@@ -635,19 +619,10 @@ func (u *Uploader) uploadPlaylist(
 	}
 
 	var (
-		batchSize  = mathutil.OptimalAlbumSize(len(info.TrackIDs))
-		batches    = slices.Collect(slices.Chunk(info.TrackIDs, batchSize))
-		numBatches = mathutil.DivCeil(len(info.TrackIDs), batchSize)
+		batchSize = mathutil.OptimalAlbumSize(len(info.TrackIDs))
+		batches   = slices.Collect(slices.Chunk(info.TrackIDs, batchSize))
 	)
-	for partIdx, trackIDs := range batches {
-		const notCollapsed = false
-		partCaption := []styling.StyledTextOption{
-			styling.Blockquote(info.Caption, notCollapsed),
-			styling.Plain("\n"),
-			styling.Plain("\n"),
-			styling.Italic(fmt.Sprintf("Part: %d/%d", partIdx+1, numBatches)),
-		}
-
+	for _, trackIDs := range batches {
 		monitor := progress.NewBatchMonitor(len(trackIDs))
 		for i, trackID := range trackIDs {
 			logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
@@ -728,12 +703,14 @@ func (u *Uploader) uploadPlaylist(
 					return fmt.Errorf("detect playlist mime: %v", err)
 				}
 
-				var caption []message.StyledTextOption
-				if idx == len(trackIDs)-1 {
-					caption = append(caption, partCaption...)
-					if sig := u.conf.Upload.Signature; len(sig) > 0 {
-						caption = append(caption, html.String(nil, sig))
-					}
+				const notCollapsed = false
+				caption := []message.StyledTextOption{
+					styling.Blockquote(trackInfo.Caption, notCollapsed),
+					styling.Plain("\n"),
+					styling.Italic(fmt.Sprintf("Disc %d / Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
+				}
+				if sig := u.conf.Upload.Signature; len(sig) > 0 {
+					caption = append(caption, html.String(nil, sig))
 				}
 
 				doc := message.
@@ -856,6 +833,8 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	const notCollapsed = false
 	caption := []message.StyledTextOption{
 		styling.Blockquote(trackInfo.Caption, notCollapsed),
+		styling.Plain("\n"),
+		styling.Italic(fmt.Sprintf("Disc %d / Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 	}
 	if sig := u.conf.Upload.Signature; len(sig) > 0 {
 		caption = append(caption, html.String(nil, sig))

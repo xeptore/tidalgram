@@ -2,6 +2,10 @@ name: tidalgram
 services:
   tidalgram:
     image: ghcr.io/xeptore/tidalgram:edge
+    container_name: tidalgram
+    hostname: tidalgram
+    environment:
+      TZ: UTC
     pull_policy: always
     restart: unless-stopped
     init: true

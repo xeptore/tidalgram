@@ -404,15 +404,15 @@ func (tdc *TidalDownloadConcurrency) ToDict() *zerolog.Event {
 
 func (tdc *TidalDownloadConcurrency) setDefaults() {
 	if tdc.AlbumTracks == 0 {
-		tdc.AlbumTracks = 20
+		tdc.AlbumTracks = 7
 	}
 
 	if tdc.PlaylistTracks == 0 {
-		tdc.PlaylistTracks = 20
+		tdc.PlaylistTracks = 7
 	}
 
 	if tdc.MixTracks == 0 {
-		tdc.MixTracks = 20
+		tdc.MixTracks = 7
 	}
 
 	if tdc.VNDTrackParts == 0 {

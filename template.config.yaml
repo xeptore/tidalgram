@@ -40,7 +40,7 @@ log:
   format: pretty
 
 tidal:
-  download:
+  downloader:
     # Download timeout durations in seconds
     timeouts:
       # OPTIONAL
@@ -81,18 +81,18 @@ tidal:
       # OPTIONAL
       # Number of concurrent album tracks to downloads
       # Network-intensive operation.
-      # Default: 20
-      album_tracks: 20
+      # Default: 7
+      album_tracks: 7
       # OPTIONAL
       # Number of concurrent playlist tracks to downloads
       # Network-intensive operation.
-      # Default: 20
-      playlist_tracks: 20
+      # Default: 7
+      playlist_tracks: 7
       # OPTIONAL
       # Number of concurrent mix tracks to downloads
       # Network-intensive operation.
-      # Default: 20
-      mix_tracks: 20
+      # Default: 7
+      mix_tracks: 7
       # OPTIONAL
       # Number of concurrent VND track parts to downloads
       # Network-intensive operation.
