@@ -11,7 +11,7 @@ require (
 	github.com/gotd/contrib v0.21.1
 	github.com/gotd/td v0.133.0
 	github.com/iyear/tdl/core v0.19.2
-	github.com/jedib0t/go-pretty/v6 v6.7.3
+	github.com/jedib0t/go-pretty/v6 v6.7.5
 	github.com/joho/godotenv v1.5.1
 	github.com/karlseguin/ccache/v3 v3.0.7
 	github.com/mattn/go-isatty v0.0.20
