@@ -9,7 +9,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.11
 	github.com/goccy/go-json v0.10.5
 	github.com/gotd/contrib v0.21.1
-	github.com/gotd/td v0.133.0
+	github.com/gotd/td v0.134.0
 	github.com/iyear/tdl/core v0.20.0
 	github.com/jedib0t/go-pretty/v6 v6.7.5
 	github.com/joho/godotenv v1.5.1
@@ -63,7 +63,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
+	go.uber.org/zap v1.27.1 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/mod v0.30.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
