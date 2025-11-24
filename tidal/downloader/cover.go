@@ -2,6 +2,7 @@ package downloader
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +18,9 @@ import (
 	"github.com/xeptore/tidalgram/tidal/auth"
 )
 
+//go:embed placeholder-cover.jpg
+var placeholderCoverBytes []byte
+
 func (d *Downloader) getCover(
 	ctx context.Context,
 	logger zerolog.Logger,
@@ -26,7 +30,13 @@ func (d *Downloader) getCover(
 	cachedCover, err := d.cache.Covers.Fetch(
 		coverID,
 		cache.DefaultDownloadedCoverTTL,
-		func() ([]byte, error) { return d.downloadCover(ctx, logger, accessToken, coverID) },
+		func() ([]byte, error) {
+			if coverID == "" {
+				return placeholderCoverBytes, nil
+			}
+
+			return d.downloadCover(ctx, logger, accessToken, coverID)
+		},
 	)
 	if nil != err {
 		return nil, fmt.Errorf("download cover: %w", err)
