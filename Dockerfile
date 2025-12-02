@@ -13,7 +13,7 @@ WORKDIR /home/dev/src
 COPY --chown=dev:dev . .
 RUN task build
 
-FROM lscr.io/linuxserver/ffmpeg:version-8.0-cli
+FROM lscr.io/linuxserver/ffmpeg:version-8.0.1-cli
 RUN <<eot
   set -Eeux
   useradd -m -u 1000 nonroot
