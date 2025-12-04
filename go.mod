@@ -9,7 +9,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.11
 	github.com/goccy/go-json v0.10.5
 	github.com/gotd/contrib v0.21.1
-	github.com/gotd/td v0.134.0
+	github.com/gotd/td v0.135.0
 	github.com/iyear/tdl/core v0.20.0
 	github.com/jedib0t/go-pretty/v6 v6.7.5
 	github.com/joho/godotenv v1.5.1
@@ -23,7 +23,7 @@ require (
 	github.com/tidwall/gjson v1.18.0
 	github.com/urfave/cli/v3 v3.6.1
 	go.etcd.io/bbolt v1.4.3
-	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6
+	golang.org/x/exp v0.0.0-20251125195548-87e1e737ad39
 	golang.org/x/net v0.47.0
 	golang.org/x/sync v0.18.0
 	golang.org/x/time v0.14.0
@@ -48,11 +48,11 @@ require (
 	github.com/gotd/neo v0.1.5 // indirect
 	github.com/iyear/connectproxy v0.1.1 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
-	github.com/klauspost/compress v1.18.1 // indirect
+	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
-	github.com/ogen-go/ogen v1.16.0 // indirect
+	github.com/ogen-go/ogen v1.18.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
