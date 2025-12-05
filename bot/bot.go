@@ -392,11 +392,20 @@ func isTidalURL(msg string) bool {
 	}
 
 	pathParts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 3)
+	if len(pathParts) < 1 {
+		return false
+	}
 	if pathParts[0] == "browse" {
 		pathParts = pathParts[1:]
+		if len(pathParts) < 1 {
+			return false
+		}
 	}
-	if pathParts[2] == "u" {
+	if len(pathParts) > 2 && pathParts[2] == "u" {
 		pathParts = pathParts[:2]
+	}
+	if len(pathParts) < 1 {
+		return false
 	}
 
 	switch pathParts[0] {
