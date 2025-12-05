@@ -132,16 +132,25 @@ func (c *Client) TryInitiateLoginFlow(
 // This is used to support both old and new TIDAL link formats.
 // Returns a new slice without modifying the input.
 func NormalizePathParts(path string) []string {
-	pathParts := strings.SplitN(strings.Trim(path, "/"), "/", 3)
-	result := make([]string, len(pathParts))
-	copy(result, pathParts)
+	pathParts := strings.SplitN(strings.Trim(path, "/"), "/", 4)
+	result := make([]string, 0, len(pathParts))
 
-	if len(result) >= 1 && result[0] == "browse" {
-		result = result[1:]
+	// Remove "browse" prefix if present
+	startIdx := 0
+	if len(pathParts) > 0 && pathParts[0] == "browse" {
+		startIdx = 1
 	}
 
-	if len(result) >= 3 && result[2] == "u" {
-		result = result[:2]
+	// Copy parts, skipping empty strings
+	for i := startIdx; i < len(pathParts); i++ {
+		if pathParts[i] != "" {
+			result = append(result, pathParts[i])
+		}
+	}
+
+	// Remove "u" suffix if present (must be the last element)
+	if len(result) == 3 && result[len(result)-1] == "u" {
+		result = result[:len(result)-1]
 	}
 
 	return result
