@@ -391,8 +391,7 @@ func IsTidalURL(msg string) bool {
 		return false
 	}
 
-	pathParts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 3)
-	pathParts = tidal.NormalizePathParts(pathParts)
+	pathParts := tidal.NormalizePathParts(u.Path)
 	if len(pathParts) < 2 {
 		return false
 	}

@@ -131,7 +131,8 @@ func (c *Client) TryInitiateLoginFlow(
 // NormalizePathParts normalizes URL path parts by handling "browse" prefix and "u" suffix.
 // This is used to support both old and new TIDAL link formats.
 // Returns a new slice without modifying the input.
-func NormalizePathParts(pathParts []string) []string {
+func NormalizePathParts(path string) []string {
+	pathParts := strings.SplitN(strings.Trim(path, "/"), "/", 3)
 	result := make([]string, len(pathParts))
 	copy(result, pathParts)
 
@@ -154,8 +155,8 @@ func ParseLink(l string) types.Link {
 		id   string
 		kind types.LinkKind
 	)
-	pathParts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 3)
-	pathParts = NormalizePathParts(pathParts)
+
+	pathParts := NormalizePathParts(u.Path)
 
 	if len(pathParts) < 2 {
 		panic(fmt.Sprintf("unexpected link format: not enough path parts in %q", l))
