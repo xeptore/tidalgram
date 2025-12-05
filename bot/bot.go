@@ -397,14 +397,14 @@ func isTidalURL(msg string) bool {
 	}
 	if pathParts[0] == "browse" {
 		pathParts = pathParts[1:]
-		if len(pathParts) < 1 {
+		if len(pathParts) < 2 {
 			return false
 		}
 	}
 	if len(pathParts) > 2 && pathParts[2] == "u" {
 		pathParts = pathParts[:2]
 	}
-	if len(pathParts) < 1 {
+	if len(pathParts) < 2 {
 		return false
 	}
 
