@@ -365,7 +365,7 @@ func tidalURLFilter(msg *gotgbot.Message) bool {
 			continue
 		}
 
-		if isTidalURL(gotgbot.ParseEntity(msg.Text, ent).Url) {
+		if IsTidalURL(gotgbot.ParseEntity(msg.Text, ent).Url) {
 			return true
 		}
 	}
@@ -373,7 +373,7 @@ func tidalURLFilter(msg *gotgbot.Message) bool {
 	return false
 }
 
-func isTidalURL(msg string) bool {
+func IsTidalURL(msg string) bool {
 	u, err := url.Parse(msg)
 	if nil != err {
 		return false
@@ -430,7 +430,7 @@ func extractMessageLinks(msg *gotgbot.Message) []types.Link {
 		}
 
 		msgURL := gotgbot.ParseEntity(msg.Text, ent).Url
-		if !isTidalURL(msgURL) {
+		if !IsTidalURL(msgURL) {
 			continue
 		}
 

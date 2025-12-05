@@ -1,12 +1,14 @@
-package bot
+package bot_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/xeptore/tidalgram/bot"
 )
 
-func Test_isTidalURL(t *testing.T) {
+func TestIsTidalURL(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -245,7 +247,7 @@ func Test_isTidalURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			result := isTidalURL(tt.url)
+			result := bot.IsTidalURL(tt.url)
 			assert.Equal(t, tt.expected, result, "URL: %s", tt.url)
 		})
 	}
