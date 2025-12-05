@@ -407,6 +407,10 @@ func isTidalURL(msg string) bool {
 	if len(pathParts) < 2 {
 		return false
 	}
+	// Reject URLs where "u" is the ID (e.g., /track/u) - missing actual ID
+	if len(pathParts) == 2 && pathParts[1] == "u" {
+		return false
+	}
 
 	switch pathParts[0] {
 	case "mix", "playlist", "album", "artist", "track", "video":
