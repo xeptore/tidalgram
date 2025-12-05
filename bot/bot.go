@@ -365,7 +365,7 @@ func tidalURLFilter(msg *gotgbot.Message) bool {
 			continue
 		}
 
-		if isTidalURL(gotgbot.ParseEntity(msg.Text, ent).Url) {
+		if IsTidalURL(gotgbot.ParseEntity(msg.Text, ent).Url) {
 			return true
 		}
 	}
@@ -373,7 +373,7 @@ func tidalURLFilter(msg *gotgbot.Message) bool {
 	return false
 }
 
-func isTidalURL(msg string) bool {
+func IsTidalURL(msg string) bool {
 	u, err := url.Parse(msg)
 	if nil != err {
 		return false
@@ -391,25 +391,19 @@ func isTidalURL(msg string) bool {
 		return false
 	}
 
-	switch pathParts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 3); len(pathParts) {
-	case 2:
-		switch pathParts[0] {
-		case "mix", "playlist", "album", "artist", "track", "video":
-		default:
-			return false
-		}
-	case 3:
-		switch pathParts[0] {
-		case "browse":
-		default:
-			return false
-		}
+	pathParts := tidal.NormalizePathParts(u.Path)
+	if len(pathParts) < 2 {
+		return false
+	}
+	// Reject URLs where "u" is the ID (e.g., /track/u) - missing actual ID
+	if len(pathParts) == 2 && pathParts[1] == "u" {
+		return false
+	}
 
-		switch pathParts[1] {
-		case "mix", "playlist", "album", "artist", "track", "video":
-		default:
-			return false
-		}
+	switch pathParts[0] {
+	case "mix", "playlist", "album", "artist", "track", "video":
+	default:
+		return false
 	}
 
 	return true
@@ -424,7 +418,7 @@ func extractMessageLinks(msg *gotgbot.Message) []types.Link {
 		}
 
 		msgURL := gotgbot.ParseEntity(msg.Text, ent).Url
-		if !isTidalURL(msgURL) {
+		if !IsTidalURL(msgURL) {
 			continue
 		}
 

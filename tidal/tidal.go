@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -129,6 +128,34 @@ func (c *Client) TryInitiateLoginFlow(
 	return link, wait, nil
 }
 
+// NormalizePathParts normalizes URL path parts by handling "browse" prefix and "u" suffix.
+// This is used to support both old and new TIDAL link formats.
+// Returns a new slice without modifying the input.
+func NormalizePathParts(path string) []string {
+	pathParts := strings.SplitN(strings.Trim(path, "/"), "/", 4)
+	result := make([]string, 0, len(pathParts))
+
+	// Remove "browse" prefix if present
+	startIdx := 0
+	if len(pathParts) > 0 && pathParts[0] == "browse" {
+		startIdx = 1
+	}
+
+	// Copy parts, skipping empty strings
+	for i := startIdx; i < len(pathParts); i++ {
+		if pathParts[i] != "" {
+			result = append(result, pathParts[i])
+		}
+	}
+
+	// Remove "u" suffix if present (must be the last element)
+	if len(result) == 3 && result[len(result)-1] == "u" {
+		result = result[:len(result)-1]
+	}
+
+	return result
+}
+
 func ParseLink(l string) types.Link {
 	u, err := url.Parse(l)
 	must.NilErr(err)
@@ -137,45 +164,28 @@ func ParseLink(l string) types.Link {
 		id   string
 		kind types.LinkKind
 	)
-	switch pathParts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 3); len(pathParts) {
-	case 2:
-		id = pathParts[1]
-		switch k := pathParts[0]; k {
-		case "mix":
-			kind = types.LinkKindMix
-		case "playlist":
-			kind = types.LinkKindPlaylist
-		case "album":
-			kind = types.LinkKindAlbum
-		case "track":
-			kind = types.LinkKindTrack
-		case "artist":
-			kind = types.LinkKindArtist
-		case "video":
-			kind = types.LinkKindVideo
-		default:
-			panic("unexpected link media type: " + k)
-		}
-	case 3:
-		id = pathParts[2]
-		switch k := pathParts[1]; k {
-		case "mix":
-			kind = types.LinkKindMix
-		case "playlist":
-			kind = types.LinkKindPlaylist
-		case "album":
-			kind = types.LinkKindAlbum
-		case "track":
-			kind = types.LinkKindTrack
-		case "artist":
-			kind = types.LinkKindArtist
-		case "video":
-			kind = types.LinkKindVideo
-		default:
-			panic("unexpected link media type: " + k)
-		}
+
+	pathParts := NormalizePathParts(u.Path)
+
+	if len(pathParts) < 2 {
+		panic(fmt.Sprintf("unexpected link format: not enough path parts in %q", l))
+	}
+	id = pathParts[1]
+	switch k := pathParts[0]; k {
+	case "mix":
+		kind = types.LinkKindMix
+	case "playlist":
+		kind = types.LinkKindPlaylist
+	case "album":
+		kind = types.LinkKindAlbum
+	case "track":
+		kind = types.LinkKindTrack
+	case "artist":
+		kind = types.LinkKindArtist
+	case "video":
+		kind = types.LinkKindVideo
 	default:
-		panic("unexpected link parts length: " + strconv.Itoa(len(pathParts)))
+		panic("unexpected link media type: " + k)
 	}
 
 	return types.Link{Kind: kind, ID: id}
