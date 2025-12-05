@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -137,45 +136,30 @@ func ParseLink(l string) types.Link {
 		id   string
 		kind types.LinkKind
 	)
-	switch pathParts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 3); len(pathParts) {
-	case 2:
-		id = pathParts[1]
-		switch k := pathParts[0]; k {
-		case "mix":
-			kind = types.LinkKindMix
-		case "playlist":
-			kind = types.LinkKindPlaylist
-		case "album":
-			kind = types.LinkKindAlbum
-		case "track":
-			kind = types.LinkKindTrack
-		case "artist":
-			kind = types.LinkKindArtist
-		case "video":
-			kind = types.LinkKindVideo
-		default:
-			panic("unexpected link media type: " + k)
-		}
-	case 3:
-		id = pathParts[2]
-		switch k := pathParts[1]; k {
-		case "mix":
-			kind = types.LinkKindMix
-		case "playlist":
-			kind = types.LinkKindPlaylist
-		case "album":
-			kind = types.LinkKindAlbum
-		case "track":
-			kind = types.LinkKindTrack
-		case "artist":
-			kind = types.LinkKindArtist
-		case "video":
-			kind = types.LinkKindVideo
-		default:
-			panic("unexpected link media type: " + k)
-		}
+	pathParts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 3)
+
+	if pathParts[0] == "browse" {
+		pathParts = pathParts[1:]
+	} else if pathParts[2] == "u" {
+		pathParts = pathParts[:2]
+	}
+
+	id = pathParts[1]
+	switch k := pathParts[0]; k {
+	case "mix":
+		kind = types.LinkKindMix
+	case "playlist":
+		kind = types.LinkKindPlaylist
+	case "album":
+		kind = types.LinkKindAlbum
+	case "track":
+		kind = types.LinkKindTrack
+	case "artist":
+		kind = types.LinkKindArtist
+	case "video":
+		kind = types.LinkKindVideo
 	default:
-		panic("unexpected link parts length: " + strconv.Itoa(len(pathParts)))
+		panic("unexpected link media type: " + k)
 	}
 
 	return types.Link{Kind: kind, ID: id}

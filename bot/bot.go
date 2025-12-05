@@ -391,25 +391,18 @@ func isTidalURL(msg string) bool {
 		return false
 	}
 
-	switch pathParts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 3); len(pathParts) {
-	case 2:
-		switch pathParts[0] {
-		case "mix", "playlist", "album", "artist", "track", "video":
-		default:
-			return false
-		}
-	case 3:
-		switch pathParts[0] {
-		case "browse":
-		default:
-			return false
-		}
+	pathParts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 3)
+	if pathParts[0] == "browse" {
+		pathParts = pathParts[1:]
+	}
+	if pathParts[2] == "u" {
+		pathParts = pathParts[:2]
+	}
 
-		switch pathParts[1] {
-		case "mix", "playlist", "album", "artist", "track", "video":
-		default:
-			return false
-		}
+	switch pathParts[0] {
+	case "mix", "playlist", "album", "artist", "track", "video":
+	default:
+		return false
 	}
 
 	return true
