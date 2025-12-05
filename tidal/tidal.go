@@ -132,7 +132,8 @@ func (c *Client) TryInitiateLoginFlow(
 // This is used to support both old and new TIDAL link formats.
 // Returns a new slice without modifying the input.
 func NormalizePathParts(pathParts []string) []string {
-	result := pathParts
+	result := make([]string, len(pathParts))
+	copy(result, pathParts)
 
 	if len(result) >= 1 && result[0] == "browse" {
 		result = result[1:]
