@@ -138,12 +138,15 @@ func ParseLink(l string) types.Link {
 	)
 	pathParts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 3)
 
-	if pathParts[0] == "browse" {
+	if len(pathParts) >= 1 && pathParts[0] == "browse" {
 		pathParts = pathParts[1:]
-	} else if pathParts[2] == "u" {
+	} else if len(pathParts) >= 3 && pathParts[2] == "u" {
 		pathParts = pathParts[:2]
 	}
 
+	if len(pathParts) < 2 {
+		panic(fmt.Sprintf("unexpected link format: not enough path parts in %q", l))
+	}
 	id = pathParts[1]
 	switch k := pathParts[0]; k {
 	case "mix":
