@@ -22,13 +22,13 @@ import (
 )
 
 func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id string) error {
-	accessToken := d.auth.Credentials().Token
-	playlist, err := d.getPlaylistMeta(ctx, logger, accessToken, id)
+	creds := d.auth.Credentials()
+	playlist, err := d.getPlaylistMeta(ctx, logger, creds.Token, creds.CountryCode, id)
 	if nil != err {
 		return fmt.Errorf("get playlist meta: %w", err)
 	}
 
-	tracks, err := d.getPlaylistTracks(ctx, logger, accessToken, id)
+	tracks, err := d.getPlaylistTracks(ctx, logger, creds.Token, creds.CountryCode, id)
 	if nil != err {
 		return fmt.Errorf("get playlist tracks: %w", err)
 	}
@@ -56,7 +56,7 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				logger.Error().Err(err).Msg("Failed to check if track cover exists")
 				return fmt.Errorf("check if track cover exists: %v", err)
 			} else if !exists {
-				coverBytes, err := d.getCover(wgctx, logger, accessToken, track.CoverID)
+				coverBytes, err := d.getCover(wgctx, logger, creds.Token, track.CoverID)
 				if nil != err {
 					return fmt.Errorf("get track cover: %w", err)
 				}
@@ -83,22 +83,22 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				}
 			}()
 
-			ext, err := d.downloadTrack(wgctx, logger, accessToken, track.ID, trackFs.Path)
+			ext, err := d.downloadTrack(wgctx, logger, creds.Token, creds.CountryCode, track.ID, trackFs.Path)
 			if nil != err {
 				return fmt.Errorf("download track: %w", err)
 			}
 
-			trackCredits, err := d.getTrackCredits(wgctx, logger, accessToken, track.ID)
+			trackCredits, err := d.getTrackCredits(wgctx, logger, creds.Token, creds.CountryCode, track.ID)
 			if nil != err {
 				return fmt.Errorf("get track credits: %w", err)
 			}
 
-			trackLyrics, err := d.downloadTrackLyrics(wgctx, logger, accessToken, track.ID)
+			trackLyrics, err := d.downloadTrackLyrics(wgctx, logger, creds.Token, creds.CountryCode, track.ID)
 			if nil != err {
 				return fmt.Errorf("download track lyrics: %w", err)
 			}
 
-			album, err := d.getAlbumMeta(wgctx, logger, accessToken, track.AlbumID)
+			album, err := d.getAlbumMeta(wgctx, logger, creds.Token, creds.CountryCode, track.AlbumID)
 			if nil != err {
 				return fmt.Errorf("get album meta: %w", err)
 			}
@@ -168,6 +168,7 @@ func (d *Downloader) getPlaylistMeta(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
+	countryCode string,
 	id string,
 ) (m *PlaylistMeta, err error) {
 	playlistURL, err := url.JoinPath(fmt.Sprintf(playlistAPIFormat, id))
@@ -183,7 +184,7 @@ func (d *Downloader) getPlaylistMeta(
 	}
 
 	queryParams := make(url.Values, 1)
-	queryParams.Add("countryCode", "US")
+	queryParams.Add("countryCode", countryCode)
 	reqURL.RawQuery = queryParams.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
@@ -312,11 +313,12 @@ func (d *Downloader) getPlaylistTracks(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
+	countryCode string,
 	id string,
 ) ([]ListTrackMeta, error) {
 	var tracks []ListTrackMeta
 	for i := 0; ; i++ {
-		pageTracks, rem, err := d.playlistTracksPage(ctx, logger, accessToken, id, i)
+		pageTracks, rem, err := d.playlistTracksPage(ctx, logger, accessToken, countryCode, id, i)
 		if nil != err {
 			return nil, fmt.Errorf("get playlist tracks page: %w", err)
 		}
@@ -337,6 +339,7 @@ func (d *Downloader) playlistTracksPage(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
+	countryCode string,
 	id string,
 	page int,
 ) (ts []ListTrackMeta, rem int, err error) {
@@ -346,7 +349,7 @@ func (d *Downloader) playlistTracksPage(
 		return nil, 0, fmt.Errorf("join playlist URL with id: %v", err)
 	}
 
-	respBytes, err := d.getListPagedItems(ctx, logger, accessToken, playlistURL, page)
+	respBytes, err := d.getListPagedItems(ctx, logger, accessToken, countryCode, playlistURL, page)
 	if nil != err {
 		return nil, 0, fmt.Errorf("get playlist tracks page: %w", err)
 	}

@@ -28,6 +28,7 @@ func (d *Downloader) getStream(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
+	countryCode string,
 	id string,
 ) (s Stream, ext string, err error) {
 	trackURL := fmt.Sprintf(trackStreamAPIFormat, id)
@@ -38,7 +39,7 @@ func (d *Downloader) getStream(
 	}
 
 	params := make(url.Values, 6)
-	params.Add("countryCode", "US")
+	params.Add("countryCode", countryCode)
 	params.Add("audioquality", "HI_RES_LOSSLESS")
 	params.Add("playbackmode", "STREAM")
 	params.Add("assetpresentation", "FULL")

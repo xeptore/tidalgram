@@ -23,13 +23,13 @@ import (
 )
 
 func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) error {
-	accessToken := d.auth.Credentials().Token
-	mix, err := d.getMixMeta(ctx, logger, accessToken, id)
+	creds := d.auth.Credentials()
+	mix, err := d.getMixMeta(ctx, logger, creds.Token, creds.CountryCode, id)
 	if nil != err {
 		return fmt.Errorf("get mix meta: %w", err)
 	}
 
-	tracks, err := d.getMixTracks(ctx, logger, accessToken, id)
+	tracks, err := d.getMixTracks(ctx, logger, creds.Token, creds.CountryCode, id)
 	if nil != err {
 		return fmt.Errorf("get mix tracks: %w", err)
 	}
@@ -57,7 +57,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 				logger.Error().Err(err).Msg("Failed to check if track cover exists")
 				return fmt.Errorf("check if track cover exists: %v", err)
 			} else if !exists {
-				coverBytes, err := d.getCover(wgctx, logger, accessToken, track.CoverID)
+				coverBytes, err := d.getCover(wgctx, logger, creds.Token, track.CoverID)
 				if nil != err {
 					return fmt.Errorf("get track cover: %w", err)
 				}
@@ -85,22 +85,22 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 				}
 			}()
 
-			ext, err := d.downloadTrack(wgctx, logger, accessToken, track.ID, trackFs.Path)
+			ext, err := d.downloadTrack(wgctx, logger, creds.Token, creds.CountryCode, track.ID, trackFs.Path)
 			if nil != err {
 				return fmt.Errorf("download track: %w", err)
 			}
 
-			trackCredits, err := d.getTrackCredits(wgctx, logger, accessToken, track.ID)
+			trackCredits, err := d.getTrackCredits(wgctx, logger, creds.Token, creds.CountryCode, track.ID)
 			if nil != err {
 				return fmt.Errorf("get track credits: %w", err)
 			}
 
-			trackLyrics, err := d.downloadTrackLyrics(wgctx, logger, accessToken, track.ID)
+			trackLyrics, err := d.downloadTrackLyrics(wgctx, logger, creds.Token, creds.CountryCode, track.ID)
 			if nil != err {
 				return fmt.Errorf("download track lyrics: %w", err)
 			}
 
-			album, err := d.getAlbumMeta(wgctx, logger, accessToken, track.AlbumID)
+			album, err := d.getAlbumMeta(wgctx, logger, creds.Token, creds.CountryCode, track.AlbumID)
 			if nil != err {
 				return fmt.Errorf("get album meta: %w", err)
 			}
@@ -170,6 +170,7 @@ func (d *Downloader) getMixMeta(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
+	countryCode string,
 	id string,
 ) (m *MixMeta, err error) {
 	mixInfoURL := "https://listen.tidal.com/v1/pages/mix"
@@ -181,7 +182,7 @@ func (d *Downloader) getMixMeta(
 
 	reqParams := make(url.Values, 4)
 	reqParams.Add("mixId", id)
-	reqParams.Add("countryCode", "US")
+	reqParams.Add("countryCode", countryCode)
 	reqParams.Add("locale", "en_US")
 	reqParams.Add("deviceType", "BROWSER")
 	reqURL.RawQuery = reqParams.Encode()
@@ -301,12 +302,13 @@ func (d *Downloader) getMixTracks(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
+	countryCode string,
 	id string,
 ) ([]ListTrackMeta, error) {
 	var tracks []ListTrackMeta
 
 	for i := 0; ; i++ {
-		pageTracks, rem, err := d.mixTracksPage(ctx, logger, accessToken, id, i)
+		pageTracks, rem, err := d.mixTracksPage(ctx, logger, accessToken, countryCode, id, i)
 		if nil != err {
 			return nil, fmt.Errorf("get mix tracks page: %w", err)
 		}
@@ -325,6 +327,7 @@ func (d *Downloader) mixTracksPage(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
+	countryCode string,
 	id string,
 	page int,
 ) (ts []ListTrackMeta, rem int, err error) {
@@ -334,7 +337,7 @@ func (d *Downloader) mixTracksPage(
 		return nil, 0, fmt.Errorf("create mix URL: %v", err)
 	}
 
-	respBytes, err := d.getListPagedItems(ctx, logger, accessToken, mixURL, page)
+	respBytes, err := d.getListPagedItems(ctx, logger, accessToken, countryCode, mixURL, page)
 	if nil != err {
 		return nil, 0, fmt.Errorf("get mix tracks page: %w", err)
 	}
