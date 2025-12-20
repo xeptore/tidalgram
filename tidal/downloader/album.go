@@ -39,8 +39,8 @@ type AlbumTrackMeta struct {
 func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string) error {
 	logger.Debug().Msg("Downloading album")
 
-	accessToken := d.auth.Credentials().Token
-	album, err := d.getAlbumMeta(ctx, logger, accessToken, id)
+	creds := d.auth.Credentials()
+	album, err := d.getAlbumMeta(ctx, logger, creds.Token, creds.CountryCode, id)
 	if nil != err {
 		return fmt.Errorf("get album meta: %w", err)
 	}
@@ -50,7 +50,7 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 		logger.Error().Err(err).Msg("Failed to check if track cover file exists")
 		return fmt.Errorf("check if track cover file exists: %v", err)
 	} else if !exists {
-		coverBytes, err := d.getCover(ctx, logger, accessToken, album.CoverID)
+		coverBytes, err := d.getCover(ctx, logger, creds.Token, album.CoverID)
 		if nil != err {
 			return fmt.Errorf("get album cover: %w", err)
 		}
@@ -60,7 +60,7 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 		}
 	}
 
-	volumes, err := d.getAlbumVolumes(ctx, logger, accessToken, id)
+	volumes, err := d.getAlbumVolumes(ctx, logger, creds.Token, creds.CountryCode, id)
 	if nil != err {
 		return fmt.Errorf("get album volumes: %w", err)
 	}
@@ -111,12 +111,12 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 					}
 				}()
 
-				trackLyrics, err := d.downloadTrackLyrics(wgctx, logger, accessToken, track.ID)
+				trackLyrics, err := d.downloadTrackLyrics(wgctx, logger, creds.Token, creds.CountryCode, track.ID)
 				if nil != err {
 					return fmt.Errorf("download track lyrics: %w", err)
 				}
 
-				ext, err := d.downloadTrack(wgctx, logger, accessToken, track.ID, trackFs.Path)
+				ext, err := d.downloadTrack(wgctx, logger, creds.Token, creds.CountryCode, track.ID, trackFs.Path)
 				if nil != err {
 					return fmt.Errorf("download track: %w", err)
 				}
@@ -190,6 +190,7 @@ func (d *Downloader) getAlbumVolumes(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken,
+	countryCode string,
 	id string,
 ) ([][]AlbumTrackMeta, error) {
 	var (
@@ -199,7 +200,7 @@ func (d *Downloader) getAlbumVolumes(
 	)
 
 	for i := 0; ; i++ {
-		pageTracks, rem, err := d.albumTracksPage(ctx, logger, accessToken, id, i)
+		pageTracks, rem, err := d.albumTracksPage(ctx, logger, accessToken, countryCode, id, i)
 		if nil != err {
 			return nil, fmt.Errorf("get album tracks page: %w", err)
 		}
@@ -231,6 +232,7 @@ func (d *Downloader) albumTracksPage(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken,
+	countryCode string,
 	id string,
 	page int,
 ) (ts []AlbumTrackMeta, rem int, err error) {
@@ -242,7 +244,7 @@ func (d *Downloader) albumTracksPage(
 		return nil, 0, fmt.Errorf("join album tracks credits URL with id: %v", err)
 	}
 
-	respBytes, err := d.getAlbumPagedItems(ctx, logger, accessToken, albumURL, page)
+	respBytes, err := d.getAlbumPagedItems(ctx, logger, accessToken, countryCode, albumURL, page)
 	if nil != err {
 		return nil, 0, fmt.Errorf("get album paged items: %w", err)
 	}
@@ -323,14 +325,15 @@ func (d *Downloader) albumTracksPage(
 func (d *Downloader) getAlbumPagedItems(
 	ctx context.Context,
 	logger zerolog.Logger,
-	accessToken,
+	accessToken string,
+	countryCode string,
 	itemsURL string,
 	page int,
 ) ([]byte, error) {
 	logger = logger.With().Str("items_url", itemsURL).Logger()
 
 	reqParams := make(url.Values, 3)
-	reqParams.Add("countryCode", "US")
+	reqParams.Add("countryCode", countryCode)
 	reqParams.Add("limit", strconv.Itoa(pageSize))
 	reqParams.Add("offset", strconv.Itoa(page*pageSize))
 
@@ -340,13 +343,16 @@ func (d *Downloader) getAlbumPagedItems(
 func (d *Downloader) getAlbumMeta(
 	ctx context.Context,
 	logger zerolog.Logger,
-	accessToken,
+	accessToken string,
+	countryCode string,
 	id string,
 ) (*types.AlbumMeta, error) {
 	cachedAlbumMeta, err := d.cache.AlbumsMeta.Fetch(
 		id,
 		cache.DefaultAlbumTTL,
-		func() (*types.AlbumMeta, error) { return d.downloadAlbumMeta(ctx, logger, accessToken, id) },
+		func() (*types.AlbumMeta, error) {
+			return d.downloadAlbumMeta(ctx, logger, accessToken, countryCode, id)
+		},
 	)
 	if nil != err {
 		return nil, fmt.Errorf("download album meta: %w", err)
@@ -358,7 +364,8 @@ func (d *Downloader) getAlbumMeta(
 func (d *Downloader) downloadAlbumMeta(
 	ctx context.Context,
 	logger zerolog.Logger,
-	accessToken,
+	accessToken string,
+	countryCode string,
 	id string,
 ) (m *types.AlbumMeta, err error) {
 	albumURL, err := url.JoinPath(fmt.Sprintf(albumAPIFormat, id))
@@ -374,7 +381,7 @@ func (d *Downloader) downloadAlbumMeta(
 	}
 
 	params := make(url.Values, 1)
-	params.Add("countryCode", "US")
+	params.Add("countryCode", countryCode)
 	reqURL.RawQuery = params.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)

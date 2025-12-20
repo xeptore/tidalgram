@@ -80,12 +80,14 @@ func (a *Auth) InitiateLoginFlow(ctx context.Context, logger zerolog.Logger) (*L
 					Token:        creds.Token,
 					RefreshToken: creds.RefreshToken,
 					ExpiresAt:    creds.ExpiresAt,
+					CountryCode:  creds.CountryCode,
 				})
 
 				content := fs.AuthFileContent{
 					Token:        creds.Token,
 					RefreshToken: creds.RefreshToken,
 					ExpiresAt:    creds.ExpiresAt.Unix(),
+					CountryCode:  creds.CountryCode,
 				}
 				if err := a.authFile.Write(content); nil != err {
 					logger.Error().Err(err).Msg("Failed to write credentials to file")
@@ -302,9 +304,79 @@ func (r *authorizationResponse) poll(ctx context.Context, logger zerolog.Logger)
 		return nil, fmt.Errorf("extract expires at from access token: %w", err)
 	}
 
+	me, err := getMe(ctx, logger, respBody.AccessToken)
+	if nil != err {
+		return nil, fmt.Errorf("get me: %w", err)
+	}
+
 	return &Credentials{
 		Token:        respBody.AccessToken,
 		RefreshToken: respBody.RefreshToken,
 		ExpiresAt:    expiresAt,
+		CountryCode:  me.CountryCode,
 	}, nil
+}
+
+type Me struct {
+	CountryCode string
+}
+
+func getMe(ctx context.Context, logger zerolog.Logger, token string) (*Me, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, meURL, nil)
+	if nil != err {
+		logger.Error().Err(err).Msg("Failed to create me request")
+		return nil, fmt.Errorf("create me request %s: %w", meURL, err)
+	}
+
+	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Accept", "application/json")
+
+	client := http.Client{Timeout: 5 * time.Second} //nolint:exhaustruct
+	resp, err := client.Do(req)
+	if nil != err {
+		logger.Error().Err(err).Msg("Failed to send me request")
+		return nil, fmt.Errorf("send me request: %w", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); nil != closeErr {
+			logger.Error().Err(closeErr).Msg("Failed to close me response body")
+			err = errors.Join(err, fmt.Errorf("close me response body: %v", closeErr))
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		respBytes, err := io.ReadAll(resp.Body)
+		if nil != err {
+			logger.Error().Err(err).Int("status_code", resp.StatusCode).Msg("Failed to read response body")
+			return nil, fmt.Errorf("read response body: %w", err)
+		}
+
+		logger.
+			Error().
+			Int("status_code", resp.StatusCode).
+			Bytes("response_body", respBytes).
+			Msg("Unexpected response status code")
+
+		return nil, fmt.Errorf("unexpected status code %d with body: %s", resp.StatusCode, string(respBytes))
+	}
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if nil != err {
+		logger.Error().Err(err).Msg("Failed to read response body")
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	var respBody struct {
+		CountryCode string `json:"countryCode"`
+	}
+	if err := json.Unmarshal(respBytes, &respBody); nil != err {
+		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode 200 response body")
+		return nil, fmt.Errorf("decode 200 response body: %w", err)
+	}
+
+	if len(respBody.CountryCode) == 0 {
+		return nil, errors.New("country code is empty")
+	}
+
+	return &Me{CountryCode: respBody.CountryCode}, nil
 }

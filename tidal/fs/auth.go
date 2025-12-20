@@ -19,6 +19,7 @@ type AuthFileContent struct {
 	Token        string `json:"token"`
 	RefreshToken string `json:"refresh_token"`
 	ExpiresAt    int64  `json:"expires_at"`
+	CountryCode  string `json:"country_code"`
 }
 
 func (f AuthFile) Read() (c *AuthFileContent, err error) {

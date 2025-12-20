@@ -103,13 +103,14 @@ func (d *Downloader) getListPagedItems(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
+	countryCode string,
 	itemsURL string,
 	page int,
 ) ([]byte, error) {
 	logger = logger.With().Str("items_url", itemsURL).Logger()
 
 	reqParams := make(url.Values, 3)
-	reqParams.Add("countryCode", "US")
+	reqParams.Add("countryCode", countryCode)
 	reqParams.Add("limit", strconv.Itoa(pageSize))
 	reqParams.Add("offset", strconv.Itoa(page*pageSize))
 

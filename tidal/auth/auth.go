@@ -19,6 +19,7 @@ const (
 	clientID      = "7m7Ap0JC9j1cOM3n"
 	clientSecret  = "vRAdA108tlvkJpTsGZS8rGZ7xTlbJ0qaZ2K9saEzsgY=" //nolint:gosec
 	baseURL       = "https://auth.tidal.com/v1/oauth2"
+	meURL         = "https://login.tidal.com/oauth2/me"
 	tokenFileName = "tidal.json"
 )
 
@@ -35,6 +36,7 @@ type Auth struct {
 
 type Credentials struct {
 	Token        string
+	CountryCode  string
 	RefreshToken string
 	ExpiresAt    time.Time
 }
@@ -54,12 +56,14 @@ func New(logger zerolog.Logger, dir string) (*Auth, error) {
 		Token:        "",
 		RefreshToken: "",
 		ExpiresAt:    time.Time{},
+		CountryCode:  "",
 	}
 	if content != nil {
 		creds = &Credentials{
 			Token:        content.Token,
 			RefreshToken: content.RefreshToken,
 			ExpiresAt:    time.Unix(content.ExpiresAt, 0),
+			CountryCode:  content.CountryCode,
 		}
 	}
 

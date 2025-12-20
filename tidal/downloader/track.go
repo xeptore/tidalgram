@@ -44,8 +44,8 @@ type TrackMeta struct {
 }
 
 func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string) (err error) {
-	accessToken := d.auth.Credentials().Token
-	track, err := getTrackMeta(ctx, logger, accessToken, id)
+	creds := d.auth.Credentials()
+	track, err := getTrackMeta(ctx, logger, creds.Token, creds.CountryCode, id)
 	if nil != err {
 		return fmt.Errorf("get track meta: %w", err)
 	}
@@ -55,7 +55,7 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 		logger.Error().Err(err).Msg("Failed to check if track cover exists")
 		return fmt.Errorf("check if track cover exists: %v", err)
 	} else if !exists {
-		coverBytes, err := d.getCover(ctx, logger, accessToken, track.CoverID)
+		coverBytes, err := d.getCover(ctx, logger, creds.Token, track.CoverID)
 		if nil != err {
 			return fmt.Errorf("get track cover: %w", err)
 		}
@@ -82,22 +82,22 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 		}
 	}()
 
-	ext, err := d.downloadTrack(ctx, logger, accessToken, id, trackFs.Path)
+	ext, err := d.downloadTrack(ctx, logger, creds.Token, creds.CountryCode, id, trackFs.Path)
 	if nil != err {
 		return fmt.Errorf("download track: %w", err)
 	}
 
-	trackCredits, err := d.getTrackCredits(ctx, logger, accessToken, id)
+	trackCredits, err := d.getTrackCredits(ctx, logger, creds.Token, creds.CountryCode, id)
 	if nil != err {
 		return fmt.Errorf("get track credits: %w", err)
 	}
 
-	trackLyrics, err := d.downloadTrackLyrics(ctx, logger, accessToken, id)
+	trackLyrics, err := d.downloadTrackLyrics(ctx, logger, creds.Token, creds.CountryCode, id)
 	if nil != err {
 		return fmt.Errorf("download track lyrics: %w", err)
 	}
 
-	album, err := d.getAlbumMeta(ctx, logger, accessToken, track.AlbumID)
+	album, err := d.getAlbumMeta(ctx, logger, creds.Token, creds.CountryCode, track.AlbumID)
 	if nil != err {
 		return fmt.Errorf("get album meta: %w", err)
 	}
@@ -146,13 +146,19 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 	return nil
 }
 
-func getTrackMeta(ctx context.Context, logger zerolog.Logger, accessToken, id string) (m *TrackMeta, err error) {
+func getTrackMeta(
+	ctx context.Context,
+	logger zerolog.Logger,
+	accessToken string,
+	countryCode string,
+	id string,
+) (m *TrackMeta, err error) {
 	trackURL := fmt.Sprintf(trackAPIFormat, id)
 	reqURL, err := url.Parse(trackURL)
 	must.NilErr(err)
 
 	reqParams := make(url.Values, 1)
-	reqParams.Add("countryCode", "US")
+	reqParams.Add("countryCode", countryCode)
 	reqURL.RawQuery = reqParams.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
@@ -304,12 +310,13 @@ func (d *Downloader) downloadTrack(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
+	countryCode string,
 	id string,
 	fileName string,
 ) (ext string, err error) {
 	logger = logger.With().Str("file_name", fileName).Logger()
 
-	stream, ext, err := d.getStream(ctx, logger, accessToken, id)
+	stream, ext, err := d.getStream(ctx, logger, accessToken, countryCode, id)
 	if nil != err {
 		return "", fmt.Errorf("get track stream: %w", err)
 	}
@@ -331,12 +338,15 @@ func (d *Downloader) getTrackCredits(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
+	countryCode string,
 	id string,
 ) (*types.TrackCredits, error) {
 	cachedTrackCredits, err := d.cache.TrackCredits.Fetch(
 		id,
 		cache.DefaultTrackCreditsTTL,
-		func() (*types.TrackCredits, error) { return d.downloadTrackCredits(ctx, logger, accessToken, id) },
+		func() (*types.TrackCredits, error) {
+			return d.downloadTrackCredits(ctx, logger, accessToken, countryCode, id)
+		},
 	)
 	if nil != err {
 		return nil, fmt.Errorf("get track credits: %w", err)
@@ -349,6 +359,7 @@ func (d *Downloader) downloadTrackCredits(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
+	countryCode string,
 	id string,
 ) (c *types.TrackCredits, err error) {
 	trackCreditsURL := fmt.Sprintf(trackCreditsAPIFormat, id)
@@ -359,7 +370,7 @@ func (d *Downloader) downloadTrackCredits(
 	}
 
 	reqParams := make(url.Values, 2)
-	reqParams.Add("countryCode", "US")
+	reqParams.Add("countryCode", countryCode)
 	reqParams.Add("includeContributors", "true")
 	reqURL.RawQuery = reqParams.Encode()
 
@@ -463,6 +474,7 @@ func (d *Downloader) downloadTrackLyrics(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
+	countryCode string,
 	id string,
 ) (l string, err error) {
 	trackLyricsURL := fmt.Sprintf(trackLyricsAPIFormat, id)
@@ -473,7 +485,7 @@ func (d *Downloader) downloadTrackLyrics(
 	}
 
 	reqParams := make(url.Values, 2)
-	reqParams.Add("countryCode", "US")
+	reqParams.Add("countryCode", countryCode)
 	reqParams.Add("includeContributors", "true")
 	reqURL.RawQuery = reqParams.Encode()
 
