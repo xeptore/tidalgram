@@ -27,12 +27,14 @@ func (a *Auth) RefreshToken(ctx context.Context, logger zerolog.Logger) error {
 		Token:        newCreds.Token,
 		RefreshToken: newCreds.RefreshToken,
 		ExpiresAt:    newCreds.ExpiresAt,
+		CountryCode:  newCreds.CountryCode,
 	})
 
 	content := fs.AuthFileContent{
 		Token:        newCreds.Token,
 		RefreshToken: newCreds.RefreshToken,
 		ExpiresAt:    newCreds.ExpiresAt.Unix(),
+		CountryCode:  newCreds.CountryCode,
 	}
 	if err := a.authFile.Write(content); nil != err {
 		logger.Error().Err(err).Msg("Failed to write credentials to file")
@@ -49,9 +51,11 @@ func (a *Auth) refreshToken(ctx context.Context, logger zerolog.Logger) (creds *
 		return nil, fmt.Errorf("join base URL and token path: %v", err)
 	}
 
+	existingCreds := a.credentials.Load()
+
 	reqParams := make(url.Values, 4)
 	reqParams.Add("client_id", clientID)
-	refreshToken := a.credentials.Load().RefreshToken
+	refreshToken := existingCreds.RefreshToken
 	reqParams.Add("refresh_token", refreshToken)
 	reqParams.Add("grant_type", "refresh_token")
 	reqParams.Add("scope", "r_usr+w_usr+w_sub")
@@ -178,5 +182,6 @@ func (a *Auth) refreshToken(ctx context.Context, logger zerolog.Logger) (creds *
 		Token:        respBody.AccessToken,
 		RefreshToken: refreshToken,
 		ExpiresAt:    expiresAt,
+		CountryCode:  existingCreds.CountryCode,
 	}, nil
 }
