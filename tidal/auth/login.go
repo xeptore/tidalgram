@@ -374,5 +374,10 @@ func getMe(ctx context.Context, logger zerolog.Logger, token string) (*Me, error
 		return nil, fmt.Errorf("decode 200 response body: %w", err)
 	}
 
+	if respBody.CountryCode == "" {
+		logger.Error().Bytes("response_body", respBytes).Msg("Country code is missing or empty in API response")
+		return nil, errors.New("country code is missing or empty in API response")
+	}
+
 	return &Me{CountryCode: respBody.CountryCode}, nil
 }
