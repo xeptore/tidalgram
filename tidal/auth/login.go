@@ -375,7 +375,7 @@ func getMe(ctx context.Context, logger zerolog.Logger, token string) (*Me, error
 	}
 
 	if len(respBody.CountryCode) == 0 {
-		return nil, fmt.Errorf("country code is empty")
+		return nil, errors.New("country code is empty")
 	}
 
 	return &Me{CountryCode: respBody.CountryCode}, nil
