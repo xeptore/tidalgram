@@ -13,7 +13,7 @@ require (
 	github.com/iyear/tdl/core v0.20.1
 	github.com/jedib0t/go-pretty/v6 v6.7.8
 	github.com/joho/godotenv v1.5.1
-	github.com/karlseguin/ccache/v3 v3.0.7
+	github.com/karlseguin/ccache/v3 v3.0.8
 	github.com/mattn/go-isatty v0.0.20
 	github.com/rs/zerolog v1.34.0
 	github.com/samber/lo v1.52.0
