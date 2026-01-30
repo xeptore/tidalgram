@@ -724,7 +724,9 @@ func embedTrackAttributes(
 
 	trackFilenameExt := trackFilePath + "." + attrs.Ext
 
-	args := []string{
+	args := make([]string, 0, 10+len(metaTags)+1)
+	args = append(
+		args,
 		"-i",
 		trackFilePath,
 		"-i",
@@ -737,7 +739,7 @@ func embedTrackAttributes(
 		"copy",
 		"-disposition:v",
 		"attached_pic",
-	}
+	)
 	args = append(args, metaArgs...)
 	args = append(args, trackFilenameExt)
 
