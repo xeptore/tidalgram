@@ -129,20 +129,22 @@ func (d *Downloader) getStream(
 	}
 
 	var respBody struct {
-		ManifestMimeType string `json:"manifestMimeType"`
-		Manifest         string `json:"manifest"`
+		Data struct {
+			ManifestMimeType string `json:"manifestMimeType"`
+			Manifest         string `json:"manifest"`
+		} `json:"data"`
 	}
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
 		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode 200 response body")
 		return nil, "", fmt.Errorf("decode 200 response body: %w", err)
 	}
 
-	switch mimeType := respBody.ManifestMimeType; mimeType {
+	switch mimeType := respBody.Data.ManifestMimeType; mimeType {
 	case "application/dash+xml", "dash+xml":
-		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(respBody.Manifest))
+		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(respBody.Data.Manifest))
 		info, err := mpd.ParseStreamInfo(dec)
 		if nil != err {
-			logger.Error().Err(err).Str("manifest", respBody.Manifest).Msg("Failed to parse stream info")
+			logger.Error().Err(err).Str("manifest", respBody.Data.Manifest).Msg("Failed to parse stream info")
 			return nil, "", fmt.Errorf("parse stream info: %v", err)
 		}
 
@@ -164,9 +166,9 @@ func (d *Downloader) getStream(
 		}, ext, nil
 	case "application/vnd.tidal.bts", "vnd.tidal.bt":
 		var manifest VNDManifest
-		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(respBody.Manifest))
+		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(respBody.Data.Manifest))
 		if err := json.NewDecoder(dec).Decode(&manifest); nil != err {
-			logger.Error().Err(err).Str("manifest", respBody.Manifest).Msg("Failed to decode vnd.tidal.bt manifest")
+			logger.Error().Err(err).Str("manifest", respBody.Data.Manifest).Msg("Failed to decode vnd.tidal.bt manifest")
 			return nil, "", fmt.Errorf("decode vnd.tidal.bt manifest: %v", err)
 		}
 
