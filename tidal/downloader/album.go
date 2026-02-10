@@ -116,7 +116,7 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 					return fmt.Errorf("download track lyrics: %w", err)
 				}
 
-				ext, err := d.downloadTrack(wgctx, logger, creds.Token, creds.CountryCode, track.ID, trackFs.Path)
+				ext, err := d.downloadTrack(wgctx, logger, creds.Token, track.ID, trackFs.Path)
 				if nil != err {
 					return fmt.Errorf("download track: %w", err)
 				}

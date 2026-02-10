@@ -28,25 +28,19 @@ func (d *Downloader) getStream(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
-	countryCode string,
 	id string,
 ) (s Stream, ext string, err error) {
-	trackURL := fmt.Sprintf(trackStreamAPIFormat, id)
-	reqURL, err := url.Parse(trackURL)
+	reqURL, err := url.Parse(d.conf.HifiAPI)
 	if nil != err {
-		logger.Error().Err(err).Msg("Failed to parse track URL to build track stream URLs")
-		return nil, "", fmt.Errorf("parse track URL to build track stream URLs: %v", err)
+		return nil, "", fmt.Errorf("parse Hi-Fi API URL: %v", err)
 	}
+	reqURL.Path = "track"
 
-	params := make(url.Values, 6)
-	params.Add("countryCode", countryCode)
-	params.Add("audioquality", "HI_RES_LOSSLESS")
-	params.Add("playbackmode", "STREAM")
-	params.Add("assetpresentation", "FULL")
-	params.Add("immersiveaudio", "false")
-	params.Add("locale", "en")
+	reqParams := make(url.Values, 2)
+	reqParams.Add("id", id)
+	reqParams.Add("quality", "HI_RES_LOSSLESS")
+	reqURL.RawQuery = reqParams.Encode()
 
-	reqURL.RawQuery = params.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create get track stream URLs request")

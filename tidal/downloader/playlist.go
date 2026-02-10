@@ -83,7 +83,7 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				}
 			}()
 
-			ext, err := d.downloadTrack(wgctx, logger, creds.Token, creds.CountryCode, track.ID, trackFs.Path)
+			ext, err := d.downloadTrack(wgctx, logger, creds.Token, track.ID, trackFs.Path)
 			if nil != err {
 				return fmt.Errorf("download track: %w", err)
 			}

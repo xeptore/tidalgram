@@ -234,6 +234,7 @@ func (t *Tidal) validate() error {
 }
 
 type TidalDownloader struct {
+	HifiAPI     string                   `yaml:"hifi_api"`
 	Timeouts    TidalDownloadTimeouts    `yaml:"timeouts"`
 	Concurrency TidalDownloadConcurrency `yaml:"concurrency"`
 }
@@ -241,16 +242,25 @@ type TidalDownloader struct {
 func (td *TidalDownloader) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
+		Str("hifi_api", td.HifiAPI).
 		Dict("timeouts", td.Timeouts.ToDict()).
 		Dict("concurrency", td.Concurrency.ToDict())
 }
 
 func (td *TidalDownloader) setDefaults() {
+	if td.HifiAPI == "" {
+		td.HifiAPI = "https://monochrome-api.samidy.com"
+	}
+
 	td.Timeouts.setDefaults()
 	td.Concurrency.setDefaults()
 }
 
 func (td *TidalDownloader) validate() error {
+	if td.HifiAPI == "" {
+		return errors.New("hifi_api is required")
+	}
+
 	if err := td.Timeouts.validate(); nil != err {
 		return fmt.Errorf("timeouts config validation: %v", err)
 	}
