@@ -41,9 +41,11 @@ log:
 
 tidal:
   downloader:
+    # REQUIRED
     # Hi-Fi API instance URL.
     # See: https://github.com/monochrome-music/monochrome/blob/main/INSTANCES.md#api-instances
-    hifi_api: https://monochrome-api.samidy.com
+    # or self-host your own instance by following the instructions in: https://github.com/binimum/hifi-api#setup
+    hifi_api: ""
 
     # Download timeout durations in seconds
     timeouts:

@@ -248,10 +248,6 @@ func (td *TidalDownloader) ToDict() *zerolog.Event {
 }
 
 func (td *TidalDownloader) setDefaults() {
-	if td.HifiAPI == "" {
-		td.HifiAPI = "https://monochrome-api.samidy.com"
-	}
-
 	td.Timeouts.setDefaults()
 	td.Concurrency.setDefaults()
 }
