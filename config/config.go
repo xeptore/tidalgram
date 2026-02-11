@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"slices"
 	"time"
@@ -255,6 +256,27 @@ func (td *TidalDownloader) setDefaults() {
 func (td *TidalDownloader) validate() error {
 	if td.HifiAPI == "" {
 		return errors.New("hifi_api is required")
+	}
+
+	// Parse and validate the HiFi API URL
+	parsedURL, err := url.Parse(td.HifiAPI)
+	if err != nil {
+		return fmt.Errorf("hifi_api is not a valid URL: %v", err)
+	}
+
+	// Ensure URL is absolute (has scheme and host)
+	if !parsedURL.IsAbs() {
+		return errors.New("hifi_api must be an absolute URL with scheme and host (e.g., https://example.com)")
+	}
+
+	// Validate scheme is http or https
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return fmt.Errorf("hifi_api scheme must be http or https, got: %s", parsedURL.Scheme)
+	}
+
+	// Validate host is non-empty
+	if parsedURL.Host == "" {
+		return errors.New("hifi_api must have a non-empty host")
 	}
 
 	if err := td.Timeouts.validate(); nil != err {
