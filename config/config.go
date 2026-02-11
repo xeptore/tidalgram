@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"slices"
 	"time"
@@ -234,6 +235,7 @@ func (t *Tidal) validate() error {
 }
 
 type TidalDownloader struct {
+	HifiAPI     string                   `yaml:"hifi_api"`
 	Timeouts    TidalDownloadTimeouts    `yaml:"timeouts"`
 	Concurrency TidalDownloadConcurrency `yaml:"concurrency"`
 }
@@ -241,6 +243,7 @@ type TidalDownloader struct {
 func (td *TidalDownloader) ToDict() *zerolog.Event {
 	return zerolog.
 		Dict().
+		Str("hifi_api", td.HifiAPI).
 		Dict("timeouts", td.Timeouts.ToDict()).
 		Dict("concurrency", td.Concurrency.ToDict())
 }
@@ -251,6 +254,26 @@ func (td *TidalDownloader) setDefaults() {
 }
 
 func (td *TidalDownloader) validate() error {
+	if td.HifiAPI == "" {
+		return errors.New("hifi_api is required")
+	}
+
+	// Parse and validate the HiFi API URL
+	parsedURL, err := url.Parse(td.HifiAPI)
+	if err != nil {
+		return fmt.Errorf("hifi_api is not a valid URL: %v", err)
+	}
+
+	// Validate scheme is http or https
+	if parsedURL.Scheme != "https" {
+		return fmt.Errorf("hifi_api scheme must be https, got: %s", parsedURL.Scheme)
+	}
+
+	// Validate host is non-empty
+	if parsedURL.Host == "" {
+		return errors.New("hifi_api must have a non-empty host")
+	}
+
 	if err := td.Timeouts.validate(); nil != err {
 		return fmt.Errorf("timeouts config validation: %v", err)
 	}

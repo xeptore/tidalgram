@@ -27,26 +27,23 @@ type Stream interface {
 func (d *Downloader) getStream(
 	ctx context.Context,
 	logger zerolog.Logger,
-	accessToken string,
-	countryCode string,
 	id string,
 ) (s Stream, ext string, err error) {
-	trackURL := fmt.Sprintf(trackStreamAPIFormat, id)
-	reqURL, err := url.Parse(trackURL)
+	reqURL, err := url.Parse(d.conf.HifiAPI)
 	if nil != err {
-		logger.Error().Err(err).Msg("Failed to parse track URL to build track stream URLs")
-		return nil, "", fmt.Errorf("parse track URL to build track stream URLs: %v", err)
+		return nil, "", fmt.Errorf("parse Hi-Fi API URL: %v", err)
 	}
+	path, err := url.JoinPath(reqURL.Path, "track")
+	if nil != err {
+		return nil, "", fmt.Errorf("join Hi-Fi API URL with track path: %v", err)
+	}
+	reqURL.Path = path
 
-	params := make(url.Values, 6)
-	params.Add("countryCode", countryCode)
-	params.Add("audioquality", "HI_RES_LOSSLESS")
-	params.Add("playbackmode", "STREAM")
-	params.Add("assetpresentation", "FULL")
-	params.Add("immersiveaudio", "false")
-	params.Add("locale", "en")
+	reqParams := make(url.Values, 2)
+	reqParams.Add("id", id)
+	reqParams.Add("quality", "HI_RES_LOSSLESS")
+	reqURL.RawQuery = reqParams.Encode()
 
-	reqURL.RawQuery = params.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create get track stream URLs request")
@@ -54,7 +51,6 @@ func (d *Downloader) getStream(
 	}
 
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	client := http.Client{ //nolint:exhaustruct
 		Timeout: time.Duration(d.conf.Timeouts.GetStreamURLs) * time.Second,
@@ -135,20 +131,22 @@ func (d *Downloader) getStream(
 	}
 
 	var respBody struct {
-		ManifestMimeType string `json:"manifestMimeType"`
-		Manifest         string `json:"manifest"`
+		Data struct {
+			ManifestMimeType string `json:"manifestMimeType"`
+			Manifest         string `json:"manifest"`
+		} `json:"data"`
 	}
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
 		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode 200 response body")
 		return nil, "", fmt.Errorf("decode 200 response body: %w", err)
 	}
 
-	switch mimeType := respBody.ManifestMimeType; mimeType {
+	switch mimeType := respBody.Data.ManifestMimeType; mimeType {
 	case "application/dash+xml", "dash+xml":
-		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(respBody.Manifest))
+		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(respBody.Data.Manifest))
 		info, err := mpd.ParseStreamInfo(dec)
 		if nil != err {
-			logger.Error().Err(err).Str("manifest", respBody.Manifest).Msg("Failed to parse stream info")
+			logger.Error().Err(err).Str("manifest", respBody.Data.Manifest).Msg("Failed to parse stream info")
 			return nil, "", fmt.Errorf("parse stream info: %v", err)
 		}
 
@@ -170,9 +168,9 @@ func (d *Downloader) getStream(
 		}, ext, nil
 	case "application/vnd.tidal.bts", "vnd.tidal.bt":
 		var manifest VNDManifest
-		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(respBody.Manifest))
+		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(respBody.Data.Manifest))
 		if err := json.NewDecoder(dec).Decode(&manifest); nil != err {
-			logger.Error().Err(err).Str("manifest", respBody.Manifest).Msg("Failed to decode vnd.tidal.bt manifest")
+			logger.Error().Err(err).Str("manifest", respBody.Data.Manifest).Msg("Failed to decode vnd.tidal.bt manifest")
 			return nil, "", fmt.Errorf("decode vnd.tidal.bt manifest: %v", err)
 		}
 
