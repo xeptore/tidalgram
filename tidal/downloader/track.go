@@ -315,7 +315,7 @@ func (d *Downloader) downloadTrack(
 ) (ext string, err error) {
 	logger = logger.With().Str("file_name", fileName).Logger()
 
-	stream, ext, err := d.getStream(ctx, logger, accessToken, id)
+	stream, ext, err := d.getStream(ctx, logger, id)
 	if nil != err {
 		return "", fmt.Errorf("get track stream: %w", err)
 	}
