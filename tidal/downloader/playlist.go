@@ -83,7 +83,7 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				}
 			}()
 
-			container, err := d.downloadTrack(wgctx, logger, creds.Token, track.ID, trackFs.Path)
+			ext, err := d.downloadTrack(wgctx, logger, creds.Token, track.ID, trackFs.Path)
 			if nil != err {
 				return fmt.Errorf("download track: %w", err)
 			}
@@ -120,8 +120,7 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 				TotalVolumes: album.TotalVolumes,
 				Credits:      *trackCredits,
 				Lyrics:       trackLyrics,
-				Ext:          container.Extension,
-				Muxer:        container.Muxer,
+				Ext:          ext,
 			}
 			if err := embedTrackAttributes(wgctx, logger, trackFs.Path, attrs); nil != err {
 				return fmt.Errorf("embed track attributes: %w", err)
@@ -136,8 +135,7 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 					Duration:     track.Duration,
 					Version:      track.Version,
 					CoverID:      track.CoverID,
-					Ext:          container.Extension,
-					Muxer:        container.Muxer,
+					Ext:          ext,
 				},
 				Caption: trackCaption(album.Title, album.ReleaseDate),
 			}

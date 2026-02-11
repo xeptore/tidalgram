@@ -18,7 +18,6 @@ type Track struct {
 	Version      *string       `json:"version"`
 	CoverID      string        `json:"cover_id"`
 	Ext          string        `json:"ext"`
-	Muxer        string        `json:"muxer"`
 }
 
 func (t Track) UploadTitle() string {

@@ -82,7 +82,7 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 		}
 	}()
 
-	container, err := d.downloadTrack(ctx, logger, creds.Token, id, trackFs.Path)
+	ext, err := d.downloadTrack(ctx, logger, creds.Token, id, trackFs.Path)
 	if nil != err {
 		return fmt.Errorf("download track: %w", err)
 	}
@@ -119,8 +119,7 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 		TotalVolumes: album.TotalVolumes,
 		Credits:      *trackCredits,
 		Lyrics:       trackLyrics,
-		Ext:          container.Extension,
-		Muxer:        container.Muxer,
+		Ext:          ext,
 	}
 	if err := embedTrackAttributes(ctx, logger, trackFs.Path, attrs); nil != err {
 		return fmt.Errorf("embed track attributes: %v", err)
@@ -135,8 +134,7 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 			Duration:     track.Duration,
 			Version:      track.Version,
 			CoverID:      track.CoverID,
-			Ext:          container.Extension,
-			Muxer:        container.Muxer,
+			Ext:          ext,
 		},
 		Caption: trackCaption(album.Title, album.ReleaseDate),
 	}
@@ -314,21 +312,21 @@ func (d *Downloader) downloadTrack(
 	accessToken string,
 	id string,
 	fileName string,
-) (container types.ContainerInfo, err error) {
+) (ext string, err error) {
 	logger = logger.With().Str("file_name", fileName).Logger()
 
-	stream, container, err := d.getStream(ctx, logger, id)
+	stream, ext, err := d.getStream(ctx, logger, id)
 	if nil != err {
-		return types.ContainerInfo{}, fmt.Errorf("get track stream: %w", err)
+		return "", fmt.Errorf("get track stream: %w", err)
 	}
 
 	time.Sleep(ratelimit.TrackDownloadSleepMS())
 
 	if err := stream.saveTo(ctx, logger, accessToken, fileName); nil != err {
-		return types.ContainerInfo{}, fmt.Errorf("download track: %w", err)
+		return "", fmt.Errorf("download track: %w", err)
 	}
 
-	return container, nil
+	return ext, nil
 }
 
 func trackCaption(albumTitle string, releaseDate time.Time) string {
@@ -649,7 +647,6 @@ type TrackEmbeddedAttrs struct {
 	Credits      types.TrackCredits
 	Lyrics       string
 	Ext          string
-	Muxer        string
 }
 
 func (t TrackEmbeddedAttrs) toDict() *zerolog.Event {
@@ -671,8 +668,7 @@ func (t TrackEmbeddedAttrs) toDict() *zerolog.Event {
 		Dict("credits", t.Credits.ToDict()).
 		Str("lyrics", t.Lyrics).
 		Str("version", ptr.ValueOr(t.Version, "<nil>")).
-		Str("ext", t.Ext).
-		Str("muxer", t.Muxer)
+		Str("ext", t.Ext)
 }
 
 func embedTrackAttributes(
@@ -742,8 +738,6 @@ func embedTrackAttributes(
 		"copy",
 		"-disposition:v",
 		"attached_pic",
-		"-f",
-		attrs.Muxer,
 	)
 	args = append(args, metaArgs...)
 	args = append(args, trackFilenameExt)

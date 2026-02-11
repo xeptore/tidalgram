@@ -59,26 +59,30 @@ func JoinArtists(artists []TrackArtist) string {
 	return out
 }
 
-type ContainerInfo struct {
-	Muxer     string // ffmpeg -f value (e.g. "mp4", "flac", "matroska")
-	Extension string // file extension without dot (e.g. "m4a", "flac", "mka")
-}
+const (
+	codecFLAC = "flac"
+	extFLAC   = "flac"
+)
 
-func ResolveContainer(mimeType, codec string) (ContainerInfo, error) {
+func InferTrackExt(mimeType, codec string) (string, error) {
 	switch mimeType {
 	case "audio/mp4":
-		switch codec {
+		switch strings.ToLower(codec) {
 		case "eac3", "aac", "alac", "mp4a.40.2", "mp4a.40.5":
-			return ContainerInfo{Muxer: "mp4", Extension: "m4a"}, nil
-		case "flac":
-			// Important: must force mp4 muxer (not ipod)
-			return ContainerInfo{Muxer: "mp4", Extension: "m4a"}, nil
+			return "m4a", nil
+		case codecFLAC:
+			return extFLAC, nil
+		default:
+			return "", fmt.Errorf("unsupported codec %q for audio/mp4 mime type", codec)
 		}
 	case "audio/flac":
-		if codec == "flac" {
-			return ContainerInfo{Muxer: "flac", Extension: "flac"}, nil
+		switch strings.ToLower(codec) {
+		case codec:
+			return extFLAC, nil
+		default:
+			return "", fmt.Errorf("unsupported codec %q for audio/flac mime type", codec)
 		}
+	default:
+		return "", fmt.Errorf("unsupported mime type %q", mimeType)
 	}
-
-	return ContainerInfo{}, fmt.Errorf("unsupported mimeType=%s codec=%s", mimeType, codec)
 }
