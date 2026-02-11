@@ -27,14 +27,17 @@ type Stream interface {
 func (d *Downloader) getStream(
 	ctx context.Context,
 	logger zerolog.Logger,
-	accessToken string,
 	id string,
 ) (s Stream, ext string, err error) {
 	reqURL, err := url.Parse(d.conf.HifiAPI)
 	if nil != err {
 		return nil, "", fmt.Errorf("parse Hi-Fi API URL: %v", err)
 	}
-	reqURL.Path = "track"
+	path, err := url.JoinPath(reqURL.Path, "track")
+	if nil != err {
+		return nil, "", fmt.Errorf("join Hi-Fi API URL with track path: %v", err)
+	}
+	reqURL.Path = path
 
 	reqParams := make(url.Values, 2)
 	reqParams.Add("id", id)
@@ -48,7 +51,6 @@ func (d *Downloader) getStream(
 	}
 
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	client := http.Client{ //nolint:exhaustruct
 		Timeout: time.Duration(d.conf.Timeouts.GetStreamURLs) * time.Second,
