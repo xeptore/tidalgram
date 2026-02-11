@@ -265,11 +265,8 @@ func (td *TidalDownloader) validate() error {
 	}
 
 	// Validate scheme is http or https
-	if parsedURL.Scheme == "" {
-		return errors.New("hifi_api must include a scheme (http:// or https://)")
-	}
-	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
-		return fmt.Errorf("hifi_api scheme must be http or https, got: %s", parsedURL.Scheme)
+	if parsedURL.Scheme != "https" {
+		return fmt.Errorf("hifi_api scheme must be https, got: %s", parsedURL.Scheme)
 	}
 
 	// Validate host is non-empty
