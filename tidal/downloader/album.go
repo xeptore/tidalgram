@@ -116,7 +116,7 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 					return fmt.Errorf("download track lyrics: %w", err)
 				}
 
-				ext, err := d.downloadTrack(wgctx, logger, creds.Token, track.ID, trackFs.Path)
+				container, err := d.downloadTrack(wgctx, logger, creds.Token, track.ID, trackFs.Path)
 				if nil != err {
 					return fmt.Errorf("download track: %w", err)
 				}
@@ -138,7 +138,8 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 					TotalVolumes: album.TotalVolumes,
 					Credits:      track.Credits,
 					Lyrics:       trackLyrics,
-					Ext:          ext,
+					Ext:          container.Extension,
+					Muxer:        container.Muxer,
 				}
 				if err := embedTrackAttributes(wgctx, logger, trackFs.Path, attrs); nil != err {
 					return fmt.Errorf("embed track attributes: %w", err)
@@ -153,7 +154,8 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 						Duration:     track.Duration,
 						Version:      track.Version,
 						CoverID:      album.CoverID,
-						Ext:          ext,
+						Ext:          container.Extension,
+						Muxer:        container.Muxer,
 					},
 				}
 				if err := trackFs.InfoFile.Write(info); nil != err {
