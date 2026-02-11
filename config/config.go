@@ -264,11 +264,6 @@ func (td *TidalDownloader) validate() error {
 		return fmt.Errorf("hifi_api is not a valid URL: %v", err)
 	}
 
-	// Ensure URL is absolute (has scheme and host)
-	if !parsedURL.IsAbs() {
-		return errors.New("hifi_api must be an absolute URL with scheme and host (e.g., https://example.com)")
-	}
-
 	// Validate scheme is http or https
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
 		return fmt.Errorf("hifi_api scheme must be http or https, got: %s", parsedURL.Scheme)
