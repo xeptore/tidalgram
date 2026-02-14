@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	clientID      = "7m7Ap0JC9j1cOM3n"
-	clientSecret  = "vRAdA108tlvkJpTsGZS8rGZ7xTlbJ0qaZ2K9saEzsgY=" //nolint:gosec
+	clientID      = "fX2JxdmntZWK0ixT"
+	clientSecret  = "1Nn9AfDAjxrgJFJbKNWLeAyKGVGmINuXPPLHVXAvxAg=" //nolint:gosec
 	baseURL       = "https://auth.tidal.com/v1/oauth2"
 	meURL         = "https://login.tidal.com/oauth2/me"
 	tokenFileName = "tidal.json"
