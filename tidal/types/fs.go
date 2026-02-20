@@ -9,6 +9,10 @@ type StoredMix struct {
 	TrackIDs []string `json:"track_ids"`
 }
 
+type StoredArtistCredits struct {
+	TrackIDs []string `json:"track_ids"`
+}
+
 type Track struct {
 	Artists      []TrackArtist `json:"artists"`
 	Title        string        `json:"title"`

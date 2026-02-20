@@ -14,6 +14,8 @@ func (k LinkKind) String() string {
 		return "track"
 	case LinkKindArtist:
 		return "artist"
+	case LinkKindArtistCredits:
+		return "credits"
 	case LinkKindVideo:
 		return "video"
 	}
@@ -27,6 +29,7 @@ const (
 	LinkKindAlbum
 	LinkKindTrack
 	LinkKindArtist
+	LinkKindArtistCredits
 	LinkKindVideo
 )
 

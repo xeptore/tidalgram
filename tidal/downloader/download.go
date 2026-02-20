@@ -26,13 +26,12 @@ const (
 	trackLyricsAPIFormat       = "https://api.tidal.com/v1/tracks/%s/lyrics"
 	albumAPIFormat             = "https://api.tidal.com/v1/albums/%s"
 	playlistAPIFormat          = "https://api.tidal.com/v1/playlists/%s"
-	mixInfoURL                 = "https://listen.tidal.com/v1/pages/mix"
-	trackStreamAPIFormat       = "https://api.tidal.com/v1/tracks/%s/playbackinfo"
 	albumItemsCreditsAPIFormat = "https://api.tidal.com/v1/albums/%s/items/credits" //nolint:gosec
 	playlistItemsAPIFormat     = "https://api.tidal.com/v1/playlists/%s/items"
 	mixItemsAPIFormat          = "https://api.tidal.com/v1/mixes/%s/items"
 	coverURLFormat             = "https://resources.tidal.com/images/%s/1280x1280.jpg"
 	pageSize                   = 100
+	artistCreditsPageSize      = 50
 	maxChunkParts              = 10
 	singlePartChunkSize        = 1024 * 1024
 )
@@ -82,6 +81,8 @@ func NewDownloader(
 
 func (d *Downloader) Download(ctx context.Context, logger zerolog.Logger, link types.Link) error {
 	switch k := link.Kind; k {
+	case types.LinkKindArtistCredits:
+		return d.artistCredits(ctx, logger, link.ID)
 	case types.LinkKindAlbum:
 		return d.album(ctx, logger, link.ID)
 	case types.LinkKindTrack:
@@ -114,16 +115,6 @@ func (d *Downloader) getListPagedItems(
 	reqParams.Add("limit", strconv.Itoa(pageSize))
 	reqParams.Add("offset", strconv.Itoa(page*pageSize))
 
-	return d.getPagedItems(ctx, logger, accessToken, itemsURL, reqParams)
-}
-
-func (d *Downloader) getPagedItems(
-	ctx context.Context,
-	logger zerolog.Logger,
-	accessToken string,
-	itemsURL string,
-	reqParams url.Values,
-) (b []byte, err error) {
 	reqURL, err := url.Parse(itemsURL)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to parse page items URL")
@@ -132,7 +123,16 @@ func (d *Downloader) getPagedItems(
 
 	reqURL.RawQuery = reqParams.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
+	return d.httpGet(ctx, logger, accessToken, reqURL.String())
+}
+
+func (d *Downloader) httpGet(
+	ctx context.Context,
+	logger zerolog.Logger,
+	accessToken string,
+	url string,
+) (b []byte, err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create get page items request")
 		return nil, fmt.Errorf("create get page items request: %w", err)

@@ -121,6 +121,30 @@ func (m Mix) Track(id string) Track {
 	}
 }
 
+type ArtistCredits struct {
+	DirPath  string
+	InfoFile InfoFile[types.StoredArtistCredits]
+}
+
+func (d DownloadsDir) ArtistCredits(id string) ArtistCredits {
+	dirPath := d.path()
+
+	return ArtistCredits{
+		DirPath:  dirPath,
+		InfoFile: InfoFile[types.StoredArtistCredits]{Path: filepath.Join(dirPath, id+".json")},
+	}
+}
+
+func (m ArtistCredits) Track(id string) Track {
+	trackPath := filepath.Join(m.DirPath, id)
+
+	return Track{
+		Path:     trackPath,
+		InfoFile: InfoFile[types.StoredTrack]{Path: trackPath + ".json"},
+		Cover:    Cover{Path: trackPath + ".jpg"},
+	}
+}
+
 type Cover struct {
 	Path string
 }

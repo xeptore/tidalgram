@@ -401,7 +401,7 @@ func IsTidalURL(msg string) bool {
 	}
 
 	switch pathParts[0] {
-	case "mix", "playlist", "album", "artist", "track", "video":
+	case "mix", "playlist", "album", "artist", "credits", "track", "video":
 	default:
 		return false
 	}
