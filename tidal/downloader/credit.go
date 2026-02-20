@@ -337,5 +337,7 @@ func (d *Downloader) artistCreditsTracksPage(
 		ts = append(ts, t)
 	}
 
-	return ts, respBody.TotalNumberOfItems - (thisPageItemsCount + page*pageSize), nil
+	rem = max(respBody.TotalNumberOfItems-(thisPageItemsCount+page*artistCreditsPageSize), 0)
+
+	return ts, rem, nil
 }
