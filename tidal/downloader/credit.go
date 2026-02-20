@@ -293,8 +293,8 @@ func (d *Downloader) artistCreditsTracksPage(
 		} `json:"items"`
 	}
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
-		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode mix response")
-		return nil, 0, fmt.Errorf("decode mix response: %v", err)
+		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode artist credits tracks page response")
+		return nil, 0, fmt.Errorf("decode artist credits tracks page response: %v", err)
 	}
 
 	thisPageItemsCount := len(respBody.Items)
