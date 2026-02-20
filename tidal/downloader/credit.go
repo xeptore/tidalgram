@@ -314,7 +314,6 @@ func (d *Downloader) artistCreditsTracksPage(
 			default:
 				logger.Error().Str("artist_type", a.Type).Msg("Unexpected artist credits artist type")
 				return nil, 0, fmt.Errorf("unexpected artist credits artist type: %s", a.Type)
-
 			}
 			artists[i] = types.TrackArtist{Name: a.Name, Type: a.Type}
 		}
