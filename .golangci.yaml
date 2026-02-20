@@ -92,6 +92,7 @@ linters:
     gosec:
       excludes:
         - G601
+        - G704
     nlreturn:
       block-size: 2
   exclusions:

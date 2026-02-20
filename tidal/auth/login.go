@@ -134,7 +134,7 @@ func issueAuthorizationRequest(ctx context.Context, logger zerolog.Logger) (out 
 	req.Header.Add("Accept", "application/json")
 
 	client := http.Client{Timeout: 5 * time.Second} //nolint:exhaustruct
-	resp, err := client.Do(req)                     //nolint:gosec
+	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to issue device authorization request")
 		return nil, fmt.Errorf("issue device authorization request: %w", err)
@@ -223,7 +223,7 @@ func (r *authorizationResponse) poll(ctx context.Context, logger zerolog.Logger)
 	)
 
 	client := http.Client{Timeout: 10 * time.Second} //nolint:exhaustruct
-	resp, err := client.Do(req)                      //nolint:gosec
+	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to issue token request")
 		return nil, fmt.Errorf("issue token request: %w", err)
@@ -332,7 +332,7 @@ func getMe(ctx context.Context, logger zerolog.Logger, token string) (*Me, error
 	req.Header.Add("Accept", "application/json")
 
 	client := http.Client{Timeout: 5 * time.Second} //nolint:exhaustruct
-	resp, err := client.Do(req)                     //nolint:gosec
+	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send me request")
 		return nil, fmt.Errorf("send me request: %w", err)
