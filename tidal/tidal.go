@@ -170,7 +170,9 @@ func ParseLink(l string) types.Link {
 	if len(pathParts) < 2 {
 		panic(fmt.Sprintf("unexpected link format: not enough path parts in %q", l))
 	}
+
 	id = pathParts[1]
+
 	switch k := pathParts[0]; k {
 	case "mix":
 		kind = types.LinkKindMix
@@ -182,6 +184,8 @@ func ParseLink(l string) types.Link {
 		kind = types.LinkKindTrack
 	case "artist":
 		kind = types.LinkKindArtist
+	case "credits":
+		kind = types.LinkKindArtistCredits
 	case "video":
 		kind = types.LinkKindVideo
 	default:

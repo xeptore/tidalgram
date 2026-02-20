@@ -250,6 +250,8 @@ func (u *Uploader) Upload(
 		return u.uploadPlaylist(ctx, logger, dir, link.ID)
 	case types.LinkKindMix:
 		return u.uploadMix(ctx, logger, dir, link.ID)
+	case types.LinkKindArtistCredits:
+		return u.uploadArtistCredits(ctx, logger, dir, link.ID)
 	case types.LinkKindVideo:
 		return errors.New("artist links are not supported")
 	case types.LinkKindArtist:
@@ -593,6 +595,169 @@ func (u *Uploader) uploadMix(
 			Album(ctx, album[0], rest...)
 		if nil != err {
 			return fmt.Errorf("send mix: %w", err)
+		}
+
+		select {
+		case <-typingWait:
+			time.Sleep(u.conf.Upload.PauseDuration.Duration)
+		case <-ctx.Done():
+			return fmt.Errorf("wait for typing: %w", ctx.Err())
+		}
+	}
+
+	return nil
+}
+
+func (u *Uploader) uploadArtistCredits(
+	ctx context.Context,
+	logger zerolog.Logger,
+	dir fs.DownloadsDir,
+	id string,
+) (err error) {
+	creditsFs := dir.ArtistCredits(id)
+	info, err := creditsFs.InfoFile.Read()
+	if nil != err {
+		return fmt.Errorf("read artist credits info file: %v", err)
+	}
+
+	var (
+		batchSize = mathutil.OptimalAlbumSize(len(info.TrackIDs))
+		batches   = slices.Collect(slices.Chunk(info.TrackIDs, batchSize))
+	)
+	for _, trackIDs := range batches {
+		monitor := progress.NewBatchMonitor(len(trackIDs))
+		for i, trackID := range trackIDs {
+			logger := logger.With().Int("index", i).Str("track_id", trackID).Logger()
+
+			track := creditsFs.Track(trackID)
+
+			trackStat, err := os.Lstat(track.Path)
+			if nil != err {
+				logger.Error().Err(err).Msg("Failed to stat artist credits track file")
+				return fmt.Errorf("stat artist credits track file: %v", err)
+			}
+			if !trackStat.Mode().IsRegular() {
+				return fmt.Errorf("artist credits track file %q is not a regular file", track.Path)
+			}
+			if trackStat.Size() == 0 {
+				return errors.New("artist credits track file is empty")
+			}
+
+			trackProgress := &progress.Track{Size: trackStat.Size()}
+
+			coverStat, err := os.Lstat(track.Cover.Path)
+			if nil != err {
+				logger.Error().Err(err).Msg("Failed to stat artist credits track cover file")
+				return fmt.Errorf("stat artist credits track cover file: %v", err)
+			}
+			if !coverStat.Mode().IsRegular() {
+				return fmt.Errorf("artist credits track cover file %q is not a regular file", track.Cover.Path)
+			}
+			if coverStat.Size() == 0 {
+				return errors.New("artist credits track cover file is empty")
+			}
+
+			coverProgress := &progress.Cover{Size: coverStat.Size()}
+
+			monitor.Set(i, trackProgress, coverProgress)
+		}
+
+		wg, wgctx := errgroup.WithContext(ctx)
+		wg.SetLimit(u.conf.Upload.Limit)
+
+		typingWait := make(chan struct{})
+		go u.keepTyping(ctx, monitor, typingWait, logger)
+
+		album := make([]message.MultiMediaOption, len(trackIDs))
+		for idx, trackID := range trackIDs {
+			wg.Go(func() error {
+				select {
+				case <-wgctx.Done():
+					return nil
+				default:
+				}
+
+				logger := logger.With().Int("index", idx).Str("track_id", trackID).Logger()
+
+				track := creditsFs.Track(trackID)
+
+				trackProgress, coverProgress := monitor.At(idx)
+
+				trackInputFile, err := u.newUploader(wgctx).WithProgress(trackProgress).FromPath(wgctx, track.Path)
+				if nil != err {
+					return fmt.Errorf("upload artist credits track file: %w", err)
+				}
+
+				coverInputFile, err := u.newUploader(wgctx).WithProgress(coverProgress).FromPath(wgctx, track.Cover.Path)
+				if nil != err {
+					return fmt.Errorf("upload artist credits track cover file: %w", err)
+				}
+
+				trackInfo, err := track.InfoFile.Read()
+				if nil != err {
+					logger.Error().Err(err).Msg("Failed to read artist credits track info file")
+					return fmt.Errorf("read artist credits track info file: %v", err)
+				}
+
+				mime, err := mimetype.DetectFile(track.Path)
+				if nil != err {
+					logger.Error().Err(err).Msg("Failed to detect artist credits track mime")
+					return fmt.Errorf("detect artist credits track mime: %v", err)
+				}
+
+				const notCollapsed = false
+				caption := []message.StyledTextOption{
+					styling.Blockquote(trackInfo.Caption, notCollapsed),
+					styling.Plain("\n"),
+					styling.Italic(fmt.Sprintf("Disc %d / Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
+				}
+				if sig := u.conf.Upload.Signature; len(sig) > 0 {
+					caption = append(caption, html.String(nil, sig))
+				}
+
+				doc := message.
+					UploadedDocument(trackInputFile, caption...).
+					MIME(mime.String()).
+					Attributes(
+						&tg.DocumentAttributeFilename{
+							FileName: trackInfo.UploadFilename(),
+						},
+						//nolint:exhaustruct
+						&tg.DocumentAttributeAudio{
+							Title:     trackInfo.Title,
+							Performer: types.JoinArtists(trackInfo.Artists),
+							Duration:  trackInfo.Duration,
+						}).
+					Thumb(coverInputFile).
+					Audio().
+					DurationSeconds(trackInfo.Duration).
+					Performer(types.JoinArtists(trackInfo.Artists)).
+					Title(trackInfo.Title)
+
+				album[idx] = doc
+
+				return nil
+			})
+		}
+
+		if err := wg.Wait(); nil != err {
+			return fmt.Errorf("upload artist credits: %w", err)
+		}
+
+		var rest []message.MultiMediaOption
+		if len(album) > 1 {
+			rest = album[1:]
+		}
+
+		_, err = message.
+			NewSender(u.client).
+			To(u.peer).
+			Clear().
+			Background().
+			Silent().
+			Album(ctx, album[0], rest...)
+		if nil != err {
+			return fmt.Errorf("send artist credits: %w", err)
 		}
 
 		select {

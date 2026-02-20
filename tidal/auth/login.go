@@ -291,8 +291,8 @@ func (r *authorizationResponse) poll(ctx context.Context, logger zerolog.Logger)
 	}
 
 	var respBody struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
+		AccessToken  string `json:"access_token"`  //nolint:gosec
+		RefreshToken string `json:"refresh_token"` //nolint:gosec
 	}
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
 		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode 200 response body")

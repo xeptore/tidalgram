@@ -244,7 +244,7 @@ func (d *Downloader) albumTracksPage(
 		return nil, 0, fmt.Errorf("join album tracks credits URL with id: %v", err)
 	}
 
-	respBytes, err := d.getAlbumPagedItems(ctx, logger, accessToken, countryCode, albumURL, page)
+	respBytes, err := d.getListPagedItems(ctx, logger, accessToken, countryCode, albumURL, page)
 	if nil != err {
 		return nil, 0, fmt.Errorf("get album paged items: %w", err)
 	}
@@ -320,24 +320,6 @@ func (d *Downloader) albumTracksPage(
 	}
 
 	return ts, respBody.TotalNumberOfItems - (thisPageItemsCount + page*pageSize), nil
-}
-
-func (d *Downloader) getAlbumPagedItems(
-	ctx context.Context,
-	logger zerolog.Logger,
-	accessToken string,
-	countryCode string,
-	itemsURL string,
-	page int,
-) ([]byte, error) {
-	logger = logger.With().Str("items_url", itemsURL).Logger()
-
-	reqParams := make(url.Values, 3)
-	reqParams.Add("countryCode", countryCode)
-	reqParams.Add("limit", strconv.Itoa(pageSize))
-	reqParams.Add("offset", strconv.Itoa(page*pageSize))
-
-	return d.getPagedItems(ctx, logger, accessToken, itemsURL, reqParams)
 }
 
 func (d *Downloader) getAlbumMeta(

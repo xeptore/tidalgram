@@ -37,7 +37,7 @@ type Auth struct {
 type Credentials struct {
 	Token        string
 	CountryCode  string
-	RefreshToken string
+	RefreshToken string //nolint:gosec
 	ExpiresAt    time.Time
 }
 
