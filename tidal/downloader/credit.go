@@ -68,9 +68,9 @@ func (d *Downloader) artistCredits(ctx context.Context, logger zerolog.Logger, i
 			defer func() {
 				if nil != err {
 					if removeErr := trackFs.Remove(); nil != removeErr {
-						if !errors.Is(err, os.ErrNotExist) {
-							logger.Error().Err(removeErr).Msg("Failed to remove mix track file")
-							err = errors.Join(err, fmt.Errorf("remove mix track file: %v", removeErr))
+						if !errors.Is(removeErr, os.ErrNotExist) {
+							logger.Error().Err(removeErr).Msg("Failed to remove artist credits track file")
+							err = errors.Join(err, fmt.Errorf("remove artist credits track file: %v", removeErr))
 						}
 					}
 				}
