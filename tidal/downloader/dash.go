@@ -144,7 +144,7 @@ func (d *DashTrackStream) downloadChunk(
 	}
 	defer func() {
 		if nil != err {
-			if removeErr := os.Remove(f.Name()); nil != removeErr {
+			if removeErr := os.Remove(f.Name()); nil != removeErr { //nolint:gosec
 				if !errors.Is(removeErr, os.ErrNotExist) {
 					logger.Error().Err(removeErr).Msg("Failed to remove incomplete track chunk file")
 					err = errors.Join(err, fmt.Errorf("remove incomplete track chunk file: %v", removeErr))

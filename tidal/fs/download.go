@@ -102,10 +102,6 @@ func (d DownloadsDir) Mix(id string) Mix {
 	}
 }
 
-func (d DownloadsDir) path() string {
-	return string(d)
-}
-
 type Mix struct {
 	DirPath  string
 	InfoFile InfoFile[types.StoredMix]
@@ -133,6 +129,10 @@ func (d DownloadsDir) ArtistCredits(id string) ArtistCredits {
 		DirPath:  dirPath,
 		InfoFile: InfoFile[types.StoredArtistCredits]{Path: filepath.Join(dirPath, id+".json")},
 	}
+}
+
+func (d DownloadsDir) path() string {
+	return string(d)
 }
 
 func (m ArtistCredits) Track(id string) Track {

@@ -170,7 +170,7 @@ func (d *Downloader) getArtistCreditsTracks(
 		return nil, fmt.Errorf("get artist credits page path: %w", err)
 	}
 	if pagePath == "" {
-		return nil, fmt.Errorf("artist credits page path is empty")
+		return nil, errors.New("artist credits page path is empty")
 	}
 
 	for i := 0; ; i++ {
@@ -215,10 +215,10 @@ func (d *Downloader) getArtistCreditsPagePath(
 
 	value := gjson.GetBytes(respBytes, "rows.1.modules.0.pagedList.dataApiPath")
 	if !value.Exists() {
-		return "", fmt.Errorf("artist credits page response does not contain data API path")
+		return "", errors.New("artist credits page response does not contain data API path")
 	}
 	if value.Type != gjson.String {
-		return "", fmt.Errorf("unexpected artist credits page response: data API path is not a string")
+		return "", errors.New("unexpected artist credits page response: data API path is not a string")
 	}
 
 	parsedPath, err := url.Parse(value.Str)
@@ -243,7 +243,7 @@ func (d *Downloader) artistCreditsTracksPage(
 		return nil, 0, fmt.Errorf("join artist credits tracks page URL path: %w", err)
 	}
 
-	artistCreditsURL := url.URL{
+	artistCreditsURL := url.URL{ //nolint:exhaustruct
 		Scheme: "https",
 		Host:   "api.tidal.com",
 		Path:   urlPath,

@@ -250,6 +250,8 @@ func (u *Uploader) Upload(
 		return u.uploadPlaylist(ctx, logger, dir, link.ID)
 	case types.LinkKindMix:
 		return u.uploadMix(ctx, logger, dir, link.ID)
+	case types.LinkKindArtistCredits:
+		return u.uploadArtistCredits(ctx, logger, dir, link.ID)
 	case types.LinkKindVideo:
 		return errors.New("artist links are not supported")
 	case types.LinkKindArtist:
@@ -604,6 +606,15 @@ func (u *Uploader) uploadMix(
 	}
 
 	return nil
+}
+
+func (u *Uploader) uploadArtistCredits(
+	ctx context.Context,
+	logger zerolog.Logger,
+	dir fs.DownloadsDir,
+	id string,
+) (err error) {
+	return u.uploadMix(ctx, logger, dir, id)
 }
 
 func (u *Uploader) uploadPlaylist(

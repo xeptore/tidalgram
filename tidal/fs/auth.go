@@ -17,7 +17,7 @@ func AuthFileFrom(dir, filename string) AuthFile {
 
 type AuthFileContent struct {
 	Token        string `json:"token"`
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token"` //nolint:gosec
 	ExpiresAt    int64  `json:"expires_at"`
 	CountryCode  string `json:"country_code"`
 }
