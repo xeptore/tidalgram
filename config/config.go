@@ -410,10 +410,11 @@ func (tdt *TidalDownloadTimeouts) validate() error {
 }
 
 type TidalDownloadConcurrency struct {
-	AlbumTracks    int `yaml:"album_tracks"`
-	PlaylistTracks int `yaml:"playlist_tracks"`
-	MixTracks      int `yaml:"mix_tracks"`
-	VNDTrackParts  int `yaml:"vnd_track_parts"`
+	AlbumTracks         int `yaml:"album_tracks"`
+	PlaylistTracks      int `yaml:"playlist_tracks"`
+	MixTracks           int `yaml:"mix_tracks"`
+	ArtistCreditsTracks int `yaml:"artist_credits_tracks"`
+	VNDTrackParts       int `yaml:"vnd_track_parts"`
 }
 
 func (tdc *TidalDownloadConcurrency) ToDict() *zerolog.Event {
@@ -422,6 +423,7 @@ func (tdc *TidalDownloadConcurrency) ToDict() *zerolog.Event {
 		Int("album_tracks", tdc.AlbumTracks).
 		Int("playlist_tracks", tdc.PlaylistTracks).
 		Int("mix_tracks", tdc.MixTracks).
+		Int("artist_credits_tracks", tdc.ArtistCreditsTracks).
 		Int("vnd_track_parts", tdc.VNDTrackParts)
 }
 
@@ -436,6 +438,10 @@ func (tdc *TidalDownloadConcurrency) setDefaults() {
 
 	if tdc.MixTracks == 0 {
 		tdc.MixTracks = 7
+	}
+
+	if tdc.ArtistCreditsTracks == 0 {
+		tdc.ArtistCreditsTracks = 7
 	}
 
 	if tdc.VNDTrackParts == 0 {
@@ -454,6 +460,10 @@ func (tdc *TidalDownloadConcurrency) validate() error {
 
 	if tdc.MixTracks < 0 {
 		return errors.New("mix_tracks must be greater than 0")
+	}
+
+	if tdc.ArtistCreditsTracks < 0 {
+		return errors.New("artist_credits_tracks must be greater than 0")
 	}
 
 	if tdc.VNDTrackParts < 0 {

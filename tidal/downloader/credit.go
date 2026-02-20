@@ -30,7 +30,7 @@ func (d *Downloader) artistCredits(ctx context.Context, logger zerolog.Logger, i
 		wg, wgctx = errgroup.WithContext(ctx)
 	)
 
-	wg.SetLimit(d.conf.Concurrency.MixTracks)
+	wg.SetLimit(d.conf.Concurrency.ArtistCreditsTracks)
 
 	for i, track := range tracks {
 		wg.Go(func() (err error) {

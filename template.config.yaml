@@ -100,6 +100,11 @@ tidal:
       # Default: 7
       mix_tracks: 7
       # OPTIONAL
+      # Number of concurrent artist credits tracks to downloads
+      # Network-intensive operation.
+      # Default: 7
+      artist_credits_tracks: 7
+      # OPTIONAL
       # Number of concurrent VND track parts to downloads
       # Network-intensive operation.
       # Default: 5
