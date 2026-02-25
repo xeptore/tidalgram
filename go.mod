@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
-	github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.33
+	github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.34
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/gabriel-vasile/mimetype v1.4.13
 	github.com/goccy/go-json v0.10.5
