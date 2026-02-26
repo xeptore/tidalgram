@@ -73,8 +73,9 @@ func New(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*Bot, err
 			},
 			UseTestEnvironment: false,
 			DefaultRequestOpts: &gotgbot.RequestOpts{
-				Timeout: 10 * time.Minute,
-				APIURL:  conf.APIURL,
+				Timeout:        10 * time.Minute,
+				APIURL:         conf.APIURL,
+				OverrideParams: nil,
 			},
 		},
 	})
