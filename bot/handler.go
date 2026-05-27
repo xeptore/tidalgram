@@ -22,6 +22,8 @@ import (
 
 const (
 	tidalLoginCommand = "tidal_login"
+	codeBlockOpenTxt  = "```txt"
+	codeBlockClose    = "```"
 )
 
 var ErrNotPapaOrMama = errors.New("sender is not papa or mama")
@@ -184,9 +186,9 @@ func NewTidalURLHandler(
 					[]string{
 						"❌ Failed to download " + link.Kind.String() + " `" + link.ID + "`. Insult logs for details.",
 						"",
-						"```txt",
+						codeBlockOpenTxt,
 						err.Error(),
-						"```",
+						codeBlockClose,
 					},
 					"\n",
 				)
@@ -236,9 +238,9 @@ func NewTidalURLHandler(
 					[]string{
 						"❌ Failed to upload to Telegram. Insult logs for details.",
 						"",
-						"```txt",
+						codeBlockOpenTxt,
 						err.Error(),
-						"```",
+						codeBlockClose,
 					},
 					"\n",
 				)
@@ -374,9 +376,9 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 				[]string{
 					"❌ Failed to initiate login flow. Necessary information is logged.",
 					"",
-					"```txt",
+					codeBlockOpenTxt,
 					err.Error(),
-					"```",
+					codeBlockClose,
 				},
 				"\n",
 			)
@@ -426,9 +428,9 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 				[]string{
 					"❌ Login wait failed due to unexpected error. See logs for details.",
 					"",
-					"```txt",
+					codeBlockOpenTxt,
 					err.Error(),
-					"```",
+					codeBlockClose,
 				},
 				"\n",
 			)

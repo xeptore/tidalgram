@@ -101,7 +101,7 @@ type BotProxy struct {
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
 	Username string `yaml:"username"`
-	Password string `yaml:"password"` //nolint:gosec
+	Password string `yaml:"password"`
 }
 
 func (bp *BotProxy) ToDict() *zerolog.Event {
@@ -545,7 +545,7 @@ type TelegramProxy struct {
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
 	Username string `yaml:"username"`
-	Password string `yaml:"password"` //nolint:gosec
+	Password string `yaml:"password"`
 }
 
 func (tp *TelegramProxy) ToDict() *zerolog.Event {

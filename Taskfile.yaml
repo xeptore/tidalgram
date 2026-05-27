@@ -2,7 +2,7 @@ version: "3"
 
 vars:
   VERSION: 13
-  GOLANGCI_LINT_VERSION: v2.10.1
+  GOLANGCI_LINT_VERSION: v2.12.2
 
 tasks:
   version:
