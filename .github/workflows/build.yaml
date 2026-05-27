@@ -113,7 +113,7 @@ jobs:
           echo "version=${version}" >> $GITHUB_OUTPUT
       - name: Docker Meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             ghcr.io/${{ github.repository }}
