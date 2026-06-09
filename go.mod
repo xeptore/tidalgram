@@ -9,7 +9,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.13
 	github.com/goccy/go-json v0.10.6
 	github.com/gotd/contrib v0.21.1
-	github.com/gotd/td v0.145.1
+	github.com/gotd/td v0.147.0
 	github.com/iyear/tdl/core v0.20.3
 	github.com/jedib0t/go-pretty/v6 v6.8.0
 	github.com/joho/godotenv v1.5.1
@@ -58,9 +58,9 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
-	go.opentelemetry.io/otel v1.43.0 // indirect
-	go.opentelemetry.io/otel/metric v1.43.0 // indirect
-	go.opentelemetry.io/otel/trace v1.43.0 // indirect
+	go.opentelemetry.io/otel v1.44.0 // indirect
+	go.opentelemetry.io/otel/metric v1.44.0 // indirect
+	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
