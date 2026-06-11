@@ -24,7 +24,7 @@ require (
 	github.com/urfave/cli/v3 v3.9.0
 	go.etcd.io/bbolt v1.4.3
 	golang.org/x/exp v0.0.0-20260527015227-08cc5374adb3
-	golang.org/x/net v0.55.0
+	golang.org/x/net v0.56.0
 	golang.org/x/sync v0.21.0
 	golang.org/x/time v0.15.0
 	gopkg.in/yaml.v3 v3.0.1
