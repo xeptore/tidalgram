@@ -9,7 +9,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.13
 	github.com/goccy/go-json v0.10.6
 	github.com/gotd/contrib v0.21.1
-	github.com/gotd/td v0.149.0
+	github.com/gotd/td v0.150.0
 	github.com/iyear/tdl/core v0.20.3
 	github.com/jedib0t/go-pretty/v6 v6.8.0
 	github.com/joho/godotenv v1.5.1
