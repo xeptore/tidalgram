@@ -21,7 +21,7 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.19.0
-	github.com/urfave/cli/v3 v3.9.1
+	github.com/urfave/cli/v3 v3.10.0
 	go.etcd.io/bbolt v1.4.3
 	golang.org/x/exp v0.0.0-20260527015227-08cc5374adb3
 	golang.org/x/net v0.56.0
