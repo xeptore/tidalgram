@@ -14,7 +14,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.8.2
 	github.com/joho/godotenv v1.5.1
 	github.com/karlseguin/ccache/v3 v3.0.8
-	github.com/mattn/go-isatty v0.0.22
+	github.com/mattn/go-isatty v0.0.23
 	github.com/rs/zerolog v1.35.1
 	github.com/samber/lo v1.53.0
 	github.com/sethvargo/go-retry v0.3.0
