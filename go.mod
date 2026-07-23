@@ -6,7 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.35
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/gabriel-vasile/mimetype v1.4.13
+	github.com/gabriel-vasile/mimetype v1.4.14
 	github.com/goccy/go-json v0.10.6
 	github.com/gotd/contrib v0.21.1
 	github.com/gotd/td v0.152.0
