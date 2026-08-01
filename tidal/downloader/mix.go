@@ -173,7 +173,7 @@ func (d *Downloader) getMixMeta(
 	countryCode string,
 	id string,
 ) (m *MixMeta, err error) {
-	mixInfoURL := "https://listen.tidal.com/v1/pages/mix"
+	mixInfoURL := "https://tidal.com/v1/pages/mix"
 	reqURL, err := url.Parse(mixInfoURL)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to parse mix info URL")
