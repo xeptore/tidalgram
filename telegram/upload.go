@@ -1138,12 +1138,15 @@ func songCaption(
 	caption = append(
 		caption,
 		styling.Plain("📀 Disc "+strconv.Itoa(volumeNumber)+" - Track "+strconv.Itoa(trackNumber)),
-		styling.Plain("\n"),
-		styling.Plain("\n"),
 	)
 
 	if len(sig) > 0 {
-		caption = append(caption, html.String(nil, sig))
+		caption = append(
+			caption,
+			styling.Plain("\n"),
+			styling.Plain("\n"),
+			html.String(nil, sig),
+		)
 	}
 
 	return caption
