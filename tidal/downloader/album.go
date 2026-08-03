@@ -172,7 +172,8 @@ func (d *Downloader) album(ctx context.Context, logger zerolog.Logger, id string
 	}
 
 	info := types.StoredAlbum{
-		Caption:        trackCaption(album.Title, album.ReleaseDate, ""),
+		Title:          album.Title,
+		ReleaseDate:    album.ReleaseDate,
 		VolumeTrackIDs: albumVolumeTrackIDs,
 	}
 	if err := albumFs.InfoFile.Write(info); nil != err {

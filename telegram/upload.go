@@ -378,18 +378,14 @@ func (u *Uploader) uploadAlbum(
 						return fmt.Errorf("detect album track mime: %v", err)
 					}
 
-					captionText := info.Caption
-					if len(trackInfo.Quality) > 0 {
-						captionText += "\n" + trackInfo.Quality
-					}
-					caption := []message.StyledTextOption{
-						styling.Plain(captionText),
-						styling.Plain("\n"),
-						styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
-					}
-					if sig := u.conf.Upload.Signature; len(sig) > 0 {
-						caption = append(caption, html.String(nil, sig))
-					}
+					caption := songCaption(
+						info.Title,
+						info.ReleaseDate,
+						trackInfo.Quality,
+						trackInfo.VolumeNumber,
+						trackInfo.TrackNumber,
+						u.conf.Upload.Signature,
+					)
 
 					doc := message.
 						UploadedDocument(trackInputFile, caption...).
@@ -545,14 +541,14 @@ func (u *Uploader) uploadMix(
 					return fmt.Errorf("read mix track info file: %v", err)
 				}
 
-				caption := []message.StyledTextOption{
-					styling.Plain(trackInfo.Caption),
-					styling.Plain("\n"),
-					styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
-				}
-				if sig := u.conf.Upload.Signature; len(sig) > 0 {
-					caption = append(caption, html.String(nil, sig))
-				}
+				caption := songCaption(
+					trackInfo.AlbumTitle,
+					trackInfo.ReleaseDate,
+					trackInfo.Quality,
+					trackInfo.VolumeNumber,
+					trackInfo.TrackNumber,
+					u.conf.Upload.Signature,
+				)
 
 				doc := message.
 					UploadedDocument(trackInputFile, caption...).
@@ -707,14 +703,14 @@ func (u *Uploader) uploadArtistCredits(
 					return fmt.Errorf("detect artist credits track mime: %v", err)
 				}
 
-				caption := []message.StyledTextOption{
-					styling.Plain(trackInfo.Caption),
-					styling.Plain("\n"),
-					styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
-				}
-				if sig := u.conf.Upload.Signature; len(sig) > 0 {
-					caption = append(caption, html.String(nil, sig))
-				}
+				caption := songCaption(
+					trackInfo.AlbumTitle,
+					trackInfo.ReleaseDate,
+					trackInfo.Quality,
+					trackInfo.VolumeNumber,
+					trackInfo.TrackNumber,
+					u.conf.Upload.Signature,
+				)
 
 				doc := message.
 					UploadedDocument(trackInputFile, caption...).
@@ -869,14 +865,14 @@ func (u *Uploader) uploadPlaylist(
 					return fmt.Errorf("detect playlist mime: %v", err)
 				}
 
-				caption := []message.StyledTextOption{
-					styling.Plain(trackInfo.Caption),
-					styling.Plain("\n"),
-					styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
-				}
-				if sig := u.conf.Upload.Signature; len(sig) > 0 {
-					caption = append(caption, html.String(nil, sig))
-				}
+				caption := songCaption(
+					trackInfo.AlbumTitle,
+					trackInfo.ReleaseDate,
+					trackInfo.Quality,
+					trackInfo.VolumeNumber,
+					trackInfo.TrackNumber,
+					u.conf.Upload.Signature,
+				)
 
 				doc := message.
 					UploadedDocument(trackInputFile, caption...).
@@ -995,14 +991,14 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		return fmt.Errorf("detect mime: %v", err)
 	}
 
-	caption := []message.StyledTextOption{
-		styling.Plain(trackInfo.Caption),
-		styling.Plain("\n"),
-		styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
-	}
-	if sig := u.conf.Upload.Signature; len(sig) > 0 {
-		caption = append(caption, html.String(nil, sig))
-	}
+	caption := songCaption(
+		trackInfo.AlbumTitle,
+		trackInfo.ReleaseDate,
+		trackInfo.Quality,
+		trackInfo.VolumeNumber,
+		trackInfo.TrackNumber,
+		u.conf.Upload.Signature,
+	)
 
 	doc := message.
 		UploadedDocument(trackInputFile, caption...).
@@ -1110,4 +1106,29 @@ func (u *Uploader) keepTyping(
 			}
 		}
 	}
+}
+
+func songCaption(
+	albumTitle string,
+	releaseDate time.Time,
+	quality string,
+	volumeNumber int,
+	trackNumber int,
+	sig string,
+) []message.StyledTextOption {
+	text := fmt.Sprintf("🎙️ %s\n\n📅 %s", albumTitle, releaseDate.Format(types.ReleaseDateLayout))
+	if len(quality) > 0 {
+		text += "\n\n💎 " + quality
+	}
+
+	caption := []message.StyledTextOption{
+		styling.Plain(text),
+		styling.Plain("\n"),
+		styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", volumeNumber, trackNumber)),
+	}
+	if len(sig) > 0 {
+		caption = append(caption, html.String(nil, sig))
+	}
+
+	return caption
 }

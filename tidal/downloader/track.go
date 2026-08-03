@@ -137,7 +137,8 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 			Ext:          ext,
 			Quality:      quality,
 		},
-		Caption: trackCaption(album.Title, album.ReleaseDate, quality),
+		AlbumTitle:  album.Title,
+		ReleaseDate: album.ReleaseDate,
 	}
 	if err := trackFs.InfoFile.Write(info); nil != err {
 		logger.Error().Err(err).Msg("Failed to write track info file")
@@ -329,15 +330,6 @@ func (d *Downloader) downloadTrack(
 	}
 
 	return ext, quality, nil
-}
-
-func trackCaption(albumTitle string, releaseDate time.Time, quality string) string {
-	caption := fmt.Sprintf("🎙️ %s\n\n📅 %s", albumTitle, releaseDate.Format(types.ReleaseDateLayout))
-	if len(quality) > 0 {
-		caption += "\n\n💎 " + quality
-	}
-
-	return caption
 }
 
 func (d *Downloader) getTrackCredits(

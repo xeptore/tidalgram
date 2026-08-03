@@ -138,7 +138,8 @@ func (d *Downloader) playlist(ctx context.Context, logger zerolog.Logger, id str
 					Ext:          ext,
 					Quality:      quality,
 				},
-				Caption: trackCaption(album.Title, album.ReleaseDate, quality),
+				AlbumTitle:  album.Title,
+				ReleaseDate: album.ReleaseDate,
 			}
 			if err := trackFs.InfoFile.Write(info); nil != err {
 				logger.Error().Err(err).Msg("Failed to write track info file")

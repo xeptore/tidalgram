@@ -131,7 +131,8 @@ func (d *Downloader) artistCredits(ctx context.Context, logger zerolog.Logger, i
 					Ext:          ext,
 					Quality:      quality,
 				},
-				Caption: trackCaption(album.Title, album.ReleaseDate, quality),
+				AlbumTitle:  album.Title,
+				ReleaseDate: album.ReleaseDate,
 			}
 			if err := trackFs.InfoFile.Write(info); nil != err {
 				logger.Error().Err(err).Msg("Failed to write track info")

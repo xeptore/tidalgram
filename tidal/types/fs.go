@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"time"
 )
 
 type StoredMix struct {
@@ -46,7 +47,8 @@ func (t Track) UploadFilename() string {
 type StoredTrack struct {
 	Track
 
-	Caption string `json:"caption"`
+	AlbumTitle  string    `json:"album_title"`
+	ReleaseDate time.Time `json:"release_date"`
 }
 
 type StoredAlbumTrack struct {
@@ -77,6 +79,7 @@ type StoredPlaylist struct {
 }
 
 type StoredAlbum struct {
-	Caption        string     `json:"caption"`
+	Title          string     `json:"title"`
+	ReleaseDate    time.Time  `json:"release_date"`
 	VolumeTrackIDs [][]string `json:"volume_track_ids"`
 }
