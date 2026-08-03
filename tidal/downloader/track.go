@@ -88,7 +88,7 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 		return fmt.Errorf("download track: %w", err)
 	}
 
-	trackCredits, err := d.getTrackCredits(ctx, logger, creds.Token, creds.CountryCode, id)
+	trackCredits, err := d.getTrackCredits(ctx, logger, creds.Token, id)
 	if nil != err {
 		return fmt.Errorf("get track credits: %w", err)
 	}
@@ -336,14 +336,13 @@ func (d *Downloader) getTrackCredits(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
-	countryCode string,
 	id string,
 ) (*types.TrackCredits, error) {
 	cachedTrackCredits, err := d.cache.TrackCredits.Fetch(
 		id,
 		cache.DefaultTrackCreditsTTL,
 		func() (*types.TrackCredits, error) {
-			return d.downloadTrackCredits(ctx, logger, accessToken, countryCode, id)
+			return d.downloadTrackCredits(ctx, logger, accessToken, id)
 		},
 	)
 	if nil != err {
@@ -357,11 +356,8 @@ func (d *Downloader) downloadTrackCredits(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
-	countryCode string,
 	id string,
 ) (c *types.TrackCredits, err error) {
-	_ = countryCode
-
 	reqParams := make(url.Values, 1)
 	reqParams.Add("include", "credits,credits.artist,credits.category")
 
@@ -505,14 +501,36 @@ func (d *Downloader) fetchTrackCreditsPage(
 
 func absoluteOpenAPIURL(pathAndQuery string) (*url.URL, error) {
 	if strings.HasPrefix(pathAndQuery, "https://") || strings.HasPrefix(pathAndQuery, "http://") {
-		return url.Parse(pathAndQuery)
+		u, err := url.Parse(pathAndQuery)
+		if nil != err {
+			return nil, fmt.Errorf("parse absolute openapi URL: %w", err)
+		}
+
+		return u, nil
 	}
 	if !strings.HasPrefix(pathAndQuery, "/") {
 		return nil, fmt.Errorf("unexpected relative openapi path: %s", pathAndQuery)
 	}
 
-	return url.Parse(openAPIBaseURL + pathAndQuery)
+	u, err := url.Parse(openAPIBaseURL + pathAndQuery)
+	if nil != err {
+		return nil, fmt.Errorf("parse openapi URL: %w", err)
+	}
+
+	return u, nil
 }
+
+const (
+	creditRoleProducer           = "Producer"
+	creditRoleCoProducer         = "Co-Producer"
+	creditRoleAdditionalProducer = "Additional Producer"
+	creditRoleComposer           = "Composer"
+	creditRoleLyricist           = "Lyricist"
+	creditRoleEngineer           = "Engineer"
+	creditCategorySongwriter     = "Songwriter"
+	creditCategoryProducer       = creditRoleProducer
+	creditCategoryEngineer       = creditRoleEngineer
+)
 
 type trackCreditsIncludedItem struct {
 	ID         string `json:"id"`
@@ -575,15 +593,15 @@ func trackCreditsFromIncluded(included []trackCreditsIncludedItem) types.TrackCr
 
 func appendTrackCredit(out *types.TrackCredits, role, category, name string) {
 	switch role {
-	case "Producer", "Co-Producer":
+	case creditRoleProducer, creditRoleCoProducer:
 		out.Producers = append(out.Producers, name)
-	case "Additional Producer":
+	case creditRoleAdditionalProducer:
 		out.AdditionalProducers = append(out.AdditionalProducers, name)
-	case "Composer", "Music", "Author", "Writer":
+	case creditRoleComposer, "Music", "Author", "Writer":
 		out.Composers = append(out.Composers, name)
-	case "Lyricist":
+	case creditRoleLyricist:
 		out.Lyricists = append(out.Lyricists, name)
-	case "Mixing Engineer", "Mastering Engineer", "Recording Engineer", "Sound Engineer", "Engineer", "Remixer":
+	case "Mixing Engineer", "Mastering Engineer", "Recording Engineer", "Sound Engineer", creditRoleEngineer, "Remixer":
 		out.Engineers = append(out.Engineers, name)
 	case "Arranger", "Orchestrator":
 		out.Arrangers = append(out.Arrangers, name)
@@ -591,11 +609,11 @@ func appendTrackCredit(out *types.TrackCredits, role, category, name string) {
 		out.Publishers = append(out.Publishers, name)
 	default:
 		switch category {
-		case "Songwriter":
+		case creditCategorySongwriter:
 			out.Composers = append(out.Composers, name)
-		case "Producer":
+		case creditCategoryProducer:
 			out.Producers = append(out.Producers, name)
-		case "Engineer":
+		case creditCategoryEngineer:
 			out.Engineers = append(out.Engineers, name)
 		}
 	}
@@ -739,19 +757,19 @@ func (t TrackCreditsResponse) toTrackCredits() types.TrackCredits {
 	var out types.TrackCredits
 	for _, v := range t {
 		switch v.Type {
-		case "Producer":
+		case creditRoleProducer:
 			for _, v := range v.Contributors {
 				out.Producers = append(out.Producers, v.Name)
 			}
-		case "Composer":
+		case creditRoleComposer:
 			for _, v := range v.Contributors {
 				out.Composers = append(out.Composers, v.Name)
 			}
-		case "Lyricist":
+		case creditRoleLyricist:
 			for _, v := range v.Contributors {
 				out.Lyricists = append(out.Lyricists, v.Name)
 			}
-		case "Additional Producer":
+		case creditRoleAdditionalProducer:
 			for _, v := range v.Contributors {
 				out.AdditionalProducers = append(out.AdditionalProducers, v.Name)
 			}

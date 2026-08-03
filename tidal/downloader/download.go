@@ -23,7 +23,7 @@ import (
 const (
 	openAPIBaseURL             = "https://openapi.tidal.com/v2"
 	trackAPIFormat             = "https://api.tidal.com/v1/tracks/%s"
-	trackCreditsAPIFormat      = openAPIBaseURL + "/tracks/%s/relationships/credits" //nolint:gosec
+	trackCreditsAPIFormat      = openAPIBaseURL + "/tracks/%s/relationships/credits"
 	trackLyricsAPIFormat       = "https://api.tidal.com/v1/tracks/%s/lyrics"
 	albumAPIFormat             = "https://api.tidal.com/v1/albums/%s"
 	playlistAPIFormat          = "https://api.tidal.com/v1/playlists/%s"

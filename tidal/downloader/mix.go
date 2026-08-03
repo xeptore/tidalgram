@@ -90,7 +90,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 				return fmt.Errorf("download track: %w", err)
 			}
 
-			trackCredits, err := d.getTrackCredits(wgctx, logger, creds.Token, creds.CountryCode, track.ID)
+			trackCredits, err := d.getTrackCredits(wgctx, logger, creds.Token, track.ID)
 			if nil != err {
 				return fmt.Errorf("get track credits: %w", err)
 			}
