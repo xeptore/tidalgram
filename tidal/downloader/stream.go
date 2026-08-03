@@ -38,13 +38,15 @@ func (d *Downloader) getStream(
 		return nil, "", "", fmt.Errorf("parse track URL to build track stream URLs: %v", err)
 	}
 
-	params := make(url.Values, 6)
-	params.Add("countryCode", countryCode)
-	params.Add("audioquality", "HI_RES_LOSSLESS")
-	params.Add("playbackmode", "STREAM")
-	params.Add("assetpresentation", "FULL")
-	params.Add("immersiveaudio", "false")
-	params.Add("locale", "en")
+	params := make(url.Values, 5)
+	params.Add("adaptive", "false")
+	params.Add("formats", "HEAACV1")
+	params.Add("formats", "AACLC")
+	params.Add("formats", "FLAC")
+	params.Add("formats", "FLAC_HIRES")
+	params.Add("manifestType", "MPEG_DASH")
+	params.Add("uriScheme", "DATA")
+	params.Add("usage", "PLAYBACK")
 
 	reqURL.RawQuery = params.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
@@ -53,7 +55,7 @@ func (d *Downloader) getStream(
 		return nil, "", "", fmt.Errorf("create get track stream URLs request: %v", err)
 	}
 
-	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Accept", "application/vnd.api+json")
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	client := http.Client{ //nolint:exhaustruct
@@ -135,85 +137,85 @@ func (d *Downloader) getStream(
 	}
 
 	var respBody struct {
-		ManifestMimeType string `json:"manifestMimeType"`
-		Manifest         string `json:"manifest"`
-		BitDepth         *int   `json:"bitDepth"`
-		SampleRate       *int   `json:"sampleRate"`
+		Data struct {
+			Attributes struct {
+				URI     string   `json:"uri"`
+				Formats []string `json:"formats"`
+			} `json:"attributes"`
+		} `json:"data"`
 	}
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
 		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode 200 response body")
 		return nil, "", "", fmt.Errorf("decode 200 response body: %w", err)
 	}
 
-	switch mimeType := respBody.ManifestMimeType; mimeType {
-	case "application/dash+xml", "dash+xml":
-		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(respBody.Manifest))
-		info, err := mpd.ParseStreamInfo(dec)
-		if nil != err {
-			logger.Error().Err(err).Str("manifest", respBody.Manifest).Msg("Failed to parse stream info")
-			return nil, "", "", fmt.Errorf("parse stream info: %v", err)
-		}
-
-		ext, err := types.InferTrackExt(info.MimeType, info.Codec)
-		if nil != err {
-			logger.
-				Error().
-				Err(err).
-				Str("mime_type", info.MimeType).
-				Str("codec", info.Codec).
-				Msg("Failed to infer track extension")
-
-			return nil, "", "", fmt.Errorf("infer track extension: %v", err)
-		}
-
-		quality := types.FormatTrackQuality(info.Codec, respBody.BitDepth, respBody.SampleRate)
-
-		return &DashTrackStream{
-			Info:            *info,
-			DownloadTimeout: time.Duration(d.conf.Timeouts.DownloadDashSegment) * time.Second,
-		}, ext, quality, nil
-	case "application/vnd.tidal.bts", "vnd.tidal.bt":
-		var manifest VNDManifest
-		dec := base64.NewDecoder(base64.StdEncoding, strings.NewReader(respBody.Manifest))
-		if err := json.NewDecoder(dec).Decode(&manifest); nil != err {
-			logger.Error().Err(err).Str("manifest", respBody.Manifest).Msg("Failed to decode vnd.tidal.bt manifest")
-			return nil, "", "", fmt.Errorf("decode vnd.tidal.bt manifest: %v", err)
-		}
-
-		switch manifest.EncryptionType {
-		case "NONE":
-		default:
-			return nil, "", "", fmt.Errorf(
-				"encrypted vnd.tidal.bt manifest is not yet implemented: %s",
-				manifest.EncryptionType,
-			)
-		}
-
-		if len(manifest.URLs) == 0 {
-			return nil, "", "", errors.New("empty vnd.tidal.bt manifest URLs")
-		}
-
-		ext, err := types.InferTrackExt(manifest.MimeType, manifest.Codec)
-		if nil != err {
-			logger.
-				Error().
-				Err(err).
-				Str("mime_type", manifest.MimeType).
-				Str("codec", manifest.Codec).
-				Msg("Failed to infer track extension")
-
-			return nil, "", "", fmt.Errorf("infer track extension: %v", err)
-		}
-
-		quality := types.FormatTrackQuality(manifest.Codec, respBody.BitDepth, respBody.SampleRate)
-
-		return &VndTrackStream{
-			URL:                      manifest.URLs[0],
-			DownloadTimeout:          time.Duration(d.conf.Timeouts.DownloadVNDSegment) * time.Second,
-			GetTrackFileSizeTimeout:  time.Duration(d.conf.Timeouts.GetVNDTrackFileSize) * time.Second,
-			VNDTrackPartsConcurrency: d.conf.Concurrency.VNDTrackParts,
-		}, ext, quality, nil
-	default:
-		return nil, "", "", fmt.Errorf("unexpected manifest mime type: %s", mimeType)
+	manifestReader, err := decodeTrackManifestURI(respBody.Data.Attributes.URI)
+	if nil != err {
+		logger.Error().Err(err).Str("uri", respBody.Data.Attributes.URI).Msg("Failed to decode track manifest URI")
+		return nil, "", "", fmt.Errorf("decode track manifest URI: %v", err)
 	}
+
+	info, err := mpd.ParseStreamInfo(manifestReader)
+	if nil != err {
+		logger.Error().Err(err).Msg("Failed to parse stream info")
+		return nil, "", "", fmt.Errorf("parse stream info: %v", err)
+	}
+
+	ext, err = types.InferTrackExt(info.MimeType, info.Codec)
+	if nil != err {
+		logger.
+			Error().
+			Err(err).
+			Str("mime_type", info.MimeType).
+			Str("codec", info.Codec).
+			Msg("Failed to infer track extension")
+
+		return nil, "", "", fmt.Errorf("infer track extension: %v", err)
+	}
+
+	quality = trackManifestQuality(respBody.Data.Attributes.Formats, info)
+
+	return &DashTrackStream{
+		Info:            *info,
+		DownloadTimeout: time.Duration(d.conf.Timeouts.DownloadDashSegment) * time.Second,
+	}, ext, quality, nil
+}
+
+const trackManifestDataURIPrefix = "data:application/dash+xml;base64,"
+
+func decodeTrackManifestURI(uri string) (io.Reader, error) {
+	if !strings.HasPrefix(uri, trackManifestDataURIPrefix) {
+		return nil, fmt.Errorf("unexpected track manifest URI scheme: %s", uri)
+	}
+
+	b64 := strings.TrimPrefix(uri, trackManifestDataURIPrefix)
+	if len(b64) == 0 {
+		return nil, errors.New("empty track manifest data URI payload")
+	}
+
+	return base64.NewDecoder(base64.StdEncoding, strings.NewReader(b64)), nil
+}
+
+func trackManifestQuality(formats []string, info *mpd.StreamInfo) string {
+	var sampleRate *int
+	if info.SampleRate > 0 {
+		sr := info.SampleRate
+		sampleRate = &sr
+	}
+
+	var bitDepth *int
+	for _, format := range formats {
+		switch format {
+		case "FLAC_HIRES":
+			bd := 24
+			bitDepth = &bd
+		case "FLAC":
+			if nil == bitDepth {
+				bd := 16
+				bitDepth = &bd
+			}
+		}
+	}
+
+	return types.FormatTrackQuality(info.Codec, bitDepth, sampleRate)
 }

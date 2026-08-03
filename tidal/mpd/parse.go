@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"strings"
 )
 
 type MPD struct {
@@ -54,9 +55,10 @@ type S struct {
 }
 
 type StreamInfo struct {
-	Codec    string
-	MimeType string
-	Parts    Parts
+	Codec      string
+	MimeType   string
+	SampleRate int
+	Parts      Parts
 }
 
 type Parts struct {
@@ -66,8 +68,9 @@ type Parts struct {
 
 func (m *MPD) parts() (*Parts, error) {
 	contentType := m.Period.AdaptationSet.ContentType
-	if contentType != "audio" {
-		return nil, fmt.Errorf("unexpected content type: %s", contentType)
+	mimeType := m.Period.AdaptationSet.MimeType
+	if contentType != "audio" && !strings.HasPrefix(mimeType, "audio/") {
+		return nil, fmt.Errorf("unexpected content type %q with mime type %q", contentType, mimeType)
 	}
 
 	var partsCount int
@@ -95,8 +98,9 @@ func ParseStreamInfo(r io.Reader) (*StreamInfo, error) {
 	}
 
 	return &StreamInfo{
-		Codec:    mpd.Period.AdaptationSet.Representation.Codecs,
-		MimeType: mpd.Period.AdaptationSet.MimeType,
-		Parts:    *parts,
+		Codec:      mpd.Period.AdaptationSet.Representation.Codecs,
+		MimeType:   mpd.Period.AdaptationSet.MimeType,
+		SampleRate: mpd.Period.AdaptationSet.Representation.AudioSamplingRate,
+		Parts:      *parts,
 	}, nil
 }

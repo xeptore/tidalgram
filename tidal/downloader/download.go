@@ -26,7 +26,7 @@ const (
 	trackLyricsAPIFormat       = "https://api.tidal.com/v1/tracks/%s/lyrics"
 	albumAPIFormat             = "https://api.tidal.com/v1/albums/%s"
 	playlistAPIFormat          = "https://api.tidal.com/v1/playlists/%s"
-	trackStreamAPIFormat       = "https://api.tidal.com/v1/tracks/%s/playbackinfo"
+	trackStreamAPIFormat       = "https://openapi.tidal.com/v2/trackManifests/%s"
 	albumItemsCreditsAPIFormat = "https://api.tidal.com/v1/albums/%s/items/credits" //nolint:gosec
 	playlistItemsAPIFormat     = "https://api.tidal.com/v1/playlists/%s/items"
 	mixItemsAPIFormat          = "https://api.tidal.com/v1/mixes/%s/items"
