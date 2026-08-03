@@ -382,7 +382,7 @@ func (u *Uploader) uploadAlbum(
 					caption := []message.StyledTextOption{
 						styling.Blockquote(info.Caption, notCollapsed),
 						styling.Plain("\n"),
-						styling.Italic(fmt.Sprintf("Disc %d / Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
+						styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 					}
 					if sig := u.conf.Upload.Signature; len(sig) > 0 {
 						caption = append(caption, html.String(nil, sig))
@@ -546,7 +546,7 @@ func (u *Uploader) uploadMix(
 				caption := []message.StyledTextOption{
 					styling.Blockquote(trackInfo.Caption, notCollapsed),
 					styling.Plain("\n"),
-					styling.Italic(fmt.Sprintf("Disc %d / Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
+					styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 				}
 				if sig := u.conf.Upload.Signature; len(sig) > 0 {
 					caption = append(caption, html.String(nil, sig))
@@ -709,7 +709,7 @@ func (u *Uploader) uploadArtistCredits(
 				caption := []message.StyledTextOption{
 					styling.Blockquote(trackInfo.Caption, notCollapsed),
 					styling.Plain("\n"),
-					styling.Italic(fmt.Sprintf("Disc %d / Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
+					styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 				}
 				if sig := u.conf.Upload.Signature; len(sig) > 0 {
 					caption = append(caption, html.String(nil, sig))
@@ -872,7 +872,7 @@ func (u *Uploader) uploadPlaylist(
 				caption := []message.StyledTextOption{
 					styling.Blockquote(trackInfo.Caption, notCollapsed),
 					styling.Plain("\n"),
-					styling.Italic(fmt.Sprintf("Disc %d / Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
+					styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 				}
 				if sig := u.conf.Upload.Signature; len(sig) > 0 {
 					caption = append(caption, html.String(nil, sig))
@@ -999,7 +999,7 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	caption := []message.StyledTextOption{
 		styling.Blockquote(trackInfo.Caption, notCollapsed),
 		styling.Plain("\n"),
-		styling.Italic(fmt.Sprintf("Disc %d / Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
+		styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 	}
 	if sig := u.conf.Upload.Signature; len(sig) > 0 {
 		caption = append(caption, html.String(nil, sig))

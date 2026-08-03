@@ -331,7 +331,7 @@ func (d *Downloader) downloadTrack(
 }
 
 func trackCaption(albumTitle string, releaseDate time.Time) string {
-	return fmt.Sprintf("%s (%s)", albumTitle, releaseDate.Format(types.ReleaseDateLayout))
+	return fmt.Sprintf("🎙️ %s\n📅 %s", albumTitle, releaseDate.Format(types.ReleaseDateLayout))
 }
 
 func (d *Downloader) getTrackCredits(
