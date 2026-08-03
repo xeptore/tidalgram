@@ -1124,21 +1124,17 @@ func songCaption(
 		styling.Plain("📅 " + releaseDate.Format(types.ReleaseDateLayout)),
 		styling.Plain("\n"),
 		styling.Plain("\n"),
+		styling.Plain("📀 Disc " + strconv.Itoa(volumeNumber) + " - Track " + strconv.Itoa(trackNumber)),
 	}
 
 	if len(quality) > 0 {
 		caption = append(
 			caption,
+			styling.Plain("\n"),
+			styling.Plain("\n"),
 			styling.Plain("💎 "+quality),
-			styling.Plain("\n"),
-			styling.Plain("\n"),
 		)
 	}
-
-	caption = append(
-		caption,
-		styling.Plain("📀 Disc "+strconv.Itoa(volumeNumber)+" - Track "+strconv.Itoa(trackNumber)),
-	)
 
 	if len(sig) > 0 {
 		caption = append(
