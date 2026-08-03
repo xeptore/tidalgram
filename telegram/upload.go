@@ -548,7 +548,6 @@ func (u *Uploader) uploadMix(
 				caption := []message.StyledTextOption{
 					styling.Plain(trackInfo.Caption),
 					styling.Plain("\n"),
-					styling.Plain("\n"),
 					styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 				}
 				if sig := u.conf.Upload.Signature; len(sig) > 0 {
