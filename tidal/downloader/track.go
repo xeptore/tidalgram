@@ -82,7 +82,7 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 		}
 	}()
 
-	ext, quality, err := d.downloadTrack(ctx, logger, creds.Token, creds.CountryCode, id, trackFs.Path)
+	ext, quality, err := d.downloadTrack(ctx, logger, creds.Token, id, trackFs.Path)
 	if nil != err {
 		return fmt.Errorf("download track: %w", err)
 	}
@@ -312,13 +312,12 @@ func (d *Downloader) downloadTrack(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
-	countryCode string,
 	id string,
 	fileName string,
 ) (ext string, quality string, err error) {
 	logger = logger.With().Str("file_name", fileName).Logger()
 
-	stream, ext, quality, err := d.getStream(ctx, logger, accessToken, countryCode, id)
+	stream, ext, quality, err := d.getStream(ctx, logger, accessToken, id)
 	if nil != err {
 		return "", "", fmt.Errorf("get track stream: %w", err)
 	}

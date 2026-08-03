@@ -76,7 +76,7 @@ func (d *Downloader) artistCredits(ctx context.Context, logger zerolog.Logger, i
 				}
 			}()
 
-			ext, quality, err := d.downloadTrack(wgctx, logger, creds.Token, creds.CountryCode, track.ID, trackFs.Path)
+			ext, quality, err := d.downloadTrack(wgctx, logger, creds.Token, track.ID, trackFs.Path)
 			if nil != err {
 				return fmt.Errorf("download track: %w", err)
 			}

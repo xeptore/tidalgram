@@ -28,7 +28,6 @@ func (d *Downloader) getStream(
 	ctx context.Context,
 	logger zerolog.Logger,
 	accessToken string,
-	countryCode string,
 	id string,
 ) (s Stream, ext string, quality string, err error) {
 	trackURL := fmt.Sprintf(trackStreamAPIFormat, id)
