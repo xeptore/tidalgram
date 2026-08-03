@@ -85,7 +85,7 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 				}
 			}()
 
-			ext, err := d.downloadTrack(wgctx, logger, creds.Token, creds.CountryCode, track.ID, trackFs.Path)
+			ext, quality, err := d.downloadTrack(wgctx, logger, creds.Token, creds.CountryCode, track.ID, trackFs.Path)
 			if nil != err {
 				return fmt.Errorf("download track: %w", err)
 			}
@@ -138,8 +138,9 @@ func (d *Downloader) mix(ctx context.Context, logger zerolog.Logger, id string) 
 					Version:      track.Version,
 					CoverID:      track.CoverID,
 					Ext:          ext,
+					Quality:      quality,
 				},
-				Caption: trackCaption(album.Title, album.ReleaseDate),
+				Caption: trackCaption(album.Title, album.ReleaseDate, quality),
 			}
 			if err := trackFs.InfoFile.Write(info); nil != err {
 				logger.Error().Err(err).Msg("Failed to write track info")

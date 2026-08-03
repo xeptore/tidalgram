@@ -82,7 +82,7 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 		}
 	}()
 
-	ext, err := d.downloadTrack(ctx, logger, creds.Token, creds.CountryCode, id, trackFs.Path)
+	ext, quality, err := d.downloadTrack(ctx, logger, creds.Token, creds.CountryCode, id, trackFs.Path)
 	if nil != err {
 		return fmt.Errorf("download track: %w", err)
 	}
@@ -135,8 +135,9 @@ func (d *Downloader) track(ctx context.Context, logger zerolog.Logger, id string
 			Version:      track.Version,
 			CoverID:      track.CoverID,
 			Ext:          ext,
+			Quality:      quality,
 		},
-		Caption: trackCaption(album.Title, album.ReleaseDate),
+		Caption: trackCaption(album.Title, album.ReleaseDate, quality),
 	}
 	if err := trackFs.InfoFile.Write(info); nil != err {
 		logger.Error().Err(err).Msg("Failed to write track info file")
@@ -313,25 +314,30 @@ func (d *Downloader) downloadTrack(
 	countryCode string,
 	id string,
 	fileName string,
-) (ext string, err error) {
+) (ext string, quality string, err error) {
 	logger = logger.With().Str("file_name", fileName).Logger()
 
-	stream, ext, err := d.getStream(ctx, logger, accessToken, countryCode, id)
+	stream, ext, quality, err := d.getStream(ctx, logger, accessToken, countryCode, id)
 	if nil != err {
-		return "", fmt.Errorf("get track stream: %w", err)
+		return "", "", fmt.Errorf("get track stream: %w", err)
 	}
 
 	time.Sleep(ratelimit.TrackDownloadSleepMS())
 
 	if err := stream.saveTo(ctx, logger, accessToken, fileName); nil != err {
-		return "", fmt.Errorf("download track: %w", err)
+		return "", "", fmt.Errorf("download track: %w", err)
 	}
 
-	return ext, nil
+	return ext, quality, nil
 }
 
-func trackCaption(albumTitle string, releaseDate time.Time) string {
-	return fmt.Sprintf("🎙️ %s\n📅 %s", albumTitle, releaseDate.Format(types.ReleaseDateLayout))
+func trackCaption(albumTitle string, releaseDate time.Time, quality string) string {
+	caption := fmt.Sprintf("🎙️ %s\n📅 %s", albumTitle, releaseDate.Format(types.ReleaseDateLayout))
+	if len(quality) > 0 {
+		caption += "\n" + quality
+	}
+
+	return caption
 }
 
 func (d *Downloader) getTrackCredits(

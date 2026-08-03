@@ -379,8 +379,12 @@ func (u *Uploader) uploadAlbum(
 					}
 
 					const notCollapsed = false
+					captionText := info.Caption
+					if len(trackInfo.Quality) > 0 {
+						captionText += "\n" + trackInfo.Quality
+					}
 					caption := []message.StyledTextOption{
-						styling.Blockquote(info.Caption, notCollapsed),
+						styling.Blockquote(captionText, notCollapsed),
 						styling.Plain("\n"),
 						styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 					}
