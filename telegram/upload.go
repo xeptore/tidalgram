@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/gabriel-vasile/mimetype"
@@ -1116,16 +1117,31 @@ func songCaption(
 	trackNumber int,
 	sig string,
 ) []message.StyledTextOption {
-	text := fmt.Sprintf("🎙️ %s\n\n📅 %s", albumTitle, releaseDate.Format(types.ReleaseDateLayout))
-	if len(quality) > 0 {
-		text += "\n\n💎 " + quality
+	caption := []message.StyledTextOption{
+		styling.Plain("🎵 " + albumTitle),
+		styling.Plain("\n"),
+		styling.Plain("\n"),
+		styling.Plain("📅 " + releaseDate.Format(types.ReleaseDateLayout)),
+		styling.Plain("\n"),
+		styling.Plain("\n"),
 	}
 
-	caption := []message.StyledTextOption{
-		styling.Plain(text),
-		styling.Plain("\n"),
-		styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", volumeNumber, trackNumber)),
+	if len(quality) > 0 {
+		caption = append(
+			caption,
+			styling.Plain("💎 "+quality),
+			styling.Plain("\n"),
+			styling.Plain("\n"),
+		)
 	}
+
+	caption = append(
+		caption,
+		styling.Plain("📀 Disc "+strconv.Itoa(volumeNumber)+" - Track "+strconv.Itoa(trackNumber)),
+		styling.Plain("\n"),
+		styling.Plain("\n"),
+	)
+
 	if len(sig) > 0 {
 		caption = append(caption, html.String(nil, sig))
 	}
