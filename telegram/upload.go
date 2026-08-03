@@ -378,13 +378,12 @@ func (u *Uploader) uploadAlbum(
 						return fmt.Errorf("detect album track mime: %v", err)
 					}
 
-					const notCollapsed = false
 					captionText := info.Caption
 					if len(trackInfo.Quality) > 0 {
 						captionText += "\n" + trackInfo.Quality
 					}
 					caption := []message.StyledTextOption{
-						styling.Blockquote(captionText, notCollapsed),
+						styling.Plain(captionText),
 						styling.Plain("\n"),
 						styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 					}
@@ -546,7 +545,6 @@ func (u *Uploader) uploadMix(
 					return fmt.Errorf("read mix track info file: %v", err)
 				}
 
-				const notCollapsed = false
 				caption := []message.StyledTextOption{
 					styling.Plain(trackInfo.Caption),
 					styling.Plain("\n"),
@@ -710,9 +708,8 @@ func (u *Uploader) uploadArtistCredits(
 					return fmt.Errorf("detect artist credits track mime: %v", err)
 				}
 
-				const notCollapsed = false
 				caption := []message.StyledTextOption{
-					styling.Blockquote(trackInfo.Caption, notCollapsed),
+					styling.Plain(trackInfo.Caption),
 					styling.Plain("\n"),
 					styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 				}
@@ -873,9 +870,8 @@ func (u *Uploader) uploadPlaylist(
 					return fmt.Errorf("detect playlist mime: %v", err)
 				}
 
-				const notCollapsed = false
 				caption := []message.StyledTextOption{
-					styling.Blockquote(trackInfo.Caption, notCollapsed),
+					styling.Plain(trackInfo.Caption),
 					styling.Plain("\n"),
 					styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 				}
@@ -1000,9 +996,8 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		return fmt.Errorf("detect mime: %v", err)
 	}
 
-	const notCollapsed = false
 	caption := []message.StyledTextOption{
-		styling.Blockquote(trackInfo.Caption, notCollapsed),
+		styling.Plain(trackInfo.Caption),
 		styling.Plain("\n"),
 		styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 	}
