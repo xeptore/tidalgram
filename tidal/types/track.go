@@ -21,6 +21,9 @@ type TrackCredits struct {
 	Composers           []string
 	Lyricists           []string
 	AdditionalProducers []string
+	Engineers           []string
+	Arrangers           []string
+	Publishers          []string
 }
 
 func (t TrackCredits) ToDict() *zerolog.Event {
@@ -29,7 +32,10 @@ func (t TrackCredits) ToDict() *zerolog.Event {
 		Strs("producers", t.Producers).
 		Strs("composers", t.Composers).
 		Strs("lyricists", t.Lyricists).
-		Strs("additional_producers", t.AdditionalProducers)
+		Strs("additional_producers", t.AdditionalProducers).
+		Strs("engineers", t.Engineers).
+		Strs("arrangers", t.Arrangers).
+		Strs("publishers", t.Publishers)
 }
 
 type TrackArtist struct {

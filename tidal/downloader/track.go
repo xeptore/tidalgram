@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -359,25 +360,55 @@ func (d *Downloader) downloadTrackCredits(
 	countryCode string,
 	id string,
 ) (c *types.TrackCredits, err error) {
-	trackCreditsURL := fmt.Sprintf(trackCreditsAPIFormat, id)
-	reqURL, err := url.Parse(trackCreditsURL)
+	_ = countryCode
+
+	reqParams := make(url.Values, 1)
+	reqParams.Add("include", "credits,credits.artist,credits.category")
+
+	pageURL, err := url.Parse(fmt.Sprintf(trackCreditsAPIFormat, id))
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to parse track credits URL")
-		return nil, fmt.Errorf("parse track credits URL %s: %v", trackCreditsURL, err)
+		return nil, fmt.Errorf("parse track credits URL: %v", err)
+	}
+	pageURL.RawQuery = reqParams.Encode()
+
+	var included []trackCreditsIncludedItem
+	for page := 0; ; page++ {
+		logger := logger.With().Int("page", page).Str("page_url", pageURL.String()).Logger()
+
+		pageIncluded, next, err := d.fetchTrackCreditsPage(ctx, logger, accessToken, pageURL.String())
+		if nil != err {
+			return nil, fmt.Errorf("fetch track credits page: %w", err)
+		}
+		included = append(included, pageIncluded...)
+
+		if len(next) == 0 {
+			break
+		}
+
+		pageURL, err = absoluteOpenAPIURL(next)
+		if nil != err {
+			logger.Error().Err(err).Str("next", next).Msg("Failed to resolve track credits next page URL")
+			return nil, fmt.Errorf("resolve track credits next page URL: %v", err)
+		}
 	}
 
-	reqParams := make(url.Values, 2)
-	reqParams.Add("countryCode", countryCode)
-	reqParams.Add("includeContributors", "true")
-	reqURL.RawQuery = reqParams.Encode()
+	return ptr.Of(trackCreditsFromIncluded(included)), nil
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL.String(), nil)
+func (d *Downloader) fetchTrackCreditsPage(
+	ctx context.Context,
+	logger zerolog.Logger,
+	accessToken string,
+	pageURL string,
+) (included []trackCreditsIncludedItem, next string, err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to create get track credits request")
-		return nil, fmt.Errorf("create get track credits request %s: %w", reqURL.String(), err)
+		return nil, "", fmt.Errorf("create get track credits request %s: %w", pageURL, err)
 	}
 
-	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Accept", "application/vnd.api+json")
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	client := http.Client{ //nolint:exhaustruct
@@ -386,7 +417,7 @@ func (d *Downloader) downloadTrackCredits(
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send get track credits request")
-		return nil, fmt.Errorf("send get track credits request: %w", err)
+		return nil, "", fmt.Errorf("send get track credits request: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); nil != closeErr {
@@ -401,70 +432,173 @@ func (d *Downloader) downloadTrackCredits(
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 401 response body")
-			return nil, fmt.Errorf("read 401 response body: %w", err)
+			return nil, "", fmt.Errorf("read 401 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTokenExpiredResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token expired")
-			return nil, fmt.Errorf("check if 401 response is token expired: %v", err)
+			return nil, "", fmt.Errorf("check if 401 response is token expired: %v", err)
 		} else if ok {
-			return nil, auth.ErrUnauthorized
+			return nil, "", auth.ErrUnauthorized
 		}
 
 		if ok, err := httputil.IsTokenInvalidResponse(respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 401 response is token invalid")
-			return nil, fmt.Errorf("check if 401 response is token invalid: %v", err)
+			return nil, "", fmt.Errorf("check if 401 response is token invalid: %v", err)
 		} else if ok {
-			return nil, auth.ErrUnauthorized
+			return nil, "", auth.ErrUnauthorized
 		}
 
 		logger.Error().Bytes("response_body", respBytes).Msg("Unexpected 401 response")
 
-		return nil, fmt.Errorf("unexpected 401 response with body: %s", string(respBytes))
+		return nil, "", fmt.Errorf("unexpected 401 response with body: %s", string(respBytes))
 	case http.StatusTooManyRequests:
-		return nil, ErrTooManyRequests
+		return nil, "", ErrTooManyRequests
 	case http.StatusForbidden:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Msg("Failed to read 403 response body")
-			return nil, fmt.Errorf("read 403 response body: %w", err)
+			return nil, "", fmt.Errorf("read 403 response body: %w", err)
 		}
 
 		if ok, err := httputil.IsTooManyErrorResponse(resp, respBytes); nil != err {
 			logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to check if 403 response is too many requests")
-			return nil, fmt.Errorf("check if 403 response is too many requests: %v", err)
+			return nil, "", fmt.Errorf("check if 403 response is too many requests: %v", err)
 		} else if ok {
-			return nil, ErrTooManyRequests
+			return nil, "", ErrTooManyRequests
 		}
 
 		logger.Error().Bytes("response_body", respBytes).Msg("Unexpected 403 response")
 
-		return nil, fmt.Errorf("unexpected 403 response with body: %s", string(respBytes))
+		return nil, "", fmt.Errorf("unexpected 403 response with body: %s", string(respBytes))
 	default:
 		respBytes, err := io.ReadAll(resp.Body)
 		if nil != err {
 			logger.Error().Err(err).Int("status_code", code).Msg("Failed to read response body")
-			return nil, fmt.Errorf("read response body: %w", err)
+			return nil, "", fmt.Errorf("read response body: %w", err)
 		}
 
 		logger.Error().Int("status_code", code).Bytes("response_body", respBytes).Msg("Unexpected response status code")
 
-		return nil, fmt.Errorf("unexpected status code %d with body: %s", code, string(respBytes))
+		return nil, "", fmt.Errorf("unexpected status code %d with body: %s", code, string(respBytes))
 	}
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to read 200 response body")
-		return nil, fmt.Errorf("read 200 response body: %w", err)
+		return nil, "", fmt.Errorf("read 200 response body: %w", err)
 	}
 
-	var respBody TrackCreditsResponse
+	var respBody struct {
+		Included []trackCreditsIncludedItem `json:"included"`
+		Links    struct {
+			Next string `json:"next"`
+		} `json:"links"`
+	}
 	if err := json.Unmarshal(respBytes, &respBody); nil != err {
 		logger.Error().Err(err).Bytes("response_body", respBytes).Msg("Failed to decode track credits 200 response body")
-		return nil, fmt.Errorf("decode track credits 200 response body: %w", err)
+		return nil, "", fmt.Errorf("decode track credits 200 response body: %w", err)
 	}
 
-	return ptr.Of(respBody.toTrackCredits()), nil
+	return respBody.Included, respBody.Links.Next, nil
+}
+
+func absoluteOpenAPIURL(pathAndQuery string) (*url.URL, error) {
+	if strings.HasPrefix(pathAndQuery, "https://") || strings.HasPrefix(pathAndQuery, "http://") {
+		return url.Parse(pathAndQuery)
+	}
+	if !strings.HasPrefix(pathAndQuery, "/") {
+		return nil, fmt.Errorf("unexpected relative openapi path: %s", pathAndQuery)
+	}
+
+	return url.Parse(openAPIBaseURL + pathAndQuery)
+}
+
+type trackCreditsIncludedItem struct {
+	ID         string `json:"id"`
+	Type       string `json:"type"`
+	Attributes struct {
+		Name string `json:"name"`
+		Role string `json:"role"`
+	} `json:"attributes"`
+	Relationships struct {
+		Artist *struct {
+			Data *struct {
+				ID   string `json:"id"`
+				Type string `json:"type"`
+			} `json:"data"`
+		} `json:"artist"`
+		Category *struct {
+			Data *struct {
+				ID   string `json:"id"`
+				Type string `json:"type"`
+			} `json:"data"`
+		} `json:"category"`
+	} `json:"relationships"`
+}
+
+func trackCreditsFromIncluded(included []trackCreditsIncludedItem) types.TrackCredits {
+	categories := make(map[string]string)
+	artists := make(map[string]string)
+	for _, item := range included {
+		switch item.Type {
+		case "artistRoles":
+			categories[item.ID] = item.Attributes.Name
+		case "artists":
+			artists[item.ID] = item.Attributes.Name
+		}
+	}
+
+	var out types.TrackCredits
+	for _, item := range included {
+		if item.Type != "credits" {
+			continue
+		}
+
+		name := item.Attributes.Name
+		if nil != item.Relationships.Artist && nil != item.Relationships.Artist.Data {
+			if artistName := artists[item.Relationships.Artist.Data.ID]; len(artistName) > 0 {
+				name = artistName
+			}
+		}
+
+		category := ""
+		if nil != item.Relationships.Category && nil != item.Relationships.Category.Data {
+			category = categories[item.Relationships.Category.Data.ID]
+		}
+
+		appendTrackCredit(&out, item.Attributes.Role, category, name)
+	}
+
+	return out
+}
+
+func appendTrackCredit(out *types.TrackCredits, role, category, name string) {
+	switch role {
+	case "Producer", "Co-Producer":
+		out.Producers = append(out.Producers, name)
+	case "Additional Producer":
+		out.AdditionalProducers = append(out.AdditionalProducers, name)
+	case "Composer", "Music", "Author", "Writer":
+		out.Composers = append(out.Composers, name)
+	case "Lyricist":
+		out.Lyricists = append(out.Lyricists, name)
+	case "Mixing Engineer", "Mastering Engineer", "Recording Engineer", "Sound Engineer", "Engineer", "Remixer":
+		out.Engineers = append(out.Engineers, name)
+	case "Arranger", "Orchestrator":
+		out.Arrangers = append(out.Arrangers, name)
+	case "Music Publisher", "Publisher":
+		out.Publishers = append(out.Publishers, name)
+	default:
+		switch category {
+		case "Songwriter":
+			out.Composers = append(out.Composers, name)
+		case "Producer":
+			out.Producers = append(out.Producers, name)
+		case "Engineer":
+			out.Engineers = append(out.Engineers, name)
+		}
+	}
 }
 
 func (d *Downloader) downloadTrackLyrics(
@@ -708,6 +842,15 @@ func embedTrackAttributes(
 			metaTags,
 			"coproducer="+types.JoinNames(attrs.Credits.AdditionalProducers),
 		)
+	}
+	if len(attrs.Credits.Engineers) > 0 {
+		metaTags = append(metaTags, "engineer="+types.JoinNames(attrs.Credits.Engineers))
+	}
+	if len(attrs.Credits.Arrangers) > 0 {
+		metaTags = append(metaTags, "arranger="+types.JoinNames(attrs.Credits.Arrangers))
+	}
+	if len(attrs.Credits.Publishers) > 0 {
+		metaTags = append(metaTags, "publisher="+types.JoinNames(attrs.Credits.Publishers))
 	}
 
 	if nil != attrs.Version {

@@ -21,12 +21,13 @@ import (
 )
 
 const (
+	openAPIBaseURL             = "https://openapi.tidal.com/v2"
 	trackAPIFormat             = "https://api.tidal.com/v1/tracks/%s"
-	trackCreditsAPIFormat      = "https://api.tidal.com/v1/tracks/%s/credits" //nolint:gosec
+	trackCreditsAPIFormat      = openAPIBaseURL + "/tracks/%s/relationships/credits" //nolint:gosec
 	trackLyricsAPIFormat       = "https://api.tidal.com/v1/tracks/%s/lyrics"
 	albumAPIFormat             = "https://api.tidal.com/v1/albums/%s"
 	playlistAPIFormat          = "https://api.tidal.com/v1/playlists/%s"
-	trackStreamAPIFormat       = "https://openapi.tidal.com/v2/trackManifests/%s"
+	trackStreamAPIFormat       = openAPIBaseURL + "/trackManifests/%s"
 	albumItemsCreditsAPIFormat = "https://api.tidal.com/v1/albums/%s/items/credits" //nolint:gosec
 	playlistItemsAPIFormat     = "https://api.tidal.com/v1/playlists/%s/items"
 	mixItemsAPIFormat          = "https://api.tidal.com/v1/mixes/%s/items"
