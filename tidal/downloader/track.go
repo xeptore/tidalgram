@@ -332,9 +332,9 @@ func (d *Downloader) downloadTrack(
 }
 
 func trackCaption(albumTitle string, releaseDate time.Time, quality string) string {
-	caption := fmt.Sprintf("🎙️ %s\n📅 %s", albumTitle, releaseDate.Format(types.ReleaseDateLayout))
+	caption := fmt.Sprintf("🎙️ %s\n\n📅 %s", albumTitle, releaseDate.Format(types.ReleaseDateLayout))
 	if len(quality) > 0 {
-		caption += "\n" + quality
+		caption += "\n\n💎 " + quality
 	}
 
 	return caption

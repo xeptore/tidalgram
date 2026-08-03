@@ -93,7 +93,7 @@ func FormatTrackQuality(codec string, bitDepth, sampleRate *int) string {
 		return name
 	}
 
-	return fmt.Sprintf("💎 %s | %dBit - %s", name, *bitDepth, formatSampleRate(*sampleRate))
+	return fmt.Sprintf("%s | %dBit - %s", name, *bitDepth, formatSampleRate(*sampleRate))
 }
 
 func codecDisplayName(codec string) string {

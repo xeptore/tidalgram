@@ -548,7 +548,8 @@ func (u *Uploader) uploadMix(
 
 				const notCollapsed = false
 				caption := []message.StyledTextOption{
-					styling.Blockquote(trackInfo.Caption, notCollapsed),
+					styling.Plain(trackInfo.Caption),
+					styling.Plain("\n"),
 					styling.Plain("\n"),
 					styling.Italic(fmt.Sprintf("📀 Disc %d / 🎵 Track %d", trackInfo.VolumeNumber, trackInfo.TrackNumber)),
 				}
