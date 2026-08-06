@@ -186,18 +186,22 @@ func (b *Bot) Start(ctx context.Context) error {
 		{
 			Command:     "/hello",
 			Description: "Says hello to the bot.",
+			IsEphemeral: false,
 		},
 		{
 			Command:     "/cancel",
 			Description: "Cancels the running download job if any.",
+			IsEphemeral: false,
 		},
 		{
 			Command:     "/tidal_login",
 			Description: "Starts Tidal authorization flow.",
+			IsEphemeral: false,
 		},
 		{
 			Command:     "/tidal_auth_status",
 			Description: "Pings Tidal and reports authentication state.",
+			IsEphemeral: false,
 		},
 	}
 	if _, err := b.bot.SetMyCommandsWithContext(ctx, commands, nil); nil != err {
