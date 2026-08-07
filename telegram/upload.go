@@ -275,6 +275,10 @@ func (u *Uploader) uploadAlbum(
 	dir fs.DownloadsDir,
 	id string,
 ) (err error) {
+	if len(id) == 0 {
+		return nil
+	}
+
 	albumFs := dir.Album(id)
 
 	info, err := albumFs.InfoFile.Read()
@@ -451,7 +455,12 @@ func (u *Uploader) uploadMix(
 	dir fs.DownloadsDir,
 	id string,
 ) (err error) {
+	if len(id) == 0 {
+		return nil
+	}
+
 	mixFs := dir.Mix(id)
+
 	info, err := mixFs.InfoFile.Read()
 	if nil != err {
 		return fmt.Errorf("read playlist info file: %v", err)
@@ -775,7 +784,12 @@ func (u *Uploader) uploadPlaylist(
 	dir fs.DownloadsDir,
 	id string,
 ) (err error) {
+	if len(id) == 0 {
+		return nil
+	}
+
 	playlistFs := dir.Playlist(id)
+
 	info, err := playlistFs.InfoFile.Read()
 	if nil != err {
 		return fmt.Errorf("read playlist info file: %v", err)
