@@ -389,6 +389,7 @@ func (u *Uploader) uploadAlbum(
 						trackInfo.Quality,
 						trackInfo.VolumeNumber,
 						trackInfo.TrackNumber,
+						trackID,
 						u.conf.Upload.Signature,
 					)
 
@@ -557,6 +558,7 @@ func (u *Uploader) uploadMix(
 					trackInfo.Quality,
 					trackInfo.VolumeNumber,
 					trackInfo.TrackNumber,
+					trackID,
 					u.conf.Upload.Signature,
 				)
 
@@ -719,6 +721,7 @@ func (u *Uploader) uploadArtistCredits(
 					trackInfo.Quality,
 					trackInfo.VolumeNumber,
 					trackInfo.TrackNumber,
+					trackID,
 					u.conf.Upload.Signature,
 				)
 
@@ -886,6 +889,7 @@ func (u *Uploader) uploadPlaylist(
 					trackInfo.Quality,
 					trackInfo.VolumeNumber,
 					trackInfo.TrackNumber,
+					trackID,
 					u.conf.Upload.Signature,
 				)
 
@@ -1012,6 +1016,7 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 		trackInfo.Quality,
 		trackInfo.VolumeNumber,
 		trackInfo.TrackNumber,
+		id,
 		u.conf.Upload.Signature,
 	)
 
@@ -1129,6 +1134,7 @@ func songCaption(
 	quality string,
 	volumeNumber int,
 	trackNumber int,
+	trackID string,
 	sig string,
 ) []message.StyledTextOption {
 	caption := []message.StyledTextOption{
@@ -1139,6 +1145,10 @@ func songCaption(
 		styling.Plain("\n"),
 		styling.Plain("\n"),
 		styling.Plain("📀 Disc " + strconv.Itoa(volumeNumber) + " - Track " + strconv.Itoa(trackNumber)),
+		styling.Plain("\n"),
+		styling.Plain("\n"),
+		styling.Plain("🆔 "),
+		styling.Code(trackID),
 	}
 
 	if len(quality) > 0 {
