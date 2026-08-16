@@ -26,6 +26,11 @@ import (
 
 var ErrChatNotFound = errors.New("chat not found")
 
+const (
+	longPollTimeout        = 30
+	longPollRequestTimeout = 40 * time.Second
+)
+
 type Bot struct {
 	bot        *gotgbot.Bot
 	updater    *ext.Updater
@@ -66,11 +71,7 @@ func New(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*Bot, err
 
 	b, err := gotgbot.NewBot(conf.Token, &gotgbot.BotOpts{ //nolint:exhaustruct
 		BotClient: &gotgbot.BaseBotClient{
-			Client: http.Client{ //nolint:exhaustruct
-				Transport: &http.Transport{ //nolint:exhaustruct
-					Proxy: proxy,
-				},
-			},
+			Client:             newHTTPClient(proxy),
 			UseTestEnvironment: false,
 			DefaultRequestOpts: &gotgbot.RequestOpts{
 				Timeout:        10 * time.Minute,
@@ -123,13 +124,20 @@ func fillAccount(b *gotgbot.Bot) Account {
 	}
 }
 
+func newHTTPClient(proxy func(*http.Request) (*url.URL, error)) http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = proxy
+
+	return http.Client{Transport: transport} //nolint:exhaustruct
+}
+
 func (b *Bot) Start(ctx context.Context) error {
 	pollOpts := ext.PollingOpts{
 		DropPendingUpdates: true,
 		GetUpdatesOpts: &gotgbot.GetUpdatesOpts{ //nolint:exhaustruct
-			Timeout: 9,
+			Timeout: longPollTimeout,
 			RequestOpts: &gotgbot.RequestOpts{ //nolint:exhaustruct
-				Timeout: time.Second * 10,
+				Timeout: longPollRequestTimeout,
 			},
 			AllowedUpdates: []string{"message"},
 		},
@@ -239,15 +247,10 @@ type APIBot struct {
 }
 
 func NewAPI(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*APIBot, error) {
+	proxy := func(*http.Request) (*url.URL, error) { return nil, nil }
 	b, err := gotgbot.NewBot(conf.Token, &gotgbot.BotOpts{ //nolint:exhaustruct
 		BotClient: &gotgbot.BaseBotClient{ //nolint:exhaustruct
-			Client: http.Client{ //nolint:exhaustruct
-				Transport: &http.Transport{ //nolint:exhaustruct
-					Proxy: func(_ *http.Request) (*url.URL, error) {
-						return nil, nil
-					},
-				},
-			},
+			Client: newHTTPClient(proxy),
 		},
 	})
 	if nil != err {
