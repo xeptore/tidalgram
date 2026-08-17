@@ -20,8 +20,6 @@ import (
 	"github.com/gotd/td/telegram/query/dialogs"
 	"github.com/gotd/td/telegram/uploader"
 	"github.com/gotd/td/tg"
-	"github.com/iyear/tdl/core/dcpool"
-	"github.com/iyear/tdl/core/tclient"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 
@@ -42,7 +40,7 @@ var (
 type Uploader struct {
 	storage *Storage
 	client  *tg.Client
-	pool    dcpool.Pool
+	pool    *dcPool
 	stop    bg.StopFunc
 	conf    config.Telegram
 	peer    InputPeer
@@ -122,12 +120,13 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 	logger.Info().Int64("id", user.ID).Msg("Got self")
 
 	const maxRecoveryElapsedTime = 5 * time.Minute
-	pool := dcpool.NewPool(
+	pool := newDCPool(
 		client,
 		int64(conf.Upload.PoolSize),
-		tclient.NewDefaultMiddlewares(ctx, maxRecoveryElapsedTime)...,
+		logger,
+		newPoolMiddlewares(ctx, logger, maxRecoveryElapsedTime)...,
 	)
-	tgClient := pool.Default(ctx)
+	tgClient := pool.Default()
 
 	var (
 		peer      InputPeer
@@ -262,9 +261,9 @@ func (u *Uploader) Upload(
 	}
 }
 
-func (u *Uploader) newUploader(ctx context.Context) *uploader.Uploader {
+func (u *Uploader) newUploader() *uploader.Uploader {
 	return uploader.
-		NewUploader(u.pool.Default(ctx)).
+		NewUploader(u.pool.Default()).
 		WithPartSize(MaxPartSize).
 		WithThreads(u.conf.Upload.Threads)
 }
@@ -303,7 +302,7 @@ func (u *Uploader) uploadAlbum(
 	typingWait := make(chan struct{})
 	go u.keepTyping(ctx, coverMonitor, typingWait, logger)
 
-	coverInputFile, err := u.newUploader(ctx).WithProgress(coverProgress).FromPath(ctx, albumFs.Cover.Path)
+	coverInputFile, err := u.newUploader().WithProgress(coverProgress).FromPath(ctx, albumFs.Cover.Path)
 	if nil != err {
 		return fmt.Errorf("upload album track cover file: %w", err)
 	}
@@ -371,7 +370,7 @@ func (u *Uploader) uploadAlbum(
 
 					trackProgress := monitor.At(idx)
 
-					trackInputFile, err := u.newUploader(wgctx).WithProgress(trackProgress).FromPath(wgctx, track.Path)
+					trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(wgctx, track.Path)
 					if nil != err {
 						logger.Error().Err(err).Msg("Failed to upload album track file")
 						return fmt.Errorf("upload album track file: %w", err)
@@ -530,12 +529,12 @@ func (u *Uploader) uploadMix(
 
 				trackProgress, coverProgress := monitor.At(i)
 
-				trackInputFile, err := u.newUploader(wgctx).WithProgress(trackProgress).FromPath(wgctx, track.Path)
+				trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(wgctx, track.Path)
 				if nil != err {
 					return fmt.Errorf("upload mix track file: %w", err)
 				}
 
-				coverInputFile, err := u.newUploader(wgctx).WithProgress(coverProgress).FromPath(wgctx, track.Cover.Path)
+				coverInputFile, err := u.newUploader().WithProgress(coverProgress).FromPath(wgctx, track.Cover.Path)
 				if nil != err {
 					return fmt.Errorf("upload mix track cover file: %w", err)
 				}
@@ -693,12 +692,12 @@ func (u *Uploader) uploadArtistCredits(
 
 				trackProgress, coverProgress := monitor.At(idx)
 
-				trackInputFile, err := u.newUploader(wgctx).WithProgress(trackProgress).FromPath(wgctx, track.Path)
+				trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(wgctx, track.Path)
 				if nil != err {
 					return fmt.Errorf("upload artist credits track file: %w", err)
 				}
 
-				coverInputFile, err := u.newUploader(wgctx).WithProgress(coverProgress).FromPath(wgctx, track.Cover.Path)
+				coverInputFile, err := u.newUploader().WithProgress(coverProgress).FromPath(wgctx, track.Cover.Path)
 				if nil != err {
 					return fmt.Errorf("upload artist credits track cover file: %w", err)
 				}
@@ -861,12 +860,12 @@ func (u *Uploader) uploadPlaylist(
 
 				trackProgress, coverProgress := monitor.At(idx)
 
-				trackInputFile, err := u.newUploader(wgctx).WithProgress(trackProgress).FromPath(wgctx, track.Path)
+				trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(wgctx, track.Path)
 				if nil != err {
 					return fmt.Errorf("upload playlist track file: %w", err)
 				}
 
-				coverInputFile, err := u.newUploader(wgctx).WithProgress(coverProgress).FromPath(wgctx, track.Cover.Path)
+				coverInputFile, err := u.newUploader().WithProgress(coverProgress).FromPath(wgctx, track.Cover.Path)
 				if nil != err {
 					return fmt.Errorf("upload playlist track cover file: %w", err)
 				}
@@ -988,12 +987,12 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 	typingWait := make(chan struct{})
 	go u.keepTyping(ctx, monitor, typingWait, logger)
 
-	trackInputFile, err := u.newUploader(ctx).WithProgress(trackProgress).FromPath(ctx, track.Path)
+	trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(ctx, track.Path)
 	if nil != err {
 		return fmt.Errorf("upload track file: %w", err)
 	}
 
-	coverInputFile, err := u.newUploader(ctx).WithProgress(coverProgress).FromPath(ctx, track.Cover.Path)
+	coverInputFile, err := u.newUploader().WithProgress(coverProgress).FromPath(ctx, track.Cover.Path)
 	if nil != err {
 		return fmt.Errorf("upload track cover file: %w", err)
 	}

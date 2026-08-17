@@ -6,9 +6,22 @@ import (
 
 	"github.com/gotd/contrib/middleware/floodwait"
 	"github.com/gotd/contrib/middleware/ratelimit"
+	"github.com/gotd/td/telegram"
 	"github.com/rs/zerolog"
 	"golang.org/x/time/rate"
 )
+
+func newPoolMiddlewares(
+	ctx context.Context,
+	logger zerolog.Logger,
+	timeout time.Duration,
+) []telegram.Middleware {
+	return []telegram.Middleware{
+		newRecoveryMiddleware(ctx, logger, timeout),
+		newRetryMiddleware(logger, maxRPCRetries),
+		floodwait.NewSimpleWaiter(),
+	}
+}
 
 func newWaiterMiddleware(logger zerolog.Logger) *floodwait.Waiter {
 	return floodwait.
