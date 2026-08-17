@@ -27,8 +27,8 @@ import (
 var ErrChatNotFound = errors.New("chat not found")
 
 const (
-	longPollTimeout        = 30
-	longPollRequestTimeout = 40 * time.Second
+	LongPollTimeout        = 30
+	LongPollRequestTimeout = 40 * time.Second
 )
 
 type Bot struct {
@@ -71,7 +71,7 @@ func New(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*Bot, err
 
 	b, err := gotgbot.NewBot(conf.Token, &gotgbot.BotOpts{ //nolint:exhaustruct
 		BotClient: &gotgbot.BaseBotClient{
-			Client:             newHTTPClient(proxy),
+			Client:             NewHTTPClient(proxy),
 			UseTestEnvironment: false,
 			DefaultRequestOpts: &gotgbot.RequestOpts{
 				Timeout:        10 * time.Minute,
@@ -124,8 +124,13 @@ func fillAccount(b *gotgbot.Bot) Account {
 	}
 }
 
-func newHTTPClient(proxy func(*http.Request) (*url.URL, error)) http.Client {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+func NewHTTPClient(proxy func(*http.Request) (*url.URL, error)) http.Client {
+	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		panic("default transport is not a *http.Transport")
+	}
+
+	transport := defaultTransport.Clone()
 	transport.Proxy = proxy
 
 	return http.Client{Transport: transport} //nolint:exhaustruct
@@ -135,9 +140,9 @@ func (b *Bot) Start(ctx context.Context) error {
 	pollOpts := ext.PollingOpts{
 		DropPendingUpdates: true,
 		GetUpdatesOpts: &gotgbot.GetUpdatesOpts{ //nolint:exhaustruct
-			Timeout: longPollTimeout,
+			Timeout: LongPollTimeout,
 			RequestOpts: &gotgbot.RequestOpts{ //nolint:exhaustruct
-				Timeout: longPollRequestTimeout,
+				Timeout: LongPollRequestTimeout,
 			},
 			AllowedUpdates: []string{"message"},
 		},
@@ -250,7 +255,7 @@ func NewAPI(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*APIBo
 	proxy := func(*http.Request) (*url.URL, error) { return nil, nil }
 	b, err := gotgbot.NewBot(conf.Token, &gotgbot.BotOpts{ //nolint:exhaustruct
 		BotClient: &gotgbot.BaseBotClient{ //nolint:exhaustruct
-			Client: newHTTPClient(proxy),
+			Client: NewHTTPClient(proxy),
 		},
 	})
 	if nil != err {
