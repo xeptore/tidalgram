@@ -24,7 +24,8 @@ func newClientOptions(
 ) (*telegram.Options, error) {
 	const maxReconnects = 1_000
 
-	var resolver dcs.Resolver
+	gate := newConnectionGate()
+	dial := (&net.Dialer{}).DialContext
 
 	if len(conf.Proxy.Host) > 0 && conf.Proxy.Port > 0 {
 		var proxyAuth *proxy.Auth
@@ -44,10 +45,17 @@ func newClientOptions(
 		if !ok {
 			return nil, errors.New("failed to cast proxy to ContextDialer")
 		}
-		resolver = dcs.Plain(dcs.PlainOptions{ //nolint:exhaustruct
-			Dial: dc.DialContext,
-		})
+		dial = dc.DialContext
 	}
+	resolver := dcs.Plain(dcs.PlainOptions{ //nolint:exhaustruct
+		Dial: func(ctx context.Context, network string, addr string) (net.Conn, error) {
+			if err := gate.Wait(ctx); nil != err {
+				return nil, err
+			}
+
+			return dial(ctx, network, addr)
+		},
+	})
 
 	return &telegram.Options{ //nolint:exhaustruct
 		Device: telegram.DeviceConfig{ //nolint:exhaustruct
@@ -75,6 +83,26 @@ func newClientOptions(
 			)
 		},
 		OnDead: func(err error) {
+			if isTransportFlood(err) {
+				until, started := gate.Block()
+				if started {
+					logger.
+						Warn().
+						Err(err).
+						Time("retry_at", until).
+						Msg("Telegram transport flooded; pausing new connection attempts")
+				} else {
+					logger.Debug().Err(err).Msg("Telegram transport flood cooldown is already active")
+				}
+
+				return
+			}
+			if gate.Blocked() {
+				logger.Debug().Err(err).Msg("Telegram connection was lost during transport flood cooldown")
+
+				return
+			}
+
 			logger.Warn().Err(err).Msg("Connection to Telegram server was lost")
 		},
 		Logger:         nil,

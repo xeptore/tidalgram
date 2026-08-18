@@ -20,6 +20,7 @@ func newPoolMiddlewares(
 		newRecoveryMiddleware(ctx, logger, timeout),
 		newRetryMiddleware(logger, maxRPCRetries),
 		floodwait.NewSimpleWaiter(),
+		newRateLimitMiddleware(),
 	}
 }
 

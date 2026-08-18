@@ -64,7 +64,7 @@ func NewTidalURLHandler(
 	worker *Worker,
 ) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
-		logger = logger.
+		logger := logger.
 			With().
 			Int64("chat_id", u.EffectiveMessage.Chat.Id).
 			Int64("message_id", u.EffectiveMessage.MessageId).
@@ -327,7 +327,7 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 	sem := semaphore.NewWeighted(1)
 
 	return func(b *gotgbot.Bot, u *ext.Context) error {
-		logger = logger.
+		logger := logger.
 			With().
 			Int64("chat_id", u.EffectiveMessage.Chat.Id).
 			Int64("message_id", u.EffectiveMessage.MessageId).
