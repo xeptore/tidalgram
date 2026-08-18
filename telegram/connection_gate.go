@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -10,8 +11,8 @@ import (
 )
 
 const (
-	telegramDialInterval           = time.Second
-	telegramTransportFloodCooldown = 30 * time.Second
+	DialInterval           = time.Second
+	TransportFloodCooldown = 30 * time.Second
 )
 
 // connectionGate spaces out MTProto connection attempts and temporarily stops
@@ -23,8 +24,13 @@ type connectionGate struct {
 	changed      chan struct{}
 }
 
-func newConnectionGate() *connectionGate {
-	return &connectionGate{changed: make(chan struct{})}
+func NewConnectionGate() *connectionGate {
+	return &connectionGate{
+		changed:      make(chan struct{}),
+		mu:           sync.Mutex{},
+		nextDial:     time.Time{},
+		blockedUntil: time.Time{},
+	}
 }
 
 func (g *connectionGate) Wait(ctx context.Context) error {
@@ -36,7 +42,7 @@ func (g *connectionGate) Wait(ctx context.Context) error {
 			readyAt = g.blockedUntil
 		}
 		if !readyAt.After(now) {
-			g.nextDial = now.Add(telegramDialInterval)
+			g.nextDial = now.Add(DialInterval)
 			g.mu.Unlock()
 
 			return nil
@@ -49,7 +55,7 @@ func (g *connectionGate) Wait(ctx context.Context) error {
 		case <-ctx.Done():
 			stopAndDrainTimer(timer)
 
-			return ctx.Err()
+			return fmt.Errorf("%w: next dial at %v", ctx.Err(), readyAt)
 		case <-changed:
 			stopAndDrainTimer(timer)
 		case <-timer.C:
@@ -75,7 +81,7 @@ func (g *connectionGate) Block() (until time.Time, started bool) {
 		return g.blockedUntil, false
 	}
 
-	g.blockedUntil = now.Add(telegramTransportFloodCooldown)
+	g.blockedUntil = now.Add(TransportFloodCooldown)
 	close(g.changed)
 	g.changed = make(chan struct{})
 
@@ -89,7 +95,7 @@ func (g *connectionGate) Blocked() bool {
 	return g.blockedUntil.After(time.Now())
 }
 
-func isTransportFlood(err error) bool {
+func IsTransportFlood(err error) bool {
 	var protocolErr *codec.ProtocolErr
 
 	return errors.As(err, &protocolErr) && protocolErr.Code == codec.CodeTransportFlood

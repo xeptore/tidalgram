@@ -24,8 +24,8 @@ func newClientOptions(
 ) (*telegram.Options, error) {
 	const maxReconnects = 1_000
 
-	gate := newConnectionGate()
-	dial := (&net.Dialer{}).DialContext
+	gate := NewConnectionGate()
+	dial := new(net.Dialer).DialContext
 
 	if len(conf.Proxy.Host) > 0 && conf.Proxy.Port > 0 {
 		var proxyAuth *proxy.Auth
@@ -83,7 +83,7 @@ func newClientOptions(
 			)
 		},
 		OnDead: func(err error) {
-			if isTransportFlood(err) {
+			if IsTransportFlood(err) {
 				until, started := gate.Block()
 				if started {
 					logger.

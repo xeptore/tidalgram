@@ -1,4 +1,4 @@
-package telegram
+package telegram_test
 
 import (
 	"context"
@@ -8,12 +8,14 @@ import (
 	"github.com/gotd/td/proto/codec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/xeptore/tidalgram/telegram"
 )
 
 func TestConnectionGateCoalescesTransportFloods(t *testing.T) {
 	t.Parallel()
 
-	gate := newConnectionGate()
+	gate := telegram.NewConnectionGate()
 	firstUntil, firstStarted := gate.Block()
 	secondUntil, secondStarted := gate.Block()
 
@@ -26,7 +28,7 @@ func TestConnectionGateCoalescesTransportFloods(t *testing.T) {
 func TestConnectionGateWaitHonorsContext(t *testing.T) {
 	t.Parallel()
 
-	gate := newConnectionGate()
+	gate := telegram.NewConnectionGate()
 	gate.Block()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -38,17 +40,17 @@ func TestIsTransportFlood(t *testing.T) {
 	t.Parallel()
 
 	floodErr := fmt.Errorf("read loop: %w", &codec.ProtocolErr{Code: codec.CodeTransportFlood})
-	assert.True(t, isTransportFlood(floodErr))
-	assert.False(t, isTransportFlood(context.DeadlineExceeded))
+	assert.True(t, telegram.IsTransportFlood(floodErr))
+	assert.False(t, telegram.IsTransportFlood(context.DeadlineExceeded))
 }
 
 func TestConnectionGateSpacesDialAttempts(t *testing.T) {
 	t.Parallel()
 
-	gate := newConnectionGate()
+	gate := telegram.NewConnectionGate()
 	require.NoError(t, gate.Wait(context.Background()))
 
-	ctx, cancel := context.WithTimeout(context.Background(), telegramDialInterval/10)
+	ctx, cancel := context.WithTimeout(context.Background(), telegram.DialInterval/10)
 	defer cancel()
 	err := gate.Wait(ctx)
 
