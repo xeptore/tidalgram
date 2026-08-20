@@ -72,9 +72,9 @@ func NewTidalURLHandler(
 			Logger()
 
 		msgID := u.EffectiveMessage.MessageId
-		sendOpt := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
+		sendOpt := &gotgbot.SendMessageOpts{ //nolint:exhaustruct_v5
 			ParseMode: gotgbot.ParseModeMarkdown,
-			ReplyParameters: &gotgbot.ReplyParameters{ //nolint:exhaustruct
+			ReplyParameters: &gotgbot.ReplyParameters{ //nolint:exhaustruct_v5
 				MessageId: msgID,
 			},
 		}
@@ -270,9 +270,9 @@ func NewTidalURLHandler(
 
 func NewHelloCommandHandler(ctx context.Context, papaID int64, mamaID int64) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
-		sendOpt := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
+		sendOpt := &gotgbot.SendMessageOpts{ //nolint:exhaustruct_v5
 			ParseMode: gotgbot.ParseModeMarkdown,
-			ReplyParameters: &gotgbot.ReplyParameters{ //nolint:exhaustruct
+			ReplyParameters: &gotgbot.ReplyParameters{ //nolint:exhaustruct_v5
 				MessageId: u.EffectiveMessage.MessageId,
 			},
 		}
@@ -305,9 +305,9 @@ func NewHelloCommandHandler(ctx context.Context, papaID int64, mamaID int64) han
 
 func NewCancelCommandHandler(ctx context.Context, worker *Worker) handlers.Response {
 	return func(b *gotgbot.Bot, u *ext.Context) error {
-		sendOpt := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
+		sendOpt := &gotgbot.SendMessageOpts{ //nolint:exhaustruct_v5
 			ParseMode: gotgbot.ParseModeMarkdown,
-			ReplyParameters: &gotgbot.ReplyParameters{ //nolint:exhaustruct
+			ReplyParameters: &gotgbot.ReplyParameters{ //nolint:exhaustruct_v5
 				MessageId: u.EffectiveMessage.MessageId,
 			},
 		}
@@ -334,9 +334,9 @@ func NewTidalLoginCommandHandler(ctx context.Context, logger zerolog.Logger, td 
 			Int64("sender_id", u.EffectiveSender.Id()).
 			Logger()
 
-		sendOpt := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
+		sendOpt := &gotgbot.SendMessageOpts{ //nolint:exhaustruct_v5
 			ParseMode: gotgbot.ParseModeMarkdown,
-			ReplyParameters: &gotgbot.ReplyParameters{ //nolint:exhaustruct
+			ReplyParameters: &gotgbot.ReplyParameters{ //nolint:exhaustruct_v5
 				MessageId: u.EffectiveMessage.MessageId,
 			},
 		}

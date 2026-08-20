@@ -143,7 +143,7 @@ func (d *Downloader) httpGet(
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 	req.Header.Add("Accept", "application/json")
 
-	client := http.Client{ //nolint:exhaustruct
+	client := http.Client{ //nolint:exhaustruct_v5
 		Timeout: time.Duration(d.conf.Timeouts.GetPagedTracks) * time.Second,
 	}
 	resp, err := client.Do(req)

@@ -18,7 +18,7 @@ type Storage struct {
 }
 
 func NewStorage(path string) (*Storage, error) {
-	opts := &bbolt.Options{ //nolint:exhaustruct
+	opts := &bbolt.Options{ //nolint:exhaustruct_v5
 		NoFreelistSync: true,
 		ReadOnly:       false,
 		Timeout:        1 * time.Second,

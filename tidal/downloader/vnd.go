@@ -132,7 +132,7 @@ func (v *VndTrackStream) fileSize(
 
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
-	client := http.Client{Timeout: v.GetTrackFileSizeTimeout} //nolint:exhaustruct
+	client := http.Client{Timeout: v.GetTrackFileSizeTimeout} //nolint:exhaustruct_v5
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send get track file size request")
@@ -252,7 +252,7 @@ func (v *VndTrackStream) downloadChunkRange(
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 	req.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", start, end))
 
-	client := http.Client{Timeout: v.DownloadTimeout} //nolint:exhaustruct
+	client := http.Client{Timeout: v.DownloadTimeout} //nolint:exhaustruct_v5
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send track chunk download request")

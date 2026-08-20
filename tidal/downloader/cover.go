@@ -67,7 +67,7 @@ func (d *Downloader) downloadCover(
 
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
-	client := http.Client{ //nolint:exhaustruct
+	client := http.Client{ //nolint:exhaustruct_v5
 		Timeout: time.Duration(d.conf.Timeouts.DownloadCover) * time.Second,
 	}
 	resp, err := client.Do(req)

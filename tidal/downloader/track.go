@@ -173,7 +173,7 @@ func getTrackMeta(
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
-	client := http.Client{Timeout: 5 * time.Second} //nolint:exhaustruct
+	client := http.Client{Timeout: 5 * time.Second} //nolint:exhaustruct_v5
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send get track info request")
@@ -407,7 +407,7 @@ func (d *Downloader) fetchTrackCreditsPage(
 	req.Header.Add("Accept", "application/vnd.api+json")
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
-	client := http.Client{ //nolint:exhaustruct
+	client := http.Client{ //nolint:exhaustruct_v5
 		Timeout: time.Duration(d.conf.Timeouts.GetTrackCredits) * time.Second,
 	}
 	resp, err := client.Do(req)
@@ -647,7 +647,7 @@ func (d *Downloader) downloadTrackLyrics(
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
-	client := http.Client{ //nolint:exhaustruct
+	client := http.Client{ //nolint:exhaustruct_v5
 		Timeout: time.Duration(d.conf.Timeouts.GetTrackLyrics) * time.Second,
 	}
 	resp, err := client.Do(req)
@@ -903,7 +903,7 @@ func embedTrackAttributes(
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} //nolint:exhaustruct
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} //nolint:exhaustruct_v5
 
 	cmd.Cancel = func() error {
 		proc := cmd.Process

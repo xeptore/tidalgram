@@ -189,7 +189,7 @@ func (d *DashTrackStream) downloadSegment(
 
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
-	client := http.Client{Timeout: d.DownloadTimeout} //nolint:exhaustruct
+	client := http.Client{Timeout: d.DownloadTimeout} //nolint:exhaustruct_v5
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send track segment download request")

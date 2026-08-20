@@ -373,7 +373,7 @@ func (d *Downloader) downloadAlbumMeta(
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 	req.Header.Add("Accept", "application/json")
 
-	client := http.Client{ //nolint:exhaustruct
+	client := http.Client{ //nolint:exhaustruct_v5
 		Timeout: time.Duration(d.conf.Timeouts.GetAlbumInfo) * time.Second,
 	}
 	resp, err := client.Do(req)

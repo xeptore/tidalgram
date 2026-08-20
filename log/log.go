@@ -30,7 +30,7 @@ func FromConfig(conf config.Log) zerolog.Logger {
 			Level(level)
 	case "pretty":
 		return zerolog.
-			New(zerolog.ConsoleWriter{ //nolint:exhaustruct
+			New(zerolog.ConsoleWriter{ //nolint:exhaustruct_v5
 				Out:          os.Stderr,
 				TimeFormat:   time.RFC3339,
 				TimeLocation: time.UTC,
@@ -49,7 +49,7 @@ func FromConfig(conf config.Log) zerolog.Logger {
 
 func NewDefault() zerolog.Logger {
 	return zerolog.
-		New(zerolog.ConsoleWriter{ //nolint:exhaustruct
+		New(zerolog.ConsoleWriter{ //nolint:exhaustruct_v5
 			Out:          os.Stderr,
 			TimeFormat:   time.RFC3339,
 			TimeLocation: time.UTC,

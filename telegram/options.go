@@ -47,7 +47,7 @@ func newClientOptions(
 		}
 		dial = dc.DialContext
 	}
-	resolver := dcs.Plain(dcs.PlainOptions{ //nolint:exhaustruct
+	resolver := dcs.Plain(dcs.PlainOptions{ //nolint:exhaustruct_v5
 		Dial: func(ctx context.Context, network string, addr string) (net.Conn, error) {
 			if err := gate.Wait(ctx); nil != err {
 				return nil, err
@@ -57,8 +57,8 @@ func newClientOptions(
 		},
 	})
 
-	return &telegram.Options{ //nolint:exhaustruct
-		Device: telegram.DeviceConfig{ //nolint:exhaustruct
+	return &telegram.Options{ //nolint:exhaustruct_v5
+		Device: telegram.DeviceConfig{ //nolint:exhaustruct_v5
 			DeviceModel:    "Tidalgram",
 			SystemVersion:  "Windows 11 x64",
 			AppVersion:     "6.1.3 x64",

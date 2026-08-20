@@ -74,7 +74,7 @@ func (a *Auth) refreshToken(ctx context.Context, logger zerolog.Logger) (creds *
 		"Basic "+base64.StdEncoding.Strict().EncodeToString([]byte(clientID+":"+clientSecret)),
 	)
 
-	client := http.Client{Timeout: 5 * time.Second} //nolint:exhaustruct
+	client := http.Client{Timeout: 5 * time.Second} //nolint:exhaustruct_v5
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to issue refresh token request")

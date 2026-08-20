@@ -198,7 +198,7 @@ func (d *Downloader) getPlaylistMeta(
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
-	client := http.Client{ //nolint:exhaustruct
+	client := http.Client{ //nolint:exhaustruct_v5
 		Timeout: time.Duration(d.conf.Timeouts.GetPlaylistInfo) * time.Second,
 	}
 	resp, err := client.Do(req)

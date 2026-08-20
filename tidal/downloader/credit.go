@@ -245,7 +245,7 @@ func (d *Downloader) artistCreditsTracksPage(
 		return nil, 0, fmt.Errorf("join artist credits tracks page URL path: %w", err)
 	}
 
-	artistCreditsURL := url.URL{ //nolint:exhaustruct
+	artistCreditsURL := url.URL{ //nolint:exhaustruct_v5
 		Scheme: "https",
 		Host:   "api.tidal.com",
 		Path:   urlPath,

@@ -57,7 +57,7 @@ func (d *Downloader) getStream(
 	req.Header.Add("Accept", "application/vnd.api+json")
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
-	client := http.Client{ //nolint:exhaustruct
+	client := http.Client{ //nolint:exhaustruct_v5
 		Timeout: time.Duration(d.conf.Timeouts.GetStreamURLs) * time.Second,
 	}
 	resp, err := client.Do(req)

@@ -202,7 +202,7 @@ func (d *Downloader) getMixMeta(
 	)
 	req.Header.Add("Accept", "application/json")
 
-	client := http.Client{ //nolint:exhaustruct
+	client := http.Client{ //nolint:exhaustruct_v5
 		Timeout: time.Duration(d.conf.Timeouts.GetMixInfo) * time.Second,
 	}
 	resp, err := client.Do(req)

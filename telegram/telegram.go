@@ -91,7 +91,7 @@ func Login(ctx context.Context, logger zerolog.Logger, conf config.Telegram) (er
 			}
 
 			var pwd string
-			prompt := &survey.Password{ //nolint:exhaustruct
+			prompt := &survey.Password{ //nolint:exhaustruct_v5
 				Message: "Enter 2FA Password:",
 			}
 			askOpts := []survey.AskOpt{

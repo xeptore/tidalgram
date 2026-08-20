@@ -69,7 +69,7 @@ func New(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*Bot, err
 		}
 	}
 
-	b, err := gotgbot.NewBot(conf.Token, &gotgbot.BotOpts{ //nolint:exhaustruct
+	b, err := gotgbot.NewBot(conf.Token, &gotgbot.BotOpts{ //nolint:exhaustruct_v5
 		BotClient: &gotgbot.BaseBotClient{
 			Client:             NewHTTPClient(proxy),
 			UseTestEnvironment: false,
@@ -84,7 +84,7 @@ func New(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*Bot, err
 		return nil, fmt.Errorf("create bot: %v", err)
 	}
 
-	dispatcher := ext.NewDispatcher(&ext.DispatcherOpts{ //nolint:exhaustruct
+	dispatcher := ext.NewDispatcher(&ext.DispatcherOpts{ //nolint:exhaustruct_v5
 		Error: func(_ *gotgbot.Bot, _ *ext.Context, err error) ext.DispatcherAction {
 			if ctxErr := ctx.Err(); nil != ctxErr && errors.Is(ctxErr, context.Canceled) && errors.Is(err, context.Canceled) {
 				logger.Warn().Msg("Context cancelled while handling update")
@@ -133,15 +133,15 @@ func NewHTTPClient(proxy func(*http.Request) (*url.URL, error)) http.Client {
 	transport := defaultTransport.Clone()
 	transport.Proxy = proxy
 
-	return http.Client{Transport: transport} //nolint:exhaustruct
+	return http.Client{Transport: transport} //nolint:exhaustruct_v5
 }
 
 func (b *Bot) Start(ctx context.Context) error {
 	pollOpts := ext.PollingOpts{
 		DropPendingUpdates: true,
-		GetUpdatesOpts: &gotgbot.GetUpdatesOpts{ //nolint:exhaustruct
+		GetUpdatesOpts: &gotgbot.GetUpdatesOpts{ //nolint:exhaustruct_v5
 			Timeout: LongPollTimeout,
-			RequestOpts: &gotgbot.RequestOpts{ //nolint:exhaustruct
+			RequestOpts: &gotgbot.RequestOpts{ //nolint:exhaustruct_v5
 				Timeout: LongPollRequestTimeout,
 			},
 			AllowedUpdates: []string{"message"},
@@ -152,7 +152,7 @@ func (b *Bot) Start(ctx context.Context) error {
 		return fmt.Errorf("start polling: %v", err)
 	}
 
-	sendOpts := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
+	sendOpts := &gotgbot.SendMessageOpts{ //nolint:exhaustruct_v5
 		ParseMode: gotgbot.ParseModeMarkdownV2,
 	}
 	compiledAt, _ := time.Parse(time.RFC3339, constant.CompileTime)
@@ -230,7 +230,7 @@ func (b *Bot) Stop() error {
 		return fmt.Errorf("bot stop updater: %v", err)
 	}
 
-	sendOpts := &gotgbot.SendMessageOpts{ //nolint:exhaustruct
+	sendOpts := &gotgbot.SendMessageOpts{ //nolint:exhaustruct_v5
 		ParseMode: gotgbot.ParseModeMarkdown,
 	}
 	if _, err := b.bot.SendMessage(b.papaChatID, "I'm going offline, papa 💤", sendOpts); nil != err {
@@ -253,8 +253,8 @@ type APIBot struct {
 
 func NewAPI(ctx context.Context, logger zerolog.Logger, conf config.Bot) (*APIBot, error) {
 	proxy := func(*http.Request) (*url.URL, error) { return nil, nil }
-	b, err := gotgbot.NewBot(conf.Token, &gotgbot.BotOpts{ //nolint:exhaustruct
-		BotClient: &gotgbot.BaseBotClient{ //nolint:exhaustruct
+	b, err := gotgbot.NewBot(conf.Token, &gotgbot.BotOpts{ //nolint:exhaustruct_v5
+		BotClient: &gotgbot.BaseBotClient{ //nolint:exhaustruct_v5
 			Client: NewHTTPClient(proxy),
 		},
 	})

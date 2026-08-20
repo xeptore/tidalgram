@@ -24,7 +24,7 @@ import (
 func main() {
 	logger := log.NewDefault()
 
-	//nolint:exhaustruct
+	//nolint:exhaustruct_v5
 	app := &cli.Command{
 		Name:    "tidalgram",
 		Version: constant.Version,
@@ -37,7 +37,7 @@ func main() {
 		ShellCompletionCommandName: "shell-completion",
 		AllowExtFlags:              false,
 		Flags: []cli.Flag{
-			//nolint:exhaustruct
+			//nolint:exhaustruct_v5
 			&cli.StringFlag{
 				Name:     "config",
 				Usage:    "Config file path",
@@ -49,7 +49,7 @@ func main() {
 				Name:  "telegram",
 				Usage: "Telegram commands",
 				Commands: []*cli.Command{
-					//nolint:exhaustruct
+					//nolint:exhaustruct_v5
 					{
 						Name:   "login",
 						Usage:  "Login to Telegram",
@@ -66,7 +66,7 @@ func main() {
 				Name:  "bot",
 				Usage: "Bot commands",
 				Commands: []*cli.Command{
-					//nolint:exhaustruct
+					//nolint:exhaustruct_v5
 					{
 						Name:   "run",
 						Usage:  "Run the bot",

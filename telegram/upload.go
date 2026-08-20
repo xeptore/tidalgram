@@ -399,7 +399,7 @@ func (u *Uploader) uploadAlbum(
 							&tg.DocumentAttributeFilename{
 								FileName: trackInfo.UploadFilename(),
 							},
-							//nolint:exhaustruct
+							//nolint:exhaustruct_v5
 							&tg.DocumentAttributeAudio{
 								Title:     trackInfo.Title,
 								Performer: types.JoinArtists(trackInfo.Artists),
@@ -568,7 +568,7 @@ func (u *Uploader) uploadMix(
 						&tg.DocumentAttributeFilename{
 							FileName: trackInfo.UploadFilename(),
 						},
-						//nolint:exhaustruct
+						//nolint:exhaustruct_v5
 						&tg.DocumentAttributeAudio{
 							Title:     trackInfo.Title,
 							Performer: types.JoinArtists(trackInfo.Artists),
@@ -731,7 +731,7 @@ func (u *Uploader) uploadArtistCredits(
 						&tg.DocumentAttributeFilename{
 							FileName: trackInfo.UploadFilename(),
 						},
-						//nolint:exhaustruct
+						//nolint:exhaustruct_v5
 						&tg.DocumentAttributeAudio{
 							Title:     trackInfo.Title,
 							Performer: types.JoinArtists(trackInfo.Artists),
@@ -899,7 +899,7 @@ func (u *Uploader) uploadPlaylist(
 						&tg.DocumentAttributeFilename{
 							FileName: trackInfo.UploadFilename(),
 						},
-						//nolint:exhaustruct
+						//nolint:exhaustruct_v5
 						&tg.DocumentAttributeAudio{
 							Title:     trackInfo.Title,
 							Performer: types.JoinArtists(trackInfo.Artists),
@@ -1026,7 +1026,7 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 			&tg.DocumentAttributeFilename{
 				FileName: trackInfo.UploadFilename(),
 			},
-			//nolint:exhaustruct
+			//nolint:exhaustruct_v5
 			&tg.DocumentAttributeAudio{
 				Title:     trackInfo.Title,
 				Performer: types.JoinArtists(trackInfo.Artists),
@@ -1055,7 +1055,7 @@ func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir f
 }
 
 func (u *Uploader) cancelTyping(ctx context.Context) {
-	req := &tg.MessagesSetTypingRequest{ //nolint:exhaustruct
+	req := &tg.MessagesSetTypingRequest{ //nolint:exhaustruct_v5
 		Peer:   u.peer,
 		Action: &tg.SendMessageCancelAction{},
 	}
@@ -1074,7 +1074,7 @@ func (u *Uploader) sendTyping(ctx context.Context, logger zerolog.Logger, mon pr
 		return os.ErrProcessDone
 	}
 
-	req := &tg.MessagesSetTypingRequest{ //nolint:exhaustruct
+	req := &tg.MessagesSetTypingRequest{ //nolint:exhaustruct_v5
 		Peer: u.peer,
 		Action: &tg.SendMessageUploadDocumentAction{
 			Progress: percent,

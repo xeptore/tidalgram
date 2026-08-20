@@ -133,7 +133,7 @@ func issueAuthorizationRequest(ctx context.Context, logger zerolog.Logger) (out 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Accept", "application/json")
 
-	client := http.Client{Timeout: 5 * time.Second} //nolint:exhaustruct
+	client := http.Client{Timeout: 5 * time.Second} //nolint:exhaustruct_v5
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to issue device authorization request")
@@ -179,7 +179,7 @@ func issueAuthorizationRequest(ctx context.Context, logger zerolog.Logger) (out 
 		return nil, fmt.Errorf("decode 200 response body: %w", err)
 	}
 
-	//nolint:exhaustruct
+	//nolint:exhaustruct_v5
 	authorizationURL := url.URL{
 		Scheme: "https",
 		Host:   respBody.VerificationURI,
@@ -222,7 +222,7 @@ func (r *authorizationResponse) poll(ctx context.Context, logger zerolog.Logger)
 		"Basic "+base64.StdEncoding.Strict().EncodeToString([]byte(clientID+":"+clientSecret)),
 	)
 
-	client := http.Client{Timeout: 10 * time.Second} //nolint:exhaustruct
+	client := http.Client{Timeout: 10 * time.Second} //nolint:exhaustruct_v5
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to issue token request")
@@ -331,7 +331,7 @@ func getMe(ctx context.Context, logger zerolog.Logger, token string) (*Me, error
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Accept", "application/json")
 
-	client := http.Client{Timeout: 5 * time.Second} //nolint:exhaustruct
+	client := http.Client{Timeout: 5 * time.Second} //nolint:exhaustruct_v5
 	resp, err := client.Do(req)
 	if nil != err {
 		logger.Error().Err(err).Msg("Failed to send me request")
