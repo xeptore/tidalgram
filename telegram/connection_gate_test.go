@@ -39,7 +39,7 @@ func TestConnectionGateWaitHonorsContext(t *testing.T) {
 func TestIsTransportFlood(t *testing.T) {
 	t.Parallel()
 
-	floodErr := fmt.Errorf("read loop: %w", &codec.ProtocolErr{Code: codec.CodeTransportFlood})
+	floodErr := fmt.Errorf("read loop: %w", codec.ProtocolErr{Code: codec.CodeTransportFlood})
 	assert.True(t, telegram.IsTransportFlood(floodErr))
 	assert.False(t, telegram.IsTransportFlood(context.DeadlineExceeded))
 }

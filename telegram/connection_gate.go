@@ -96,7 +96,7 @@ func (g *connectionGate) Blocked() bool {
 }
 
 func IsTransportFlood(err error) bool {
-	var protocolErr *codec.ProtocolErr
+	var protocolErr codec.ProtocolErr
 
 	return errors.As(err, &protocolErr) && protocolErr.Code == codec.CodeTransportFlood
 }
