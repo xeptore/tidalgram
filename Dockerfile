@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-FROM docker.io/library/golang:1.27.1 AS build
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.27.1 AS build
+ARG TARGETARCH
 RUN <<eot
   set -Eeux
   apt-get update
@@ -11,9 +12,9 @@ RUN useradd -m -u 1001 dev
 USER dev
 WORKDIR /home/dev/src
 COPY --chown=dev:dev . .
-RUN task build
+RUN CGO_ENABLED=0 GOARCH=${TARGETARCH} task build
 
-FROM lscr.io/linuxserver/ffmpeg:version-9.0-cli
+FROM --platform=$TARGETPLATFORM lscr.io/linuxserver/ffmpeg:version-9.0-cli
 RUN <<eot
   set -Eeux
   useradd -m -u 1000 nonroot
