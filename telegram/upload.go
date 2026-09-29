@@ -38,13 +38,15 @@ var (
 )
 
 type Uploader struct {
-	storage *Storage
-	client  *tg.Client
-	pool    *dcPool
-	stop    bg.StopFunc
-	conf    config.Telegram
-	peer    InputPeer
-	logger  zerolog.Logger
+	storage   *Storage
+	client    *tg.Client
+	pool      *dcPool
+	stop      bg.StopFunc
+	conf      config.Telegram
+	peer      InputPeer
+	logger    zerolog.Logger
+	metaCache TrackMetaCache
+	docCache  UploadedDocumentCache
 }
 
 type InputPeer struct {
@@ -195,13 +197,15 @@ func NewUploader(ctx context.Context, logger zerolog.Logger, conf config.Telegra
 	}
 
 	return &Uploader{
-		storage: storage,
-		client:  tgClient,
-		pool:    pool,
-		stop:    stop,
-		conf:    conf,
-		peer:    peer,
-		logger:  logger,
+		storage:   storage,
+		client:    tgClient,
+		pool:      pool,
+		stop:      stop,
+		conf:      conf,
+		peer:      peer,
+		logger:    logger,
+		metaCache: newTrackMetaCache(),
+		docCache:  storage,
 	}, nil
 }
 
@@ -949,109 +953,17 @@ func (u *Uploader) uploadPlaylist(
 }
 
 func (u *Uploader) uploadTrack(ctx context.Context, logger zerolog.Logger, dir fs.DownloadsDir, id string) error {
-	track := dir.Track(id)
-	trackInfo, err := track.InfoFile.Read()
-	if nil != err {
-		logger.Error().Err(err).Msg("Failed to read track info file")
-		return fmt.Errorf("read track info file: %v", err)
-	}
-
-	trackStat, err := os.Lstat(track.Path)
-	if nil != err {
-		logger.Error().Err(err).Msg("Failed to stat track file")
-		return fmt.Errorf("stat track file: %v", err)
-	}
-	if !trackStat.Mode().IsRegular() {
-		return fmt.Errorf("track file %q is not a regular file", track.Path)
-	}
-	if trackStat.Size() == 0 {
-		return errors.New("track file is empty")
-	}
-	trackProgress := &progress.Track{Size: trackStat.Size()}
-
-	coverStat, err := os.Lstat(track.Cover.Path)
-	if nil != err {
-		logger.Error().Err(err).Msg("Failed to stat track cover file")
-		return fmt.Errorf("stat track cover file: %v", err)
-	}
-	if !coverStat.Mode().IsRegular() {
-		return fmt.Errorf("track cover file %q is not a regular file", track.Cover.Path)
-	}
-	if coverStat.Size() == 0 {
-		return errors.New("track cover file is empty")
-	}
-	coverProgress := &progress.Cover{Size: coverStat.Size()}
-
-	monitor := progress.NewTrackMonitor(coverProgress, trackProgress)
-
-	typingWait := make(chan struct{})
-	go u.keepTyping(ctx, monitor, typingWait, logger)
-
-	trackInputFile, err := u.newUploader().WithProgress(trackProgress).FromPath(ctx, track.Path)
-	if nil != err {
-		return fmt.Errorf("upload track file: %w", err)
-	}
-
-	coverInputFile, err := u.newUploader().WithProgress(coverProgress).FromPath(ctx, track.Cover.Path)
-	if nil != err {
-		return fmt.Errorf("upload track cover file: %w", err)
-	}
-
-	select {
-	case <-typingWait:
-	case <-ctx.Done():
-		return fmt.Errorf("wait for typing: %w", ctx.Err())
-	}
-
-	mime, err := mimetype.DetectFile(track.Path)
-	if nil != err {
-		logger.Error().Err(err).Msg("Failed to detect track mime")
-		return fmt.Errorf("detect mime: %v", err)
-	}
-
-	caption := songCaption(
-		trackInfo.AlbumTitle,
-		trackInfo.ReleaseDate,
-		trackInfo.Quality,
-		trackInfo.VolumeNumber,
-		trackInfo.TrackNumber,
-		id,
-		u.conf.Upload.Signature,
+	// Album, playlist, mix, and credit batches still upload each file.
+	// One bot job runs at a time, so this single-track path is not single-flighted.
+	service := NewTrackService(
+		logger,
+		u.metaCache,
+		u.docCache,
+		newDownloadsTrackProvider(logger, dir),
+		u,
 	)
 
-	doc := message.
-		UploadedDocument(trackInputFile, caption...).
-		MIME(mime.String()).
-		Attributes(
-			&tg.DocumentAttributeFilename{
-				FileName: trackInfo.UploadFilename(),
-			},
-			//nolint:exhaustruct_v5
-			&tg.DocumentAttributeAudio{
-				Title:     trackInfo.Title,
-				Performer: types.JoinArtists(trackInfo.Artists),
-				Duration:  trackInfo.Duration,
-			}).
-		Thumb(coverInputFile).
-		Audio().
-		DurationSeconds(trackInfo.Duration).
-		Performer(types.JoinArtists(trackInfo.Artists)).
-		Title(trackInfo.Title)
-
-	_, err = message.
-		NewSender(u.client).
-		To(u.peer).
-		Clear().
-		Background().
-		Silent().
-		Media(ctx, doc)
-	if nil != err {
-		return fmt.Errorf("send message: %w", err)
-	}
-
-	time.Sleep(u.conf.Upload.PauseDuration.Duration)
-
-	return nil
+	return service.SendTrack(ctx, u.peer, id)
 }
 
 func (u *Uploader) cancelTyping(ctx context.Context) {

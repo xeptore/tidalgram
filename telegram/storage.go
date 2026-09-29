@@ -39,9 +39,12 @@ func NewStorage(path string) (*Storage, error) {
 
 func createBuckets(db *bbolt.DB) error {
 	err := db.Update(func(tx *bbolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(sessionBucketName)
-		if nil != err {
+		if _, err := tx.CreateBucketIfNotExists(sessionBucketName); nil != err {
 			return fmt.Errorf("create session bucket: %v", err)
+		}
+
+		if _, err := tx.CreateBucketIfNotExists(uploadedAudioBucketName); nil != err {
+			return fmt.Errorf("create uploaded audio bucket: %v", err)
 		}
 
 		return nil
