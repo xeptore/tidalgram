@@ -133,6 +133,12 @@ func (c *Cover) Chunk(ctx context.Context, state uploader.ProgressState) error {
 	return nil
 }
 
+// Finish marks the cover fully uploaded. Cached album items use this so the
+// progress monitor does not wait on bytes that will not be sent.
+func (c *Cover) Finish() {
+	c.uploaded.Store(c.Size)
+}
+
 type Track struct {
 	Size     int64
 	uploaded atomic.Int64
@@ -141,4 +147,10 @@ type Track struct {
 func (t *Track) Chunk(ctx context.Context, state uploader.ProgressState) error {
 	t.uploaded.Store(state.Uploaded)
 	return nil
+}
+
+// Finish marks the track fully uploaded. Cached album items use this so the
+// progress monitor does not wait on bytes that will not be sent.
+func (t *Track) Finish() {
+	t.uploaded.Store(t.Size)
 }
