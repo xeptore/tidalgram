@@ -19,7 +19,7 @@ require (
 	github.com/sethvargo/go-retry v0.5.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.12.1
-	github.com/tidwall/gjson v1.20.1
+	github.com/tidwall/gjson v1.20.2
 	github.com/urfave/cli/v3 v3.14.0
 	go.etcd.io/bbolt v1.5.0
 	golang.org/x/exp v0.0.0-20260813180055-c1d0aacb2297
@@ -56,7 +56,7 @@ require (
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
-	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/pretty v1.3.0 // indirect
 	github.com/yuin/goldmark v1.8.5 // indirect
 	go.opentelemetry.io/otel v1.45.0 // indirect
 	go.opentelemetry.io/otel/metric v1.45.0 // indirect
