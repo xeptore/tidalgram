@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.27.3 AS build
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.27.4 AS build
 ARG TARGETARCH
 RUN <<eot
   set -Eeux
