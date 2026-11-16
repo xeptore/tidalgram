@@ -9,8 +9,8 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.16
 	github.com/goccy/go-json v0.12.0
 	github.com/gotd/contrib v0.26.0
-	github.com/gotd/td v0.166.0
-	github.com/jedib0t/go-pretty/v6 v6.9.1
+	github.com/gotd/td v0.166.1
+	github.com/jedib0t/go-pretty/v6 v6.9.2
 	github.com/joho/godotenv v1.5.1
 	github.com/karlseguin/ccache/v3 v3.0.8
 	github.com/mattn/go-isatty v0.0.24
@@ -19,10 +19,10 @@ require (
 	github.com/sethvargo/go-retry v0.5.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.12.1
-	github.com/tidwall/gjson v1.20.2
+	github.com/tidwall/gjson v1.20.3
 	github.com/urfave/cli/v3 v3.14.0
 	go.etcd.io/bbolt v1.5.0
-	golang.org/x/exp v0.0.0-20260813180055-c1d0aacb2297
+	golang.org/x/exp v0.0.0-20261113113407-e3970619a1a4
 	golang.org/x/net v0.62.0
 	golang.org/x/sync v0.25.0
 	golang.org/x/time v0.16.0
@@ -30,7 +30,7 @@ require (
 )
 
 require (
-	github.com/andybalholm/brotli v1.2.2 // indirect
+	github.com/andybalholm/brotli v1.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/coder/websocket v1.8.15 // indirect
@@ -47,31 +47,31 @@ require (
 	github.com/gotd/log v0.1.0 // indirect
 	github.com/gotd/neo v0.1.5 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
-	github.com/klauspost/compress v1.19.2 // indirect
-	github.com/mattn/go-colorable v0.1.15 // indirect
-	github.com/mattn/go-runewidth v0.0.27 // indirect
+	github.com/klauspost/compress v1.20.4 // indirect
+	github.com/mattn/go-colorable v0.1.16 // indirect
+	github.com/mattn/go-runewidth v0.0.31 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
-	github.com/ogen-go/ogen v1.24.0 // indirect
+	github.com/ogen-go/ogen v1.25.0 // indirect
 	github.com/refraction-networking/utls v1.8.2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
-	github.com/shopspring/decimal v1.4.0 // indirect
+	github.com/shopspring/decimal v1.6.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.3.0 // indirect
-	github.com/yuin/goldmark v1.8.5 // indirect
+	github.com/yuin/goldmark v1.8.7 // indirect
 	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
-	go.uber.org/atomic v1.11.0 // indirect
+	go.uber.org/atomic v1.12.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/crypto v0.58.0 // indirect
-	golang.org/x/mod v0.41.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/term v0.47.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
-	golang.org/x/tools v0.51.0 // indirect
+	golang.org/x/crypto v0.59.0 // indirect
+	golang.org/x/mod v0.43.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/term v0.48.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
+	golang.org/x/tools v0.52.1-0.20261106145633-d407941a339a // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	rsc.io/qr v0.2.0 // indirect
