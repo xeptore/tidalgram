@@ -10,7 +10,7 @@ require (
 	github.com/goccy/go-json v0.12.0
 	github.com/gotd/contrib v0.26.0
 	github.com/gotd/td v0.166.0
-	github.com/jedib0t/go-pretty/v6 v6.8.3
+	github.com/jedib0t/go-pretty/v6 v6.9.1
 	github.com/joho/godotenv v1.5.1
 	github.com/karlseguin/ccache/v3 v3.0.8
 	github.com/mattn/go-isatty v0.0.24
@@ -53,6 +53,7 @@ require (
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/ogen-go/ogen v1.24.0 // indirect
 	github.com/refraction-networking/utls v1.8.2 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
