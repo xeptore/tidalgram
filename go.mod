@@ -10,7 +10,7 @@ require (
 	github.com/goccy/go-json v0.12.0
 	github.com/gotd/contrib v0.26.0
 	github.com/gotd/td v0.166.1
-	github.com/jedib0t/go-pretty/v6 v6.9.2
+	github.com/jedib0t/go-pretty/v6 v6.9.3
 	github.com/joho/godotenv v1.5.1
 	github.com/karlseguin/ccache/v3 v3.0.8
 	github.com/mattn/go-isatty v0.0.24
